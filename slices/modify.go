@@ -22,6 +22,16 @@ func Delete[T any](input []T, index int) []T {
 	return append(input[:index], input[index+1:]...)
 }
 
+// Pop removes the last element from the input slice, returning it as well as the new, smaller slice.
+func Pop[T any](input []T) (lastElement T, newSlice []T) {
+	if len(input) == 0 {
+		return
+	}
+	lastElement = input[len(input)-1]
+	newSlice = input[:len(input)-1]
+	return
+}
+
 // Push adds new elements to the end of the input slice.
 func Push[T any](input []T, newElements ...T) []T {
 	return append(input, newElements...)

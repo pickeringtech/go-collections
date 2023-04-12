@@ -290,3 +290,51 @@ func TestPushFront(t *testing.T) {
 		})
 	}
 }
+
+func TestPop(t *testing.T) {
+	type args struct {
+		input []int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    int
+		wantSli []int
+	}{
+		{
+			name: "gets the last element from the input returning the smaller slice",
+			args: args{
+				input: []int{1, 2, 3, 4},
+			},
+			want:    4,
+			wantSli: []int{1, 2, 3},
+		},
+		{
+			name: "nil input provides zero value for type and nil resulting slice",
+			args: args{
+				input: nil,
+			},
+			want:    0,
+			wantSli: nil,
+		},
+		{
+			name: "empty input provides zero value for type and nil resulting slice",
+			args: args{
+				input: []int{},
+			},
+			want:    0,
+			wantSli: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1 := Pop(tt.args.input)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Pop() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.wantSli) {
+				t.Errorf("Pop() got1 = %v, want %v", got1, tt.wantSli)
+			}
+		})
+	}
+}
