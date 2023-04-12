@@ -32,6 +32,16 @@ func Pop[T any](input []T) (lastElement T, newSlice []T) {
 	return
 }
 
+// PopFront removes the first element from the input slice, returning it as well as the new, smaller slice.
+func PopFront[T any](input []T) (firstElement T, newSlice []T) {
+	if len(input) == 0 {
+		return
+	}
+	firstElement = input[0]
+	newSlice = input[1:]
+	return
+}
+
 // Push adds new elements to the end of the input slice.
 func Push[T any](input []T, newElements ...T) []T {
 	return append(input, newElements...)

@@ -168,6 +168,101 @@ func TestDelete(t *testing.T) {
 		})
 	}
 }
+func TestPop(t *testing.T) {
+	type args struct {
+		input []int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    int
+		wantSli []int
+	}{
+		{
+			name: "gets the last element from the input returning the smaller slice",
+			args: args{
+				input: []int{1, 2, 3, 4},
+			},
+			want:    4,
+			wantSli: []int{1, 2, 3},
+		},
+		{
+			name: "nil input provides zero value for type and nil resulting slice",
+			args: args{
+				input: nil,
+			},
+			want:    0,
+			wantSli: nil,
+		},
+		{
+			name: "empty input provides zero value for type and nil resulting slice",
+			args: args{
+				input: []int{},
+			},
+			want:    0,
+			wantSli: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1 := Pop(tt.args.input)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Pop() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.wantSli) {
+				t.Errorf("Pop() got1 = %v, want %v", got1, tt.wantSli)
+			}
+		})
+	}
+}
+
+func TestPopFront(t *testing.T) {
+	type args struct {
+		input []int
+	}
+	tests := []struct {
+		name             string
+		args             args
+		wantFirstElement int
+		wantNewSlice     []int
+	}{
+		{
+			name: "first element is removed from input slice and returned",
+			args: args{
+				input: []int{5, 4, 3, 2, 1},
+			},
+			wantFirstElement: 5,
+			wantNewSlice:     []int{4, 3, 2, 1},
+		},
+		{
+			name: "nil input provides zero value output and nil resulting slice",
+			args: args{
+				input: nil,
+			},
+			wantFirstElement: 0,
+			wantNewSlice:     nil,
+		},
+		{
+			name: "empty input provides zero value output and nil resulting slice",
+			args: args{
+				input: []int{},
+			},
+			wantFirstElement: 0,
+			wantNewSlice:     nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotFirstElement, gotNewSlice := PopFront(tt.args.input)
+			if !reflect.DeepEqual(gotFirstElement, tt.wantFirstElement) {
+				t.Errorf("PopFront() gotFirstElement = %v, want %v", gotFirstElement, tt.wantFirstElement)
+			}
+			if !reflect.DeepEqual(gotNewSlice, tt.wantNewSlice) {
+				t.Errorf("PopFront() gotNewSlice = %v, want %v", gotNewSlice, tt.wantNewSlice)
+			}
+		})
+	}
+}
 
 func TestPush(t *testing.T) {
 	type args struct {
@@ -286,54 +381,6 @@ func TestPushFront(t *testing.T) {
 			got := PushFront(tt.args.input, tt.args.newElements...)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("PushFront() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestPop(t *testing.T) {
-	type args struct {
-		input []int
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    int
-		wantSli []int
-	}{
-		{
-			name: "gets the last element from the input returning the smaller slice",
-			args: args{
-				input: []int{1, 2, 3, 4},
-			},
-			want:    4,
-			wantSli: []int{1, 2, 3},
-		},
-		{
-			name: "nil input provides zero value for type and nil resulting slice",
-			args: args{
-				input: nil,
-			},
-			want:    0,
-			wantSli: nil,
-		},
-		{
-			name: "empty input provides zero value for type and nil resulting slice",
-			args: args{
-				input: []int{},
-			},
-			want:    0,
-			wantSli: nil,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := Pop(tt.args.input)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Pop() got = %v, want %v", got, tt.want)
-			}
-			if !reflect.DeepEqual(got1, tt.wantSli) {
-				t.Errorf("Pop() got1 = %v, want %v", got1, tt.wantSli)
 			}
 		})
 	}
