@@ -1,6 +1,8 @@
 package slices
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestSum(t *testing.T) {
 	type args struct {
@@ -117,6 +119,47 @@ func TestMax(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := Max(tt.args.input); got != tt.want {
 				t.Errorf("Max() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMin(t *testing.T) {
+	type args struct {
+		input []int
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+	}{
+		{
+			name: "finds the minimal value in the input",
+			args: args{
+				input: []int{1, 2, 1, 3, -3, 10},
+			},
+			want: -3,
+		},
+		{
+			name: "nil input provides zero output",
+			args: args{
+				input: nil,
+			},
+			want: 0,
+		},
+		{
+			name: "empty input provides zero output",
+			args: args{
+				input: []int{},
+			},
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Min(tt.args.input)
+			if got != tt.want {
+				t.Errorf("Min() = %v, want %v", got, tt.want)
 			}
 		})
 	}

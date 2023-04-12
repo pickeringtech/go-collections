@@ -31,3 +31,17 @@ func Max[T byte | int | float32 | float64](input []T) T {
 	}
 	return result
 }
+
+// Min finds the minimum value in the input, returning the result.  Empty or nil input results in max int value.
+func Min[T byte | int | float32 | float64](input []T) T {
+	var result T
+	if len(input) > 0 {
+		result = input[0]
+	}
+	for _, element := range input {
+		if element < result {
+			result = element
+		}
+	}
+	return result
+}
