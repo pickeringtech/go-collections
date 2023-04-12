@@ -171,3 +171,63 @@ func TestAnyMatch(t *testing.T) {
 		})
 	}
 }
+
+func TestAllMatch(t *testing.T) {
+	type args struct {
+		input []int
+		fun   FindFunc[int]
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "all elements pass test",
+			args: args{
+				input: []int{1, 2, 3, 4, 5},
+				fun: func(element int) bool {
+					return element < 6
+				},
+			},
+			want: true,
+		},
+		{
+			name: "some elements fail test",
+			args: args{
+				input: []int{1, 2, 3, 4, 5},
+				fun: func(element int) bool {
+					return element < 4
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nil input results in true",
+			args: args{
+				input: nil,
+				fun: func(element int) bool {
+					return element < 4
+				},
+			},
+			want: true,
+		},
+		{
+			name: "empty input results in true",
+			args: args{
+				input: []int{},
+				fun: func(element int) bool {
+					return element < 4
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := AllMatch(tt.args.input, tt.args.fun); got != tt.want {
+				t.Errorf("AllMatch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

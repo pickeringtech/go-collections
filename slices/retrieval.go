@@ -33,3 +33,14 @@ func AnyMatch[T any](input []T, fun FindFunc[T]) bool {
 	}
 	return false
 }
+
+// AllMatch tests each element of the input with the provided function.  If all the elements, when passed through the
+// function result in a truthy boolean value, true is returned from this function.  Otherwise false is returned.
+func AllMatch[T any](input []T, fun FindFunc[T]) bool {
+	for _, element := range input {
+		if !fun(element) {
+			return false
+		}
+	}
+	return true
+}
