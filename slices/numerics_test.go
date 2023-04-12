@@ -41,3 +41,43 @@ func TestSum(t *testing.T) {
 		})
 	}
 }
+
+func TestAvg(t *testing.T) {
+	type args struct {
+		input []int
+	}
+	tests := []struct {
+		name string
+		args args
+		want float64
+	}{
+		{
+			name: "calculates expected average result",
+			args: args{
+				input: []int{1, 2, 3, 4, 5},
+			},
+			want: 3,
+		},
+		{
+			name: "nil input results in zero",
+			args: args{
+				input: nil,
+			},
+			want: 0,
+		},
+		{
+			name: "empty input results in zero",
+			args: args{
+				input: []int{},
+			},
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Avg(tt.args.input); got != tt.want {
+				t.Errorf("Avg() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
