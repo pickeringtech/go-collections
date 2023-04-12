@@ -21,3 +21,8 @@ func Delete[T any](input []T, index int) []T {
 	}
 	return append(input[:index], input[index+1:]...)
 }
+
+// Push adds new elements to the end of the input slice.
+func Push[T any](input []T, newElements ...T) []T {
+	return append(input, newElements...)
+}
