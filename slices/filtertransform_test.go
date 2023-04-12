@@ -5,32 +5,32 @@ import (
 	"testing"
 )
 
-func TestMap_StringToInt(t *testing.T) {
+func TestFilter_Strings(t *testing.T) {
 	type args struct {
 		input []string
-		fun   MapFunc[string, int]
+		fun   FilterFunc[string]
 	}
 	tests := []struct {
 		name string
 		args args
-		want []int
+		want []string
 	}{
 		{
-			name: "counts string lengths",
+			name: "filters input when length is below certain level",
 			args: args{
-				input: []string{"a", "ab", "abc", "d"},
-				fun: func(element string) int {
-					return len(element)
+				input: []string{"a", "ab", "abc", "abcd"},
+				fun: func(element string) bool {
+					return len(element) > 2
 				},
 			},
-			want: []int{1, 2, 3, 1},
+			want: []string{"abc", "abcd"},
 		},
 		{
 			name: "nil input results in nil output",
 			args: args{
 				input: nil,
-				fun: func(element string) int {
-					return len(element)
+				fun: func(element string) bool {
+					return len(element) > 2
 				},
 			},
 			want: nil,
@@ -39,8 +39,8 @@ func TestMap_StringToInt(t *testing.T) {
 			name: "empty input results in nil output",
 			args: args{
 				input: []string{},
-				fun: func(element string) int {
-					return len(element)
+				fun: func(element string) bool {
+					return len(element) > 2
 				},
 			},
 			want: nil,
@@ -48,9 +48,9 @@ func TestMap_StringToInt(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Map(tt.args.input, tt.args.fun)
+			got := Filter(tt.args.input, tt.args.fun)
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Map() = %v, want %v", got, tt.want)
+				t.Errorf("Filter() = %v, want %v", got, tt.want)
 			}
 		})
 	}
