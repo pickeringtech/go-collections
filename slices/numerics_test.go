@@ -81,3 +81,43 @@ func TestAvg(t *testing.T) {
 		})
 	}
 }
+
+func TestMax(t *testing.T) {
+	type args struct {
+		input []int
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+	}{
+		{
+			name: "finds the largest element in the input",
+			args: args{
+				input: []int{1, 2, 1, 1, 5, 0, 3, 4},
+			},
+			want: 5,
+		},
+		{
+			name: "nil input provides zero",
+			args: args{
+				input: nil,
+			},
+			want: 0,
+		},
+		{
+			name: "empty input provides zero",
+			args: args{
+				input: []int{},
+			},
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Max(tt.args.input); got != tt.want {
+				t.Errorf("Max() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
