@@ -26,3 +26,8 @@ func Delete[T any](input []T, index int) []T {
 func Push[T any](input []T, newElements ...T) []T {
 	return append(input, newElements...)
 }
+
+// PushFront adds the new elements to the front of the input slice.
+func PushFront[T any](input []T, newElements ...T) []T {
+	return append(newElements, input...)
+}

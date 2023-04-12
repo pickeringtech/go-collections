@@ -222,8 +222,70 @@ func TestPush(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Push(tt.args.input, tt.args.newElements...); !reflect.DeepEqual(got, tt.want) {
+			got := Push(tt.args.input, tt.args.newElements...)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Push() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPushFront(t *testing.T) {
+	type args struct {
+		input       []int
+		newElements []int
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{
+			name: "adds the new elements to the front of the input slice",
+			args: args{
+				input:       []int{1, 2, 3},
+				newElements: []int{4, 5, 6},
+			},
+			want: []int{4, 5, 6, 1, 2, 3},
+		},
+		{
+			name: "nil new elements results in original input slice",
+			args: args{
+				input:       []int{1, 2, 3},
+				newElements: nil,
+			},
+			want: []int{1, 2, 3},
+		},
+		{
+			name: "empty new elements results in original input slice",
+			args: args{
+				input:       []int{1, 2, 3},
+				newElements: []int{},
+			},
+			want: []int{1, 2, 3},
+		},
+		{
+			name: "nil input slice results in only new elements",
+			args: args{
+				input:       nil,
+				newElements: []int{4, 5, 6},
+			},
+			want: []int{4, 5, 6},
+		},
+		{
+			name: "empty input slice results in only new elements",
+			args: args{
+				input:       []int{},
+				newElements: []int{4, 5, 6},
+			},
+			want: []int{4, 5, 6},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := PushFront(tt.args.input, tt.args.newElements...)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PushFront() = %v, want %v", got, tt.want)
 			}
 		})
 	}
