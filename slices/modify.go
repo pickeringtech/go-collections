@@ -5,6 +5,11 @@ func Concatenate[T any](inputA, inputB []T) []T {
 	return append(inputA, inputB...)
 }
 
+// Copy duplicates the entries within the input into a new slice which is returned.
+func Copy[T any](input []T) []T {
+	return append([]T(nil), input...)
+}
+
 // Delete removes the element at the given index from the provided input slice, returning the resulting slice.
 func Delete[T any](input []T, index int) []T {
 	inputLen := len(input)

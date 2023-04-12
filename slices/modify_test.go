@@ -58,8 +58,36 @@ func TestConcatenate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Concatenate(tt.args.inputA, tt.args.inputB); !reflect.DeepEqual(got, tt.want) {
+			got := Concatenate(tt.args.inputA, tt.args.inputB)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Concatenate() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCopy(t *testing.T) {
+	type args struct {
+		input []int
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{
+			name: "",
+			args: args{
+				input: []int{1, 2, 3},
+			},
+			want: []int{1, 2, 3},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Copy(tt.args.input)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Copy() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -118,7 +146,8 @@ func TestDelete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Delete(tt.args.input, tt.args.index); !reflect.DeepEqual(got, tt.want) {
+			got := Delete(tt.args.input, tt.args.index)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Delete() = %v, want %v", got, tt.want)
 			}
 		})
