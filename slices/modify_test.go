@@ -76,16 +76,31 @@ func TestCopy(t *testing.T) {
 		want []int
 	}{
 		{
-			name: "",
+			name: "duplicates the input into a new slice",
 			args: args{
 				input: []int{1, 2, 3},
 			},
 			want: []int{1, 2, 3},
 		},
+		{
+			name: "nil input provides nil output",
+			args: args{
+				input: nil,
+			},
+			want: nil,
+		},
+		{
+			name: "empty input provides nil output",
+			args: args{
+				input: []int{},
+			},
+			want: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Copy(tt.args.input)
+			tt.args.input = append(tt.args.input, 45)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Copy() = %v, want %v", got, tt.want)
 			}
