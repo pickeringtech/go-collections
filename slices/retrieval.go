@@ -47,6 +47,8 @@ func FindIndex[T any](input []T, fun FindFunc[T]) int {
 	return -1
 }
 
+// First provides the first element of the input slice.  If there is no possible element to return, a boolean false value
+// is provided as the ok named return value.
 func First[T any](input []T) (result T, ok bool) {
 	if len(input) == 0 {
 		return
