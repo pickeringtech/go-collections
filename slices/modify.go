@@ -22,6 +22,40 @@ func Delete[T any](input []T, index int) []T {
 	return append(input[:index], input[index+1:]...)
 }
 
+// Fill sets every element in the input slice to the specified value, returning the resulting slice.
+func Fill[T any](input []T, value T) []T {
+	return FillFromTo[T](input, value, 0, len(input))
+}
+
+// FillFrom sets every element in the input slice after the specified index to the specified value, returning the resulting
+// slice.
+func FillFrom[T any](input []T, value T, fromIndex int) []T {
+	return FillFromTo[T](input, value, fromIndex, len(input))
+}
+
+// FillFromTo sets every element in the input slice after the specified index and before an upper boundary index to the
+// specified value.  The upper boundary is exclusive (i.e. will not be set to the new value - every element before it
+// will).  The resulting slice is returned.
+func FillFromTo[T any](input []T, value T, fromIndex, toIndex int) []T {
+	if len(input) == 0 {
+		return nil
+	}
+	if fromIndex < 0 || toIndex > len(input) || fromIndex > toIndex {
+		return input
+	}
+	inputCpy := Copy(input)
+	for i := fromIndex; i < toIndex; i++ {
+		inputCpy[i] = value
+	}
+	return inputCpy
+}
+
+// FillTo sets every element in the input slice up until the specified index (exclusive) to the specified value.  The
+// resulting slice is returned.
+func FillTo[T any](input []T, value T, toIndex int) []T {
+	return FillFromTo[T](input, value, 0, toIndex)
+}
+
 // Pop removes the last element from the input slice, returning it as well as the new, smaller slice.
 func Pop[T any](input []T) (lastElement T, newSlice []T) {
 	if len(input) == 0 {

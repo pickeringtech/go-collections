@@ -168,6 +168,296 @@ func TestDelete(t *testing.T) {
 		})
 	}
 }
+
+func TestFill(t *testing.T) {
+	type args[T any] struct {
+		input []T
+		value T
+	}
+	type testCase[T any] struct {
+		name                   string
+		args                   args[T]
+		want                   []T
+		ensureInputIsUnchanged bool
+	}
+	tests := []testCase[any]{
+		{
+			name: "fills every value",
+			args: args[any]{
+				input: []any{1, 2, 3, 4},
+				value: 10,
+			},
+			want:                   []any{10, 10, 10, 10},
+			ensureInputIsUnchanged: true,
+		},
+		{
+			name: "nil input causes nil output",
+			args: args[any]{
+				input: nil,
+				value: 10,
+			},
+			want:                   nil,
+			ensureInputIsUnchanged: true,
+		},
+		{
+			name: "empty input causes nil output",
+			args: args[any]{
+				input: []any{},
+				value: 10,
+			},
+			want:                   nil,
+			ensureInputIsUnchanged: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalInput := Copy(tt.args.input)
+			got := Fill(tt.args.input, tt.args.value)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Fill() = %v, want %v", got, tt.want)
+			}
+			if tt.ensureInputIsUnchanged && !reflect.DeepEqual(tt.args.input, originalInput) {
+				t.Errorf("Fill() modified original input - original %v, modified input %v", originalInput, tt.args.input)
+			}
+		})
+	}
+}
+
+func TestFillFrom(t *testing.T) {
+	type args[T any] struct {
+		input     []T
+		value     T
+		fromIndex int
+	}
+	type testCase[T any] struct {
+		name                   string
+		args                   args[T]
+		want                   []T
+		ensureInputIsUnchanged bool
+	}
+	tests := []testCase[any]{
+		{
+			name: "fills from a given index",
+			args: args[any]{
+				input:     []any{1, 2, 3, 4, 5},
+				value:     10,
+				fromIndex: 2,
+			},
+			want: []any{1, 2, 10, 10, 10},
+		},
+		{
+			name: "if from index is beyond slice length it is unchanged",
+			args: args[any]{
+				input:     []any{1, 2, 3, 4, 5},
+				value:     10,
+				fromIndex: 5,
+			},
+			want: []any{1, 2, 3, 4, 5},
+		},
+		{
+			name: "if from index is below zero the slice is unchanged",
+			args: args[any]{
+				input:     []any{1, 2, 3, 4, 5},
+				value:     10,
+				fromIndex: -1,
+			},
+			want: []any{1, 2, 3, 4, 5},
+		},
+		{
+			name: "nil input results in nil output",
+			args: args[any]{
+				input:     nil,
+				value:     10,
+				fromIndex: -1,
+			},
+			want: nil,
+		},
+		{
+			name: "empty input results in nil output",
+			args: args[any]{
+				input:     []any{},
+				value:     10,
+				fromIndex: -1,
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalInput := Copy(tt.args.input)
+			got := FillFrom(tt.args.input, tt.args.value, tt.args.fromIndex)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FillFrom() = %v, want %v", got, tt.want)
+			}
+			if tt.ensureInputIsUnchanged && !reflect.DeepEqual(tt.args.input, originalInput) {
+				t.Errorf("FillFrom() modified original input - original %v, modified input %v", originalInput, tt.args.input)
+			}
+		})
+	}
+}
+
+func TestFillFromTo(t *testing.T) {
+	type args[T any] struct {
+		input     []T
+		value     T
+		fromIndex int
+		toIndex   int
+	}
+	type testCase[T any] struct {
+		name                   string
+		args                   args[T]
+		want                   []T
+		ensureInputIsUnchanged bool
+	}
+	tests := []testCase[any]{
+		{
+			name: "fills a range within a slice with a specified value",
+			args: args[any]{
+				input:     []any{1, 2, 3, 4, 5},
+				value:     10,
+				fromIndex: 2,
+				toIndex:   4,
+			},
+			want: []any{1, 2, 10, 10, 5},
+		},
+		{
+			name: "from index larger than to index causes no change",
+			args: args[any]{
+				input:     []any{1, 2, 3, 4, 5},
+				value:     10,
+				fromIndex: 4,
+				toIndex:   2,
+			},
+			want: []any{1, 2, 3, 4, 5},
+		},
+		{
+			name: "negative from index causes no change",
+			args: args[any]{
+				input:     []any{1, 2, 3, 4, 5},
+				value:     10,
+				fromIndex: -1,
+				toIndex:   2,
+			},
+			want: []any{1, 2, 3, 4, 5},
+		},
+		{
+			name: "to index beyond length of input causes no change",
+			args: args[any]{
+				input:     []any{1, 2, 3, 4, 5},
+				value:     10,
+				fromIndex: 0,
+				toIndex:   6,
+			},
+			want: []any{1, 2, 3, 4, 5},
+		},
+		{
+			name: "nil input results in nil output",
+			args: args[any]{
+				input:     nil,
+				value:     10,
+				fromIndex: 0,
+				toIndex:   6,
+			},
+			want: nil,
+		},
+		{
+			name: "empty input results in nil output",
+			args: args[any]{
+				input:     []any{},
+				value:     10,
+				fromIndex: 0,
+				toIndex:   6,
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalInput := Copy(tt.args.input)
+			got := FillFromTo(tt.args.input, tt.args.value, tt.args.fromIndex, tt.args.toIndex)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FillFromTo() = %v, want %v", got, tt.want)
+			}
+			if tt.ensureInputIsUnchanged && !reflect.DeepEqual(tt.args.input, originalInput) {
+				t.Errorf("FillFromTo() modified original input - original %v, modified input %v", originalInput, tt.args.input)
+			}
+		})
+	}
+}
+
+func TestFillTo(t *testing.T) {
+	type args[T any] struct {
+		input   []T
+		value   T
+		toIndex int
+	}
+	type testCase[T any] struct {
+		name                   string
+		args                   args[T]
+		want                   []T
+		ensureInputIsUnchanged bool
+	}
+	tests := []testCase[any]{
+		{
+			name: "fills a range within a slice with a specified value",
+			args: args[any]{
+				input:   []any{1, 2, 3, 4, 5},
+				value:   10,
+				toIndex: 4,
+			},
+			want: []any{10, 10, 10, 10, 5},
+		},
+		{
+			name: "negative to index causes no change",
+			args: args[any]{
+				input:   []any{1, 2, 3, 4, 5},
+				value:   10,
+				toIndex: -1,
+			},
+			want: []any{1, 2, 3, 4, 5},
+		},
+		{
+			name: "to index beyond length of input causes no change",
+			args: args[any]{
+				input:   []any{1, 2, 3, 4, 5},
+				value:   10,
+				toIndex: 6,
+			},
+			want: []any{1, 2, 3, 4, 5},
+		},
+		{
+			name: "nil input results in nil output",
+			args: args[any]{
+				input:   nil,
+				value:   10,
+				toIndex: 6,
+			},
+			want: nil,
+		},
+		{
+			name: "empty input results in nil output",
+			args: args[any]{
+				input:   []any{},
+				value:   10,
+				toIndex: 6,
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalInput := Copy(tt.args.input)
+			got := FillTo(tt.args.input, tt.args.value, tt.args.toIndex)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FillTo() = %v, want %v", got, tt.want)
+			}
+			if tt.ensureInputIsUnchanged && !reflect.DeepEqual(tt.args.input, originalInput) {
+				t.Errorf("FillFromTo() modified original input - original %v, modified input %v", originalInput, tt.args.input)
+			}
+		})
+	}
+}
+
 func TestPop(t *testing.T) {
 	type args struct {
 		input []int
@@ -205,12 +495,12 @@ func TestPop(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := Pop(tt.args.input)
+			got, gotSli := Pop(tt.args.input)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Pop() got = %v, want %v", got, tt.want)
 			}
-			if !reflect.DeepEqual(got1, tt.wantSli) {
-				t.Errorf("Pop() got1 = %v, want %v", got1, tt.wantSli)
+			if !reflect.DeepEqual(gotSli, tt.wantSli) {
+				t.Errorf("Pop() gotSli = %v, want %v", gotSli, tt.wantSli)
 			}
 		})
 	}
