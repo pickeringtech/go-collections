@@ -1,25 +1,14 @@
 package slices
 
-func FindFirst[T any](input []T) (result T, ok bool) {
-	if len(input) == 0 {
-		return
-	}
-	result = input[0]
-	ok = true
-	return
-}
-
-type FindFunc[T any] func(T) bool
-
-// FindAny tests each element of the input with the provided function.  If the function returns true, the selected element
-// is returned, along with a boolean truthy value.
-func FindAny[T any](input []T, fun FindFunc[T]) (result T, ok bool) {
+// AllMatch tests each element of the input with the provided function.  If all the elements, when passed through the
+// function result in a truthy boolean value, true is returned from this function.  Otherwise false is returned.
+func AllMatch[T any](input []T, fun FindFunc[T]) bool {
 	for _, element := range input {
-		if fun(element) {
-			return element, true
+		if !fun(element) {
+			return false
 		}
 	}
-	return
+	return true
 }
 
 // AnyMatch tests each element of the input with the provided function.  If any of the elements, when passed through the
@@ -34,13 +23,35 @@ func AnyMatch[T any](input []T, fun FindFunc[T]) bool {
 	return false
 }
 
-// AllMatch tests each element of the input with the provided function.  If all the elements, when passed through the
-// function result in a truthy boolean value, true is returned from this function.  Otherwise false is returned.
-func AllMatch[T any](input []T, fun FindFunc[T]) bool {
+type FindFunc[T any] func(T) bool
+
+// Find tests each element of the input with the provided function.  If the function returns true, the selected element
+// is returned, along with a boolean truthy value.
+func Find[T any](input []T, fun FindFunc[T]) (result T, ok bool) {
 	for _, element := range input {
-		if !fun(element) {
-			return false
+		if fun(element) {
+			return element, true
 		}
 	}
-	return true
+	return
+}
+
+// FindIndex tests each element of input with the provided testing function, and returns the index of the first element
+// that satisfies the testing function.  If no matches are found, -1 is returned.
+func FindIndex[T any](input []T, fun FindFunc[T]) int {
+	for idx, element := range input {
+		if fun(element) {
+			return idx
+		}
+	}
+	return -1
+}
+
+func First[T any](input []T) (result T, ok bool) {
+	if len(input) == 0 {
+		return
+	}
+	result = input[0]
+	ok = true
+	return
 }

@@ -5,107 +5,61 @@ import (
 	"testing"
 )
 
-func TestFindFirst(t *testing.T) {
-	type args struct {
-		input []int
-	}
-	tests := []struct {
-		name       string
-		args       args
-		wantResult int
-		wantOk     bool
-	}{
-		{
-			name: "finds the first element",
-			args: args{
-				input: []int{1, 2, 3, 4},
-			},
-			wantResult: 1,
-			wantOk:     true,
-		},
-		{
-			name: "returns zero value and false if nil input",
-			args: args{
-				input: nil,
-			},
-			wantResult: 0,
-			wantOk:     false,
-		},
-		{
-			name: "returns zero value and false if empty input",
-			args: args{
-				input: []int{},
-			},
-			wantResult: 0,
-			wantOk:     false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotResult, gotOk := FindFirst(tt.args.input)
-			if !reflect.DeepEqual(gotResult, tt.wantResult) {
-				t.Errorf("FindFirst() gotResult = %v, want %v", gotResult, tt.wantResult)
-			}
-			if gotOk != tt.wantOk {
-				t.Errorf("FindFirst() gotOk = %v, want %v", gotOk, tt.wantOk)
-			}
-		})
-	}
-}
-
-func TestFindAny(t *testing.T) {
+func TestAllMatch(t *testing.T) {
 	type args struct {
 		input []int
 		fun   FindFunc[int]
 	}
 	tests := []struct {
-		name       string
-		args       args
-		wantResult int
-		wantOk     bool
+		name string
+		args args
+		want bool
 	}{
 		{
-			name: "selects the expected element",
+			name: "all elements pass test",
 			args: args{
-				input: []int{2, 4, 6, 8, 10},
+				input: []int{1, 2, 3, 4, 5},
 				fun: func(element int) bool {
-					return element > 4
+					return element < 6
 				},
 			},
-			wantResult: 6,
-			wantOk:     true,
+			want: true,
 		},
 		{
-			name: "nil input results in zero value and boolean false",
+			name: "some elements fail test",
+			args: args{
+				input: []int{1, 2, 3, 4, 5},
+				fun: func(element int) bool {
+					return element < 4
+				},
+			},
+			want: false,
+		},
+		{
+			name: "nil input results in true",
 			args: args{
 				input: nil,
 				fun: func(element int) bool {
-					return element > 4
+					return element < 4
 				},
 			},
-			wantResult: 0,
-			wantOk:     false,
+			want: true,
 		},
 		{
-			name: "empty input results in zero value and boolean false",
+			name: "empty input results in true",
 			args: args{
 				input: []int{},
 				fun: func(element int) bool {
-					return element > 4
+					return element < 4
 				},
 			},
-			wantResult: 0,
-			wantOk:     false,
+			want: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotResult, gotOk := FindAny(tt.args.input, tt.args.fun)
-			if !reflect.DeepEqual(gotResult, tt.wantResult) {
-				t.Errorf("FindAny() gotResult = %v, want %v", gotResult, tt.wantResult)
-			}
-			if gotOk != tt.wantOk {
-				t.Errorf("FindAny() gotOk = %v, want %v", gotOk, tt.wantOk)
+			if got := AllMatch(tt.args.input, tt.args.fun); got != tt.want {
+				t.Errorf("AllMatch() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -172,61 +126,169 @@ func TestAnyMatch(t *testing.T) {
 	}
 }
 
-func TestAllMatch(t *testing.T) {
+func TestFind(t *testing.T) {
 	type args struct {
 		input []int
 		fun   FindFunc[int]
 	}
 	tests := []struct {
-		name string
-		args args
-		want bool
+		name       string
+		args       args
+		wantResult int
+		wantOk     bool
 	}{
 		{
-			name: "all elements pass test",
+			name: "selects the expected element",
 			args: args{
-				input: []int{1, 2, 3, 4, 5},
+				input: []int{2, 4, 6, 8, 10},
 				fun: func(element int) bool {
-					return element < 6
+					return element > 4
 				},
 			},
-			want: true,
+			wantResult: 6,
+			wantOk:     true,
 		},
 		{
-			name: "some elements fail test",
-			args: args{
-				input: []int{1, 2, 3, 4, 5},
-				fun: func(element int) bool {
-					return element < 4
-				},
-			},
-			want: false,
-		},
-		{
-			name: "nil input results in true",
+			name: "nil input results in zero value and boolean false",
 			args: args{
 				input: nil,
 				fun: func(element int) bool {
-					return element < 4
+					return element > 4
 				},
 			},
-			want: true,
+			wantResult: 0,
+			wantOk:     false,
 		},
 		{
-			name: "empty input results in true",
+			name: "empty input results in zero value and boolean false",
 			args: args{
 				input: []int{},
 				fun: func(element int) bool {
-					return element < 4
+					return element > 4
 				},
 			},
-			want: true,
+			wantResult: 0,
+			wantOk:     false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := AllMatch(tt.args.input, tt.args.fun); got != tt.want {
-				t.Errorf("AllMatch() = %v, want %v", got, tt.want)
+			gotResult, gotOk := Find(tt.args.input, tt.args.fun)
+			if !reflect.DeepEqual(gotResult, tt.wantResult) {
+				t.Errorf("FindAny() gotResult = %v, want %v", gotResult, tt.wantResult)
+			}
+			if gotOk != tt.wantOk {
+				t.Errorf("FindAny() gotOk = %v, want %v", gotOk, tt.wantOk)
+			}
+		})
+	}
+}
+
+func TestFindIndex(t *testing.T) {
+	type args[T any] struct {
+		input []T
+		fun   FindFunc[T]
+	}
+	type testCase[T any] struct {
+		name string
+		args args[T]
+		want int
+	}
+	tests := []testCase[int]{
+		{
+			name: "finds expected element index",
+			args: args[int]{
+				input: []int{1, 2, 3, 4, 5},
+				fun: func(a int) bool {
+					return a > 2
+				},
+			},
+			want: 2,
+		},
+		{
+			name: "no match results in -1",
+			args: args[int]{
+				input: []int{1, 2, 3, 4, 5},
+				fun: func(a int) bool {
+					return a > 10
+				},
+			},
+			want: -1,
+		},
+		{
+			name: "nil input results in -1",
+			args: args[int]{
+				input: nil,
+				fun: func(a int) bool {
+					return a > 10
+				},
+			},
+			want: -1,
+		},
+		{
+			name: "empty input results in -1",
+			args: args[int]{
+				input: nil,
+				fun: func(a int) bool {
+					return a > 10
+				},
+			},
+			want: -1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FindIndex(tt.args.input, tt.args.fun)
+			if got != tt.want {
+				t.Errorf("FindIndex() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFirst(t *testing.T) {
+	type args struct {
+		input []int
+	}
+	tests := []struct {
+		name       string
+		args       args
+		wantResult int
+		wantOk     bool
+	}{
+		{
+			name: "finds the first element",
+			args: args{
+				input: []int{1, 2, 3, 4},
+			},
+			wantResult: 1,
+			wantOk:     true,
+		},
+		{
+			name: "returns zero value and false if nil input",
+			args: args{
+				input: nil,
+			},
+			wantResult: 0,
+			wantOk:     false,
+		},
+		{
+			name: "returns zero value and false if empty input",
+			args: args{
+				input: []int{},
+			},
+			wantResult: 0,
+			wantOk:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResult, gotOk := First(tt.args.input)
+			if !reflect.DeepEqual(gotResult, tt.wantResult) {
+				t.Errorf("FindFirst() gotResult = %v, want %v", gotResult, tt.wantResult)
+			}
+			if gotOk != tt.wantOk {
+				t.Errorf("FindFirst() gotOk = %v, want %v", gotOk, tt.wantOk)
 			}
 		})
 	}
