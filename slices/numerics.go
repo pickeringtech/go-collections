@@ -24,7 +24,7 @@ func Avg[T constraints.OrderedNumeric](input []T) float64 {
 }
 
 // Max finds the maximum value in the input, returning the result.  Empty or nil input results in zero.
-func Max[T constraints.OrderedNumeric](input []T) T {
+func Max[T constraints.Ordered](input []T) T {
 	var result T
 	for _, element := range input {
 		if element > result {
@@ -35,7 +35,7 @@ func Max[T constraints.OrderedNumeric](input []T) T {
 }
 
 // Min finds the minimum value in the input, returning the result.  Empty or nil input results in max int value.
-func Min[T constraints.OrderedNumeric](input []T) T {
+func Min[T constraints.Ordered](input []T) T {
 	var result T
 	if len(input) > 0 {
 		result = input[0]
