@@ -424,3 +424,56 @@ func TestFirst(t *testing.T) {
 		})
 	}
 }
+
+func TestIncludes(t *testing.T) {
+	type args[T comparable] struct {
+		input []T
+		value T
+	}
+	type testCase[T comparable] struct {
+		name string
+		args args[T]
+		want bool
+	}
+	tests := []testCase[int]{
+		{
+			name: "finds included value",
+			args: args[int]{
+				input: []int{1, 2, 3, 4, 5},
+				value: 3,
+			},
+			want: true,
+		},
+		{
+			name: "does not find if value is not included",
+			args: args[int]{
+				input: []int{1, 2, 3, 4, 5},
+				value: 6,
+			},
+			want: false,
+		},
+		{
+			name: "nil input provides falsy return",
+			args: args[int]{
+				input: nil,
+				value: 6,
+			},
+			want: false,
+		},
+		{
+			name: "empty input provides falsy return",
+			args: args[int]{
+				input: []int{},
+				value: 6,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Includes(tt.args.input, tt.args.value); got != tt.want {
+				t.Errorf("Includes() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
