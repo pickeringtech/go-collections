@@ -246,6 +246,137 @@ func TestFindIndex(t *testing.T) {
 	}
 }
 
+func TestFindLast(t *testing.T) {
+	type args[T any] struct {
+		input []T
+		fun   FindFunc[T]
+	}
+	type testCase[T any] struct {
+		name       string
+		args       args[T]
+		wantResult T
+		wantOk     bool
+	}
+	tests := []testCase[int]{
+		{
+			name: "finds the last entry matching the test function",
+			args: args[int]{
+				input: []int{5, 4, 3, 2, 1},
+				fun: func(a int) bool {
+					return a > 3
+				},
+			},
+			wantResult: 4,
+			wantOk:     true,
+		},
+		{
+			name: "no match causes zero value and falsy boolean returns",
+			args: args[int]{
+				input: []int{5, 4, 3, 2, 1},
+				fun: func(a int) bool {
+					return a > 10
+				},
+			},
+			wantResult: 0,
+			wantOk:     false,
+		},
+		{
+			name: "nil input causes zero value and falsy boolean returns",
+			args: args[int]{
+				input: nil,
+				fun: func(a int) bool {
+					return a > 10
+				},
+			},
+			wantResult: 0,
+			wantOk:     false,
+		},
+		{
+			name: "empty input causes zero value and falsy boolean returns",
+			args: args[int]{
+				input: []int{},
+				fun: func(a int) bool {
+					return a > 10
+				},
+			},
+			wantResult: 0,
+			wantOk:     false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResult, gotOk := FindLast(tt.args.input, tt.args.fun)
+			if !reflect.DeepEqual(gotResult, tt.wantResult) {
+				t.Errorf("FindLast() gotResult = %v, want %v", gotResult, tt.wantResult)
+			}
+			if gotOk != tt.wantOk {
+				t.Errorf("FindLast() gotOk = %v, want %v", gotOk, tt.wantOk)
+			}
+		})
+	}
+}
+
+func TestFindLastIndex(t *testing.T) {
+	type args[T any] struct {
+		input []T
+		fun   FindFunc[T]
+	}
+	type testCase[T any] struct {
+		name string
+		args args[T]
+		want int
+	}
+	tests := []testCase[int]{
+		{
+			name: "finds the last entry matching the test function",
+			args: args[int]{
+				input: []int{5, 4, 3, 2, 1},
+				fun: func(a int) bool {
+					return a > 3
+				},
+			},
+			want: 1,
+		},
+		{
+			name: "no match causes zero value and falsy boolean returns",
+			args: args[int]{
+				input: []int{5, 4, 3, 2, 1},
+				fun: func(a int) bool {
+					return a > 10
+				},
+			},
+			want: -1,
+		},
+		{
+			name: "nil input causes zero value and falsy boolean returns",
+			args: args[int]{
+				input: nil,
+				fun: func(a int) bool {
+					return a > 10
+				},
+			},
+			want: -1,
+		},
+		{
+			name: "empty input causes zero value and falsy boolean returns",
+			args: args[int]{
+				input: []int{},
+				fun: func(a int) bool {
+					return a > 10
+				},
+			},
+			want: -1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := FindLastIndex(tt.args.input, tt.args.fun); got != tt.want {
+				t.Errorf("FindLastIndex() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestFirst(t *testing.T) {
 	type args struct {
 		input []int
