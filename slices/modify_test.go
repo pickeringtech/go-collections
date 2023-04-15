@@ -458,6 +458,59 @@ func TestFillTo(t *testing.T) {
 	}
 }
 
+func TestJoinToString(t *testing.T) {
+	type args[T any] struct {
+		input     []T
+		separator string
+	}
+	type testCase[T any] struct {
+		name string
+		args args[T]
+		want string
+	}
+	tests := []testCase[any]{
+		{
+			name: "joins correctly using separator",
+			args: args[any]{
+				input:     []any{"Earth", "Wind", "Fire", "Water"},
+				separator: "-and-",
+			},
+			want: "Earth-and-Wind-and-Fire-and-Water",
+		},
+		{
+			name: "joins correctly using separator and varying types",
+			args: args[any]{
+				input:     []any{"Earth", 10, "Fire", []string{"a", "b", "c"}},
+				separator: "-and-",
+			},
+			want: "Earth-and-10-and-Fire-and-[a b c]",
+		},
+		{
+			name: "nil input results in empty output",
+			args: args[any]{
+				input:     nil,
+				separator: "-and-",
+			},
+			want: "",
+		},
+		{
+			name: "empty input results in empty output",
+			args: args[any]{
+				input:     []any{},
+				separator: "-and-",
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := JoinToString(tt.args.input, tt.args.separator); got != tt.want {
+				t.Errorf("JoinToString() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPop(t *testing.T) {
 	type args struct {
 		input []int

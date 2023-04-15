@@ -1,5 +1,10 @@
 package slices
 
+import (
+	"fmt"
+	"strings"
+)
+
 // Concatenate joins two slices together, with inputA being joined with inputB following its last element.
 func Concatenate[T any](inputA, inputB []T) []T {
 	return append(inputA, inputB...)
@@ -54,6 +59,19 @@ func FillFromTo[T any](input []T, value T, fromIndex, toIndex int) []T {
 // resulting slice is returned.
 func FillTo[T any](input []T, value T, toIndex int) []T {
 	return FillFromTo[T](input, value, 0, toIndex)
+}
+
+// JoinToString creates a new string by stringifying each of the elements within the input, and placing the separator
+// between them in the resulting string.
+func JoinToString[T any](input []T, separator string) string {
+	var sb strings.Builder
+	for idx, element := range input {
+		sb.WriteString(fmt.Sprintf("%v", element))
+		if idx != len(input)-1 {
+			sb.WriteString(separator)
+		}
+	}
+	return sb.String()
 }
 
 // Pop removes the last element from the input slice, returning it as well as the new, smaller slice.
