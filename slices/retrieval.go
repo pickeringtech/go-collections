@@ -83,7 +83,7 @@ func First[T any](input []T) (result T, ok bool) {
 }
 
 // Includes determines whether the input slice contains the specified value.  If it does, a truthy boolean is returned.
-// Otherwise a falsy boolean is returned.
+// Otherwise, a falsy boolean is returned.
 func Includes[T comparable](input []T, value T) bool {
 	for _, element := range input {
 		if element == value {
@@ -91,4 +91,14 @@ func Includes[T comparable](input []T, value T) bool {
 		}
 	}
 	return false
+}
+
+// IndexOf returns the first index at which a given element can be found in the slice or -1 if it is not present.
+func IndexOf[T comparable](input []T, value T) int {
+	for idx, element := range input {
+		if element == value {
+			return idx
+		}
+	}
+	return -1
 }

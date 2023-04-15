@@ -477,3 +477,56 @@ func TestIncludes(t *testing.T) {
 		})
 	}
 }
+
+func TestIndexOf(t *testing.T) {
+	type args[T comparable] struct {
+		input []T
+		value T
+	}
+	type testCase[T comparable] struct {
+		name string
+		args args[T]
+		want int
+	}
+	tests := []testCase[int]{
+		{
+			name: "finds index of element in input",
+			args: args[int]{
+				input: []int{1, 2, 3, 4, 5},
+				value: 3,
+			},
+			want: 2,
+		},
+		{
+			name: "not finding value results in -1",
+			args: args[int]{
+				input: []int{1, 2, 3, 4, 5},
+				value: 6,
+			},
+			want: -1,
+		},
+		{
+			name: "nil input results in -1",
+			args: args[int]{
+				input: nil,
+				value: 6,
+			},
+			want: -1,
+		},
+		{
+			name: "empty input results in -1",
+			args: args[int]{
+				input: []int{},
+				value: 6,
+			},
+			want: -1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IndexOf(tt.args.input, tt.args.value); got != tt.want {
+				t.Errorf("IndexOf() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
