@@ -102,3 +102,9 @@ func IndexOf[T comparable](input []T, value T) int {
 	}
 	return -1
 }
+
+// SubSlice provides a new slice containing the entries between the two indexes of the input slice (from is inclusive,
+// to is exclusive).
+func SubSlice[T any](input []T, fromIndex, toIndex int) []T {
+	panic("implement me")
+}
