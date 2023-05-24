@@ -178,7 +178,7 @@ func TestSort(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := tt.args.input
-			orig := append(tt.args.input[:0:0], tt.args.input...)
+			orig := append(input[:0:0], input...)
 			got := slices.Sort(input, tt.args.fun)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Sort() = %v, want %v", got, tt.want)
@@ -240,6 +240,53 @@ func TestSortInPlace(t *testing.T) {
 			slices.SortInPlace(tt.args.input, tt.args.fun)
 			if !reflect.DeepEqual(input, tt.want) {
 				t.Errorf("SortInPlace() = %v, want %v", input, tt.want)
+			}
+		})
+	}
+}
+
+func TestSortOrderedAsc(t *testing.T) {
+	type args[T constraints.Ordered] struct {
+		input []T
+	}
+	type testCase[T constraints.Ordered] struct {
+		name string
+		args args[T]
+		want []T
+	}
+	tests := []testCase[int]{
+		{
+			name: "sorts numbers ascending",
+			args: args[int]{
+				input: []int{5, 2, 1, 3, 4, 9, 6, 8, 7},
+			},
+			want: []int{1, 2, 3, 4, 5, 6, 7, 8, 9},
+		},
+		{
+			name: "handles nil input",
+			args: args[int]{
+				input: nil,
+			},
+			want: nil,
+		},
+		{
+			name: "handles empty input",
+			args: args[int]{
+				input: []int{},
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := tt.args.input
+			orig := append(input[:0:0], input...)
+			got := slices.SortOrderedAsc(input)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("SortOrderedAsc() = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(orig, input) {
+				t.Errorf("SortOrderedAsc() changed input - no changes expected")
 			}
 		})
 	}

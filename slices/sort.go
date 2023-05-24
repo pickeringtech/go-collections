@@ -56,7 +56,7 @@ func SortInPlace[T any](input []T, fun SortFunc[T]) {
 // SortOrderedAsc orders the elements within the input slice in ascending order, using their relative values to determine
 // where within the slice they should be.
 func SortOrderedAsc[T constraints.Ordered](input []T) []T {
-	panic("implement me")
+	return Sort[T](input, AscendingSortFunc[T])
 }
 
 // SortOrderedAscInPlace orders the elements within the input slice in ascending order, using their relative values to determine
