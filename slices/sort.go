@@ -43,7 +43,14 @@ func Sort[T any](input []T, fun SortFunc[T]) []T {
 // relative value of each element, and whether they should be before or after each other. The sort is performed on the
 // input slice, with no copy being made.
 func SortInPlace[T any](input []T, fun SortFunc[T]) {
-	panic("implement me")
+	if len(input) == 0 {
+		return
+	}
+	sort.Slice(input, func(i, j int) bool {
+		a, b := input[i], input[j]
+		return fun(a, b)
+	})
+	return
 }
 
 // SortOrderedAsc orders the elements within the input slice in ascending order, using their relative values to determine
