@@ -74,5 +74,5 @@ func SortOrderedDesc[T constraints.Ordered](input []T) []T {
 // SortOrderedDescInPlace orders the elements within the input slice in descending order, using their relative values to determine
 // where within the slice they should be.  The sort is performed on the input slice, with no copy being made.
 func SortOrderedDescInPlace[T constraints.Ordered](input []T) {
-	panic("implement me")
+	SortInPlace[T](input, DescendingSortFunc[T])
 }

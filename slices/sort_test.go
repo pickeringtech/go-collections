@@ -380,3 +380,46 @@ func TestSortOrderedDesc(t *testing.T) {
 		})
 	}
 }
+
+func TestSortOrderedDescInPlace(t *testing.T) {
+	type args[T constraints.Ordered] struct {
+		input []T
+	}
+	type testCase[T constraints.Ordered] struct {
+		name string
+		args args[T]
+		want []T
+	}
+	tests := []testCase[int]{
+		{
+			name: "sorts numbers descending",
+			args: args[int]{
+				input: []int{5, 2, 1, 3, 4, 9, 6, 8, 7},
+			},
+			want: []int{9, 8, 7, 6, 5, 4, 3, 2, 1},
+		},
+		{
+			name: "handles nil input",
+			args: args[int]{
+				input: nil,
+			},
+			want: nil,
+		},
+		{
+			name: "handles empty input",
+			args: args[int]{
+				input: []int{},
+			},
+			want: []int{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := tt.args.input
+			slices.SortOrderedDescInPlace(input)
+			if !reflect.DeepEqual(input, tt.want) {
+				t.Errorf("SortOrderedDescInPlace() = %v, want %v", input, tt.want)
+			}
+		})
+	}
+}
