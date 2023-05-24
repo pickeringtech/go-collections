@@ -1,6 +1,7 @@
-package slices
+package slices_test
 
 import (
+	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
@@ -8,7 +9,7 @@ import (
 func TestMap_StringToInt(t *testing.T) {
 	type args struct {
 		input []string
-		fun   MapFunc[string, int]
+		fun   slices.MapFunc[string, int]
 	}
 	tests := []struct {
 		name string
@@ -48,7 +49,7 @@ func TestMap_StringToInt(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Map(tt.args.input, tt.args.fun)
+			got := slices.Map(tt.args.input, tt.args.fun)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Map() = %v, want %v", got, tt.want)
 			}

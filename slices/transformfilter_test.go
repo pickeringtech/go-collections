@@ -1,6 +1,7 @@
-package slices
+package slices_test
 
 import (
+	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
@@ -8,7 +9,7 @@ import (
 func TestFilter_Strings(t *testing.T) {
 	type args struct {
 		input []string
-		fun   FilterFunc[string]
+		fun   slices.FilterFunc[string]
 	}
 	tests := []struct {
 		name string
@@ -48,7 +49,7 @@ func TestFilter_Strings(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Filter(tt.args.input, tt.args.fun)
+			got := slices.Filter(tt.args.input, tt.args.fun)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Filter() = %v, want %v", got, tt.want)
 			}

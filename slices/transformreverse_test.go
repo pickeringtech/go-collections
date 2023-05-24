@@ -1,6 +1,7 @@
-package slices
+package slices_test
 
 import (
+	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
@@ -39,7 +40,8 @@ func TestReverse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Reverse(tt.args.input); !reflect.DeepEqual(got, tt.want) {
+			got := slices.Reverse(tt.args.input)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Reverse() = %v, want %v", got, tt.want)
 			}
 		})

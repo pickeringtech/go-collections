@@ -1,6 +1,7 @@
-package slices
+package slices_test
 
 import (
+	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
@@ -8,7 +9,7 @@ import (
 func TestAllMatch(t *testing.T) {
 	type args struct {
 		input []int
-		fun   FindFunc[int]
+		fun   slices.FindFunc[int]
 	}
 	tests := []struct {
 		name string
@@ -58,7 +59,8 @@ func TestAllMatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := AllMatch(tt.args.input, tt.args.fun); got != tt.want {
+			got := slices.AllMatch(tt.args.input, tt.args.fun)
+			if got != tt.want {
 				t.Errorf("AllMatch() = %v, want %v", got, tt.want)
 			}
 		})
@@ -68,7 +70,7 @@ func TestAllMatch(t *testing.T) {
 func TestAnyMatch(t *testing.T) {
 	type args struct {
 		input []int
-		fun   FindFunc[int]
+		fun   slices.FindFunc[int]
 	}
 	tests := []struct {
 		name string
@@ -118,7 +120,7 @@ func TestAnyMatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := AnyMatch(tt.args.input, tt.args.fun)
+			got := slices.AnyMatch(tt.args.input, tt.args.fun)
 			if got != tt.want {
 				t.Errorf("AnyMatch() = %v, want %v", got, tt.want)
 			}
@@ -129,7 +131,7 @@ func TestAnyMatch(t *testing.T) {
 func TestFind(t *testing.T) {
 	type args struct {
 		input []int
-		fun   FindFunc[int]
+		fun   slices.FindFunc[int]
 	}
 	tests := []struct {
 		name       string
@@ -173,7 +175,7 @@ func TestFind(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotResult, gotOk := Find(tt.args.input, tt.args.fun)
+			gotResult, gotOk := slices.Find(tt.args.input, tt.args.fun)
 			if !reflect.DeepEqual(gotResult, tt.wantResult) {
 				t.Errorf("FindAny() gotResult = %v, want %v", gotResult, tt.wantResult)
 			}
@@ -187,7 +189,7 @@ func TestFind(t *testing.T) {
 func TestFindIndex(t *testing.T) {
 	type args[T any] struct {
 		input []T
-		fun   FindFunc[T]
+		fun   slices.FindFunc[T]
 	}
 	type testCase[T any] struct {
 		name string
@@ -238,7 +240,7 @@ func TestFindIndex(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := FindIndex(tt.args.input, tt.args.fun)
+			got := slices.FindIndex(tt.args.input, tt.args.fun)
 			if got != tt.want {
 				t.Errorf("FindIndex() = %v, want %v", got, tt.want)
 			}
@@ -249,7 +251,7 @@ func TestFindIndex(t *testing.T) {
 func TestFindLast(t *testing.T) {
 	type args[T any] struct {
 		input []T
-		fun   FindFunc[T]
+		fun   slices.FindFunc[T]
 	}
 	type testCase[T any] struct {
 		name       string
@@ -305,7 +307,7 @@ func TestFindLast(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotResult, gotOk := FindLast(tt.args.input, tt.args.fun)
+			gotResult, gotOk := slices.FindLast(tt.args.input, tt.args.fun)
 			if !reflect.DeepEqual(gotResult, tt.wantResult) {
 				t.Errorf("FindLast() gotResult = %v, want %v", gotResult, tt.wantResult)
 			}
@@ -319,7 +321,7 @@ func TestFindLast(t *testing.T) {
 func TestFindLastIndex(t *testing.T) {
 	type args[T any] struct {
 		input []T
-		fun   FindFunc[T]
+		fun   slices.FindFunc[T]
 	}
 	type testCase[T any] struct {
 		name string
@@ -370,7 +372,8 @@ func TestFindLastIndex(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := FindLastIndex(tt.args.input, tt.args.fun); got != tt.want {
+			got := slices.FindLastIndex(tt.args.input, tt.args.fun)
+			if got != tt.want {
 				t.Errorf("FindLastIndex() = %v, want %v", got, tt.want)
 			}
 		})
@@ -414,7 +417,7 @@ func TestFirst(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotResult, gotOk := First(tt.args.input)
+			gotResult, gotOk := slices.First(tt.args.input)
 			if !reflect.DeepEqual(gotResult, tt.wantResult) {
 				t.Errorf("FindFirst() gotResult = %v, want %v", gotResult, tt.wantResult)
 			}
@@ -471,7 +474,8 @@ func TestIncludes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Includes(tt.args.input, tt.args.value); got != tt.want {
+			got := slices.Includes(tt.args.input, tt.args.value)
+			if got != tt.want {
 				t.Errorf("Includes() = %v, want %v", got, tt.want)
 			}
 		})
@@ -524,7 +528,8 @@ func TestIndexOf(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IndexOf(tt.args.input, tt.args.value); got != tt.want {
+			got := slices.IndexOf(tt.args.input, tt.args.value)
+			if got != tt.want {
 				t.Errorf("IndexOf() = %v, want %v", got, tt.want)
 			}
 		})

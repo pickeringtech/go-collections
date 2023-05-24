@@ -1,6 +1,7 @@
-package slices
+package slices_test
 
 import (
+	"github.com/pickeringtech/go-collectionutil/slices"
 	"testing"
 )
 
@@ -37,7 +38,7 @@ func TestSum(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Sum(tt.args.input)
+			got := slices.Sum(tt.args.input)
 			if got != tt.want {
 				t.Errorf("Sum() = %v, want %v", got, tt.want)
 			}
@@ -78,7 +79,7 @@ func TestAvg(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Avg(tt.args.input)
+			got := slices.Avg(tt.args.input)
 			if got != tt.want {
 				t.Errorf("Avg() = %v, want %v", got, tt.want)
 			}
@@ -119,7 +120,7 @@ func TestMax(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Max(tt.args.input)
+			got := slices.Max(tt.args.input)
 			if got != tt.want {
 				t.Errorf("Max() = %v, want %v", got, tt.want)
 			}
@@ -160,7 +161,7 @@ func TestMin(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Min(tt.args.input)
+			got := slices.Min(tt.args.input)
 			if got != tt.want {
 				t.Errorf("Min() = %v, want %v", got, tt.want)
 			}

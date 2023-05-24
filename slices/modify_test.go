@@ -1,6 +1,7 @@
-package slices
+package slices_test
 
 import (
+	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
@@ -58,7 +59,7 @@ func TestConcatenate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Concatenate(tt.args.inputA, tt.args.inputB)
+			got := slices.Concatenate(tt.args.inputA, tt.args.inputB)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Concatenate() = %v, want %v", got, tt.want)
 			}
@@ -99,7 +100,7 @@ func TestCopy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Copy(tt.args.input)
+			got := slices.Copy(tt.args.input)
 			tt.args.input = append(tt.args.input, 45)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Copy() = %v, want %v", got, tt.want)
@@ -161,7 +162,7 @@ func TestDelete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Delete(tt.args.input, tt.args.index)
+			got := slices.Delete(tt.args.input, tt.args.index)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Delete() = %v, want %v", got, tt.want)
 			}
@@ -211,8 +212,8 @@ func TestFill(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalInput := Copy(tt.args.input)
-			got := Fill(tt.args.input, tt.args.value)
+			originalInput := slices.Copy(tt.args.input)
+			got := slices.Fill(tt.args.input, tt.args.value)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Fill() = %v, want %v", got, tt.want)
 			}
@@ -284,8 +285,8 @@ func TestFillFrom(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalInput := Copy(tt.args.input)
-			got := FillFrom(tt.args.input, tt.args.value, tt.args.fromIndex)
+			originalInput := slices.Copy(tt.args.input)
+			got := slices.FillFrom(tt.args.input, tt.args.value, tt.args.fromIndex)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("FillFrom() = %v, want %v", got, tt.want)
 			}
@@ -373,8 +374,8 @@ func TestFillFromTo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalInput := Copy(tt.args.input)
-			got := FillFromTo(tt.args.input, tt.args.value, tt.args.fromIndex, tt.args.toIndex)
+			originalInput := slices.Copy(tt.args.input)
+			got := slices.FillFromTo(tt.args.input, tt.args.value, tt.args.fromIndex, tt.args.toIndex)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("FillFromTo() = %v, want %v", got, tt.want)
 			}
@@ -446,8 +447,8 @@ func TestFillTo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			originalInput := Copy(tt.args.input)
-			got := FillTo(tt.args.input, tt.args.value, tt.args.toIndex)
+			originalInput := slices.Copy(tt.args.input)
+			got := slices.FillTo(tt.args.input, tt.args.value, tt.args.toIndex)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("FillTo() = %v, want %v", got, tt.want)
 			}
@@ -504,7 +505,8 @@ func TestJoinToString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := JoinToString(tt.args.input, tt.args.separator); got != tt.want {
+			got := slices.JoinToString(tt.args.input, tt.args.separator)
+			if got != tt.want {
 				t.Errorf("JoinToString() = %v, want %v", got, tt.want)
 			}
 		})
@@ -548,7 +550,7 @@ func TestPop(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotSli := Pop(tt.args.input)
+			got, gotSli := slices.Pop(tt.args.input)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Pop() got = %v, want %v", got, tt.want)
 			}
@@ -596,7 +598,7 @@ func TestPopFront(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotFirstElement, gotNewSlice := PopFront(tt.args.input)
+			gotFirstElement, gotNewSlice := slices.PopFront(tt.args.input)
 			if !reflect.DeepEqual(gotFirstElement, tt.wantFirstElement) {
 				t.Errorf("PopFront() gotFirstElement = %v, want %v", gotFirstElement, tt.wantFirstElement)
 			}
@@ -660,7 +662,7 @@ func TestPush(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Push(tt.args.input, tt.args.newElements...)
+			got := slices.Push(tt.args.input, tt.args.newElements...)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Push() = %v, want %v", got, tt.want)
 			}
@@ -721,7 +723,7 @@ func TestPushFront(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := PushFront(tt.args.input, tt.args.newElements...)
+			got := slices.PushFront(tt.args.input, tt.args.newElements...)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("PushFront() = %v, want %v", got, tt.want)
 			}
