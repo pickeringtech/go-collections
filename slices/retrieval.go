@@ -106,5 +106,27 @@ func IndexOf[T comparable](input []T, value T) int {
 // SubSlice provides a new slice containing the entries between the two indexes of the input slice (from is inclusive,
 // to is exclusive).
 func SubSlice[T any](input []T, fromIndex, toIndex int) []T {
-	panic("implement me")
+	l := len(input)
+	if l == 0 {
+		return nil
+	}
+	// If the range is before the start of the slice, return nil...
+	if fromIndex < 0 && toIndex < 0 {
+		return nil
+	}
+	// If the range is after the end of the slice, return nil...
+	if fromIndex > l && toIndex > l {
+		return nil
+	}
+	// If the range is backward (i.e. fromIndex > toIndex), return nil...
+	if fromIndex > toIndex {
+		return nil
+	}
+	if toIndex >= l {
+		toIndex = l
+	}
+	if fromIndex < 0 {
+		fromIndex = 0
+	}
+	return input[fromIndex:toIndex]
 }

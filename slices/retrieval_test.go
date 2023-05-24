@@ -535,3 +535,98 @@ func TestIndexOf(t *testing.T) {
 		})
 	}
 }
+
+func TestSubSlice(t *testing.T) {
+	type args[T any] struct {
+		input     []T
+		fromIndex int
+		toIndex   int
+	}
+	type testCase[T any] struct {
+		name string
+		args args[T]
+		want []T
+	}
+	tests := []testCase[int]{
+		{
+			name: "creates sub-slice within valid range",
+			args: args[int]{
+				input:     []int{1, 2, 3, 4, 5},
+				fromIndex: 1,
+				toIndex:   4,
+			},
+			want: []int{2, 3, 4},
+		},
+		{
+			name: "if range goes beyond end of input, length of result is reduced",
+			args: args[int]{
+				input:     []int{1, 2, 3, 4, 5},
+				fromIndex: 3,
+				toIndex:   6,
+			},
+			want: []int{4, 5},
+		},
+		{
+			name: "if range goes is before start of input, length of result is reduced",
+			args: args[int]{
+				input:     []int{1, 2, 3, 4, 5},
+				fromIndex: -1,
+				toIndex:   2,
+			},
+			want: []int{1, 2},
+		},
+		{
+			name: "if range is entirely before input, result is nil",
+			args: args[int]{
+				input:     []int{1, 2, 3, 4, 5},
+				fromIndex: -2,
+				toIndex:   -1,
+			},
+			want: nil,
+		},
+		{
+			name: "if range is entirely after input, result is nil",
+			args: args[int]{
+				input:     []int{1, 2, 3, 4, 5},
+				fromIndex: 6,
+				toIndex:   7,
+			},
+			want: nil,
+		},
+		{
+			name: "if fromIndex > toIndex, result is nil",
+			args: args[int]{
+				input:     []int{1, 2, 3, 4, 5},
+				fromIndex: 3,
+				toIndex:   2,
+			},
+			want: nil,
+		},
+		{
+			name: "nil input produces nil output",
+			args: args[int]{
+				input:     nil,
+				fromIndex: 0,
+				toIndex:   1,
+			},
+			want: nil,
+		},
+		{
+			name: "empty input produces nil output",
+			args: args[int]{
+				input:     []int{},
+				fromIndex: 0,
+				toIndex:   1,
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := slices.SubSlice(tt.args.input, tt.args.fromIndex, tt.args.toIndex)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("SubSlice() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
