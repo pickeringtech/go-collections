@@ -68,7 +68,7 @@ func SortOrderedAscInPlace[T constraints.Ordered](input []T) {
 // SortOrderedDesc orders the elements within the input slice in descending order, using their relative values to determine
 // where within the slice they should be.
 func SortOrderedDesc[T constraints.Ordered](input []T) []T {
-	panic("implement me")
+	return Sort[T](input, DescendingSortFunc[T])
 }
 
 // SortOrderedDescInPlace orders the elements within the input slice in descending order, using their relative values to determine
