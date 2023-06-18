@@ -1,6 +1,7 @@
-package slices
+package slices_test
 
 import (
+	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
@@ -8,7 +9,7 @@ import (
 func TestReduce(t *testing.T) {
 	type args[I any, O any] struct {
 		input []I
-		fn    ReductionFunc[I, O]
+		fn    slices.ReductionFunc[I, O]
 	}
 	type testCase[I any, O any] struct {
 		name string
@@ -20,7 +21,7 @@ func TestReduce(t *testing.T) {
 			name: "reduce can add up all inputs",
 			args: args[int, int]{
 				input: []int{1, 2, 3, 4, 5},
-				fn:    ReductionTotalFunc[int],
+				fn:    slices.TotalReducer[int],
 			},
 			want: 15,
 		},
@@ -28,7 +29,7 @@ func TestReduce(t *testing.T) {
 			name: "empty input provides zero value output",
 			args: args[int, int]{
 				input: []int{},
-				fn:    ReductionTotalFunc[int],
+				fn:    slices.TotalReducer[int],
 			},
 			want: 0,
 		},
@@ -36,14 +37,14 @@ func TestReduce(t *testing.T) {
 			name: "nil input provides zero value output",
 			args: args[int, int]{
 				input: []int{},
-				fn:    ReductionTotalFunc[int],
+				fn:    slices.TotalReducer[int],
 			},
 			want: 0,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Reduce(tt.args.input, tt.args.fn)
+			got := slices.Reduce(tt.args.input, tt.args.fn)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Reduce() = %v, want %v", got, tt.want)
 			}
@@ -85,7 +86,7 @@ func TestReduce_CountOccurrences(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Reduce[int, int](tt.args.input, NewReductionCountOccurrencesFunc[int, int]([]int{1, 2, 3}))
+			got := slices.Reduce[int, int](tt.args.input, slices.NewCountOccurrencesReducer[int, int]([]int{1, 2, 3}))
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Reduce() = %v, want %v", got, tt.want)
 			}
