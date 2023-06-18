@@ -1,6 +1,7 @@
-package maps
+package maps_test
 
 import (
+	"github.com/pickeringtech/go-collectionutil/maps"
 	"reflect"
 	"testing"
 )
@@ -8,7 +9,7 @@ import (
 func TestMap(t *testing.T) {
 	type args[K comparable, V any, OK comparable, OV any] struct {
 		input map[K]V
-		fn    MapFunc[K, V, OK, OV]
+		fn    maps.MapFunc[K, V, OK, OV]
 	}
 	type testCase[K comparable, V any, OK comparable, OV any] struct {
 		name string
@@ -49,7 +50,8 @@ func TestMap(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Map(tt.args.input, tt.args.fn); !reflect.DeepEqual(got, tt.want) {
+			got := maps.Map(tt.args.input, tt.args.fn)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Map() = %v, want %v", got, tt.want)
 			}
 		})

@@ -423,3 +423,78 @@ func TestSortOrderedDescInPlace(t *testing.T) {
 		})
 	}
 }
+
+func TestSortByOrderedField(t *testing.T) {
+	type language struct {
+		name          string
+		yearOfRelease int
+	}
+	type args[T any, S constraints.Ordered] struct {
+		input     []T
+		fun       slices.SortFunc[S]
+		extractor slices.SortFieldExtractorFunc[T, S]
+	}
+	type testCase[T any, S constraints.Ordered] struct {
+		name string
+		args args[T, S]
+		want []T
+	}
+	tests := []testCase[language, int]{
+		{
+			name: "sorts by year of release ascending as expected",
+			args: args[language, int]{
+				input: []language{
+					{
+						name:          "golang",
+						yearOfRelease: 2009,
+					},
+					{
+						name:          "c",
+						yearOfRelease: 1972,
+					},
+					{
+						name:          "rust",
+						yearOfRelease: 2015,
+					},
+				},
+				fun: slices.AscendingSortFunc[int],
+				extractor: func(l language) int {
+					return l.yearOfRelease
+				},
+			},
+			want: []language{
+				{
+					name:          "c",
+					yearOfRelease: 1972,
+				},
+				{
+					name:          "golang",
+					yearOfRelease: 2009,
+				},
+				{
+					name:          "rust",
+					yearOfRelease: 2015,
+				},
+			},
+		},
+		{
+			name: "empty input provides nil output",
+			args: args[language, int]{
+				input: []language{},
+				fun:   slices.AscendingSortFunc[int],
+				extractor: func(l language) int {
+					return l.yearOfRelease
+				},
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := slices.SortByOrderedField[language, int](tt.args.input, tt.args.fun, tt.args.extractor)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("SortByOrderedField() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

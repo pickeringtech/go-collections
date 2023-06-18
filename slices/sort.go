@@ -39,6 +39,23 @@ func Sort[T any](input []T, fun SortFunc[T]) []T {
 	return inputCopy
 }
 
+type SortFieldExtractorFunc[T any, S constraints.Ordered] func(T) S
+
+// SortByOrderedField orders the elements within the input slice using the sort function, and using a field which is
+// extracted from each element by the extractor function. Particularly useful when trying to sort a slice of structs
+// by one of the struct member fields.
+func SortByOrderedField[T any, S constraints.Ordered](input []T, fun SortFunc[S], extractor SortFieldExtractorFunc[T, S]) []T {
+	if len(input) == 0 {
+		return nil
+	}
+	inputCopy := append([]T(nil), input...)
+	sort.Slice(inputCopy, func(i, j int) bool {
+		a, b := extractor(inputCopy[i]), extractor(inputCopy[j])
+		return fun(a, b)
+	})
+	return inputCopy
+}
+
 // SortInPlace orders the elements within the input slice in order, using the provided function to determine the
 // relative value of each element, and whether they should be before or after each other. The sort is performed on the
 // input slice, with no copy being made.
