@@ -13,11 +13,11 @@ type Integer interface {
 }
 
 type Numeric interface {
-	Integer | Float | Complex
+	Integer | Float
 }
 
-type OrderedNumeric interface {
-	Integer | Float
+type ComplexNumeric interface {
+	Integer | Float | Complex
 }
 
 type SignedInt interface {
