@@ -1,9 +1,43 @@
 package slices_test
 
 import (
+	"github.com/pickeringtech/go-collectionutil/constraints"
 	"github.com/pickeringtech/go-collectionutil/slices"
 	"testing"
 )
+
+func TestNumericSlice_Sum(t *testing.T) {
+	type testCase[T constraints.Numeric] struct {
+		name string
+		n    slices.NumericSlice[T]
+		want T
+	}
+	tests := []testCase[int]{
+		{
+			name: "calculates sum correctly, including negative numbers",
+			n:    []int{1, 2, -1, 3, 4, 5},
+			want: 14,
+		},
+		{
+			name: "empty input provides zero output",
+			n:    []int{},
+			want: 0,
+		},
+		{
+			name: "nil input provides zero output",
+			n:    nil,
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.n.Sum()
+			if got != tt.want {
+				t.Errorf("Sum() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 
 func TestSum(t *testing.T) {
 	type args struct {
