@@ -202,3 +202,35 @@ func TestMin(t *testing.T) {
 		})
 	}
 }
+
+func TestNumericSlice_Avg(t *testing.T) {
+	type testCase[T constraints.Numeric] struct {
+		name string
+		n    slices.NumericSlice[T]
+		want float64
+	}
+	tests := []testCase[int]{
+		{
+			name: "averages out correctly",
+			n:    []int{1, 2, 3, 4, 5},
+			want: 3,
+		},
+		{
+			name: "empty input provides zero output",
+			n:    []int{},
+			want: 0,
+		},
+		{
+			name: "nil input provides zero output",
+			n:    nil,
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.n.Avg(); got != tt.want {
+				t.Errorf("Avg() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

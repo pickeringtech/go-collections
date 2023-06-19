@@ -2,6 +2,8 @@ package slices
 
 import "github.com/pickeringtech/go-collectionutil/constraints"
 
+// NumericSlice represents a slice of numeric values. This type exposes some mathematical operations that can be
+// performed on such a slice.
 type NumericSlice[T constraints.Numeric] []T
 
 func (n NumericSlice[T]) Sum() T {
