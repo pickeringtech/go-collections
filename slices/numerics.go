@@ -6,10 +6,6 @@ import "github.com/pickeringtech/go-collectionutil/constraints"
 // performed on such a slice.
 type NumericSlice[T constraints.Numeric] []T
 
-func (n NumericSlice[T]) Sum() T {
-	return Sum(n)
-}
-
 func (n NumericSlice[T]) Avg() float64 {
 	return Avg(n)
 }
@@ -22,13 +18,8 @@ func (n NumericSlice[T]) Min() T {
 	return Min(n)
 }
 
-// Sum adds up each element of the input slice, returning the total result.  Empty or nil input results in zero.
-func Sum[T constraints.Numeric](input []T) T {
-	var result T
-	for _, element := range input {
-		result += element
-	}
-	return result
+func (n NumericSlice[T]) Sum() T {
+	return Sum(n)
 }
 
 // Avg calculates the average of the input, returning the result.  Empty or nil input results in zero.
@@ -64,6 +55,15 @@ func Min[T constraints.Ordered](input []T) T {
 		if element < result {
 			result = element
 		}
+	}
+	return result
+}
+
+// Sum adds up each element of the input slice, returning the total result.  Empty or nil input results in zero.
+func Sum[T constraints.Numeric](input []T) T {
+	var result T
+	for _, element := range input {
+		result += element
 	}
 	return result
 }
