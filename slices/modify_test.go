@@ -1,10 +1,20 @@
 package slices_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
+
+func ExampleConcatenate() {
+	a := []int{1, 2, 3}
+	b := []int{4, 5, 6}
+
+	joined := slices.Concatenate(a, b)
+	fmt.Printf("%v", joined)
+	// Output: [1 2 3 4 5 6]
+}
 
 func TestConcatenate(t *testing.T) {
 	type args struct {
@@ -67,6 +77,17 @@ func TestConcatenate(t *testing.T) {
 	}
 }
 
+func ExampleCopy() {
+	original := []int{1, 2, 3}
+
+	sliCopy := slices.Copy(original)
+
+	original = []int{4, 5, 6}
+
+	fmt.Printf("original: %v, copy: %v", original, sliCopy)
+	// Output: original: [4 5 6], copy: [1 2 3]
+}
+
 func TestCopy(t *testing.T) {
 	type args struct {
 		input []int
@@ -107,6 +128,15 @@ func TestCopy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleDelete() {
+	sli := []int{1, 2, 3}
+
+	withoutElement := slices.Delete(sli, 1)
+
+	fmt.Printf("original: %v, with deleted element: %v", sli, withoutElement)
+	// Output: original: [1 2 3], with deleted element: [1 3]
 }
 
 func TestDelete(t *testing.T) {
@@ -162,12 +192,24 @@ func TestDelete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			origInput := slices.Copy(tt.args.input)
 			got := slices.Delete(tt.args.input, tt.args.index)
+			if !reflect.DeepEqual(origInput, tt.args.input) {
+				t.Errorf("Delete() modified input slice - unexpected - original: %v, updated: %v", origInput, tt.args.input)
+			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Delete() = %v, want %v", got, tt.want)
 			}
 		})
 	}
+}
+
+func ExampleFill() {
+	sli := []int{1, 2, 3}
+	onlyZeroes := slices.Fill(sli, 0)
+
+	fmt.Printf("original: %v, only zeroes: %v", sli, onlyZeroes)
+	// Output: original: [1 2 3], only zeroes: [0 0 0]
 }
 
 func TestFill(t *testing.T) {
@@ -222,6 +264,14 @@ func TestFill(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleFillFrom() {
+	sli := []int{1, 2, 3}
+	filledFrom := slices.FillFrom(sli, 0, 1)
+
+	fmt.Printf("original: %v, filled from element 1: %v", sli, filledFrom)
+	// Output: original: [1 2 3], filled from element 1: [1 0 0]
 }
 
 func TestFillFrom(t *testing.T) {
@@ -295,6 +345,14 @@ func TestFillFrom(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleFillFromTo() {
+	sli := []int{1, 2, 3, 4, 5}
+	filledFrom := slices.FillFromTo(sli, 0, 1, 3)
+
+	fmt.Printf("original: %v, filled in middle: %v", sli, filledFrom)
+	// Output: original: [1 2 3 4 5], filled in middle: [1 0 0 4 5]
 }
 
 func TestFillFromTo(t *testing.T) {
@@ -386,6 +444,14 @@ func TestFillFromTo(t *testing.T) {
 	}
 }
 
+func ExampleFillTo() {
+	sli := []int{1, 2, 3, 4, 5}
+	filledFrom := slices.FillTo(sli, 0, 3)
+
+	fmt.Printf("original: %v, filled to middle: %v", sli, filledFrom)
+	// Output: original: [1 2 3 4 5], filled to middle: [0 0 0 4 5]
+}
+
 func TestFillTo(t *testing.T) {
 	type args[T any] struct {
 		input   []T
@@ -459,6 +525,14 @@ func TestFillTo(t *testing.T) {
 	}
 }
 
+func ExampleJoinToString() {
+	sli := []int{1, 2, 3}
+	result := slices.JoinToString(sli, " + ")
+
+	fmt.Printf("%s = 6", result)
+	// Output: 1 + 2 + 3 = 6
+}
+
 func TestJoinToString(t *testing.T) {
 	type args[T any] struct {
 		input     []T
@@ -513,6 +587,14 @@ func TestJoinToString(t *testing.T) {
 	}
 }
 
+func ExamplePop() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	lastElement, shorterSli := slices.Pop(sli)
+	fmt.Printf("last element: %v, shorter slice: %v, original slice: %v", lastElement, shorterSli, sli)
+	// Output: last element: 5, shorter slice: [1 2 3 4], original slice: [1 2 3 4 5]
+}
+
 func TestPop(t *testing.T) {
 	type args struct {
 		input []int
@@ -561,6 +643,14 @@ func TestPop(t *testing.T) {
 	}
 }
 
+func ExamplePopFront() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	firstElement, shorterSli := slices.PopFront(sli)
+	fmt.Printf("first element: %v, shorter slice: %v, original slice: %v", firstElement, shorterSli, sli)
+	// Output: first element: 1, shorter slice: [2 3 4 5], original slice: [1 2 3 4 5]
+}
+
 func TestPopFront(t *testing.T) {
 	type args struct {
 		input []int
@@ -607,6 +697,14 @@ func TestPopFront(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExamplePush() {
+	sli := []int{1, 2, 3, 4}
+
+	longerSli := slices.Push(sli, 5, 6)
+	fmt.Printf("longer slice: %v, original slice: %v", longerSli, sli)
+	// Output: longer slice: [1 2 3 4 5 6], original slice: [1 2 3 4]
 }
 
 func TestPush(t *testing.T) {
@@ -668,6 +766,14 @@ func TestPush(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExamplePushFront() {
+	sli := []int{1, 2, 3, 4}
+
+	longerSli := slices.PushFront(sli, -1, 0)
+	fmt.Printf("longer slice: %v, original slice: %v", longerSli, sli)
+	// Output: longer slice: [-1 0 1 2 3 4], original slice: [1 2 3 4]
 }
 
 func TestPushFront(t *testing.T) {

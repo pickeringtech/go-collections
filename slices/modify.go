@@ -24,6 +24,7 @@ func Delete[T any](input []T, index int) []T {
 	if index < 0 {
 		return input
 	}
+	input = Copy(input)
 	return append(input[:index], input[index+1:]...)
 }
 

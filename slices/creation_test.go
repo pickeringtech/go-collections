@@ -1,15 +1,34 @@
-package slices
+package slices_test
 
 import (
+	"fmt"
+	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"strconv"
 	"testing"
 )
 
+func ExampleGenerate() {
+	type numberAndSquare struct {
+		number int
+		square int
+	}
+
+	sli := slices.Generate[numberAndSquare](10, func(index int) numberAndSquare {
+		return numberAndSquare{
+			number: index,
+			square: index * index,
+		}
+	})
+
+	fmt.Printf("%v", sli)
+	// Output: [{0 0} {1 1} {2 4} {3 9} {4 16} {5 25} {6 36} {7 49} {8 64} {9 81}]
+}
+
 func TestGenerate(t *testing.T) {
 	type args[T any] struct {
 		amount int
-		fn     GeneratorFunc[T]
+		fn     slices.GeneratorFunc[T]
 	}
 	type testCase[T any] struct {
 		name string
@@ -40,7 +59,8 @@ func TestGenerate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := Generate(tt.args.amount, tt.args.fn); !reflect.DeepEqual(got, tt.want) {
+			got := slices.Generate(tt.args.amount, tt.args.fn)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Generate() = %v, want %v", got, tt.want)
 			}
 		})
