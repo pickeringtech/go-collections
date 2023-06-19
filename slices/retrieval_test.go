@@ -1,10 +1,28 @@
 package slices_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
+
+func ExampleAllMatch() {
+	sli := []string{"hello", "glorious", "world"}
+
+	allMediumLength := slices.AllMatch(sli, func(s string) bool {
+		l := len(s)
+		return l > 0 && l < 10
+	})
+
+	allShortLength := slices.AllMatch(sli, func(s string) bool {
+		l := len(s)
+		return l > 0 && l < 5
+	})
+
+	fmt.Printf("all medium: %v, all short: %v", allMediumLength, allShortLength)
+	// Output: all medium: true, all short: false
+}
 
 func TestAllMatch(t *testing.T) {
 	type args struct {
@@ -65,6 +83,21 @@ func TestAllMatch(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleAnyMatch() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	hasEven := slices.AnyMatch(sli, func(i int) bool {
+		return i%2 == 0
+	})
+
+	hasNegative := slices.AnyMatch(sli, func(i int) bool {
+		return i < 0
+	})
+
+	fmt.Printf("has even: %v, has negative: %v", hasEven, hasNegative)
+	// Output: has even: true, has negative: false
 }
 
 func TestAnyMatch(t *testing.T) {
@@ -128,6 +161,17 @@ func TestAnyMatch(t *testing.T) {
 	}
 }
 
+func ExampleFind() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	firstEven, ok := slices.Find(sli, func(i int) bool {
+		return i%2 == 0
+	})
+
+	fmt.Printf("first even: %v, ok: %v", firstEven, ok)
+	// Output: first even: 2, ok: true
+}
+
 func TestFind(t *testing.T) {
 	type args struct {
 		input []int
@@ -184,6 +228,21 @@ func TestFind(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleFindIndex() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	firstEvenIdx := slices.FindIndex(sli, func(i int) bool {
+		return i%2 == 0
+	})
+
+	missingIdx := slices.FindIndex(sli, func(i int) bool {
+		return false
+	})
+
+	fmt.Printf("first even index: %v, not found index: %v", firstEvenIdx, missingIdx)
+	// Output: first even index: 1, not found index: -1
 }
 
 func TestFindIndex(t *testing.T) {
@@ -246,6 +305,17 @@ func TestFindIndex(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleFindLast() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	lastEven, ok := slices.FindLast(sli, func(i int) bool {
+		return i%2 == 0
+	})
+
+	fmt.Printf("last even: %v, ok: %v", lastEven, ok)
+	// Output: last even: 4, ok: true
 }
 
 func TestFindLast(t *testing.T) {
@@ -318,6 +388,21 @@ func TestFindLast(t *testing.T) {
 	}
 }
 
+func ExampleFindLastIndex() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	lastEvenIdx := slices.FindLastIndex(sli, func(i int) bool {
+		return i%2 == 0
+	})
+
+	missingIdx := slices.FindLastIndex(sli, func(i int) bool {
+		return false
+	})
+
+	fmt.Printf("last even index: %v, not found index: %v", lastEvenIdx, missingIdx)
+	// Output: last even index: 3, not found index: -1
+}
+
 func TestFindLastIndex(t *testing.T) {
 	type args[T any] struct {
 		input []T
@@ -380,6 +465,16 @@ func TestFindLastIndex(t *testing.T) {
 	}
 }
 
+func ExampleFirst() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	firstElement, ok := slices.First(sli)
+	missingElement, notOk := slices.First([]int{})
+
+	fmt.Printf("first element: %v, ok: %v, missing element: %v, missing ok: %v", firstElement, ok, missingElement, notOk)
+	// Output: first element: 1, ok: true, missing element: 0, missing ok: false
+}
+
 func TestFirst(t *testing.T) {
 	type args struct {
 		input []int
@@ -426,6 +521,14 @@ func TestFirst(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleIncludes() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	isIncluded := slices.Includes(sli, 3)
+	fmt.Printf("is included: %v", isIncluded)
+	// Output: is included: true
 }
 
 func TestIncludes(t *testing.T) {
@@ -482,6 +585,15 @@ func TestIncludes(t *testing.T) {
 	}
 }
 
+func ExampleIndexOf() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	idx := slices.IndexOf(sli, 3)
+
+	fmt.Printf("index: %v", idx)
+	// Output: index: 2
+}
+
 func TestIndexOf(t *testing.T) {
 	type args[T comparable] struct {
 		input []T
@@ -534,6 +646,15 @@ func TestIndexOf(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleSubSlice() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	subSlice := slices.SubSlice(sli, 1, 3)
+
+	fmt.Printf("sub-slice: %v, original: %v", subSlice, sli)
+	// Output: sub-slice: [2 3], original: [1 2 3 4 5]
 }
 
 func TestSubSlice(t *testing.T) {
