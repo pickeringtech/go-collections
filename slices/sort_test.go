@@ -1,6 +1,7 @@
 package slices_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/constraints"
 	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
@@ -131,6 +132,15 @@ func TestDescendingSortFunc(t *testing.T) {
 	}
 }
 
+func ExampleSort() {
+	sli := []int{10, 2, -1, 1000, -10, 0, 1}
+
+	sorted := slices.Sort(sli, slices.AscendingSortFunc[int])
+
+	fmt.Printf("sorted: %v, original: %v", sorted, sli)
+	// Output: sorted: [-10 -1 0 1 2 10 1000], original: [10 2 -1 1000 -10 0 1]
+}
+
 func TestSort(t *testing.T) {
 	type args[T any] struct {
 		input []T
@@ -190,6 +200,15 @@ func TestSort(t *testing.T) {
 	}
 }
 
+func ExampleSortInPlace() {
+	sli := []int{10, 2, -1, 1000, -10, 0, 1}
+
+	slices.SortInPlace(sli, slices.AscendingSortFunc[int])
+
+	fmt.Printf("sorted: %v", sli)
+	// Output: sorted: [-10 -1 0 1 2 10 1000]
+}
+
 func TestSortInPlace(t *testing.T) {
 	type args[T any] struct {
 		input []T
@@ -245,6 +264,15 @@ func TestSortInPlace(t *testing.T) {
 	}
 }
 
+func ExampleSortOrderedAsc() {
+	sli := []int{10, 2, -1, 1000, -10, 0, 1}
+
+	sorted := slices.SortOrderedAsc(sli)
+
+	fmt.Printf("sorted: %v, original: %v", sorted, sli)
+	// Output: sorted: [-10 -1 0 1 2 10 1000], original: [10 2 -1 1000 -10 0 1]
+}
+
 func TestSortOrderedAsc(t *testing.T) {
 	type args[T constraints.Ordered] struct {
 		input []T
@@ -292,6 +320,15 @@ func TestSortOrderedAsc(t *testing.T) {
 	}
 }
 
+func ExampleSortOrderedAscInPlace() {
+	sli := []int{10, 2, -1, 1000, -10, 0, 1}
+
+	slices.SortOrderedAscInPlace(sli)
+
+	fmt.Printf("sorted: %v", sli)
+	// Output: sorted: [-10 -1 0 1 2 10 1000]
+}
+
 func TestSortOrderedAscInPlace(t *testing.T) {
 	type args[T constraints.Ordered] struct {
 		input []T
@@ -332,6 +369,15 @@ func TestSortOrderedAscInPlace(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleSortOrderedDesc() {
+	sli := []int{10, 2, -1, 1000, -10, 0, 1}
+
+	sorted := slices.SortOrderedDesc(sli)
+
+	fmt.Printf("sorted: %v, original: %v", sorted, sli)
+	// Output: sorted: [1000 10 2 1 0 -1 -10], original: [10 2 -1 1000 -10 0 1]
 }
 
 func TestSortOrderedDesc(t *testing.T) {
@@ -381,6 +427,15 @@ func TestSortOrderedDesc(t *testing.T) {
 	}
 }
 
+func ExampleSortOrderedDescInPlace() {
+	sli := []int{10, 2, -1, 1000, -10, 0, 1}
+
+	slices.SortOrderedDescInPlace(sli)
+
+	fmt.Printf("sorted: %v", sli)
+	// Output: sorted: [1000 10 2 1 0 -1 -10]
+}
+
 func TestSortOrderedDescInPlace(t *testing.T) {
 	type args[T constraints.Ordered] struct {
 		input []T
@@ -422,6 +477,27 @@ func TestSortOrderedDescInPlace(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleSortByOrderedField() {
+	type numberAndSquare struct {
+		number int
+		square int
+	}
+
+	sli := slices.Generate[numberAndSquare](10, func(index int) numberAndSquare {
+		return numberAndSquare{
+			number: index,
+			square: index * index,
+		}
+	})
+
+	sorted := slices.SortByOrderedField(sli, slices.DescendingSortFunc[int], func(value numberAndSquare) int {
+		return value.square
+	})
+
+	fmt.Printf("sorted: %v, original: %v", sorted, sli)
+	// Output: sorted: [{9 81} {8 64} {7 49} {6 36} {5 25} {4 16} {3 9} {2 4} {1 1} {0 0}], original: [{0 0} {1 1} {2 4} {3 9} {4 16} {5 25} {6 36} {7 49} {8 64} {9 81}]
 }
 
 func TestSortByOrderedField(t *testing.T) {
