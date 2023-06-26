@@ -62,6 +62,10 @@ func FillTo[T any](input []T, value T, toIndex int) []T {
 	return FillFromTo[T](input, value, 0, toIndex)
 }
 
+func Insert[T any](input []T, startIdx int, elements ...T) []T {
+	panic("implement me")
+}
+
 // JoinToString creates a new string by stringifying each of the elements within the input, and placing the separator
 // between them in the resulting string.
 func JoinToString[T any](input []T, separator string) string {
