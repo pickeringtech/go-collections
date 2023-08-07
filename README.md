@@ -24,7 +24,6 @@ Check out the README files in each of the packages for examples of how to use th
 * [Collections](./collections/README.md)
 * [Constraints](./constraints/README.md)
 * [Maps](./maps/README.md)
-* [Results](./results/README.md)
 * [Slices](./slices/README.md)
 
 ## How to Install?
