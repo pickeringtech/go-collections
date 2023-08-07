@@ -62,8 +62,14 @@ func FillTo[T any](input []T, value T, toIndex int) []T {
 	return FillFromTo[T](input, value, 0, toIndex)
 }
 
+// Insert adds the specified elements to the input slice at the specified index, returning the resulting slice.
 func Insert[T any](input []T, startIdx int, elements ...T) []T {
-	panic("implement me")
+	if startIdx < 0 || startIdx >= len(input) {
+		return nil
+	}
+	output := Copy(input)
+	output = append(input[:startIdx], append(elements, input[startIdx:]...)...)
+	return output
 }
 
 // JoinToString creates a new string by stringifying each of the elements within the input, and placing the separator

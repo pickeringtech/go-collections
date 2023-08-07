@@ -3,6 +3,9 @@ package slices
 // AllMatch tests each element of the input with the provided function.  If all the elements, when passed through the
 // function result in a truthy boolean value, true is returned from this function.  Otherwise, false is returned.
 func AllMatch[T any](input []T, fun FindFunc[T]) bool {
+	if len(input) == 0 {
+		return false
+	}
 	for _, element := range input {
 		if !fun(element) {
 			return false
@@ -23,6 +26,8 @@ func AnyMatch[T any](input []T, fun FindFunc[T]) bool {
 	return false
 }
 
+// FindFunc is a function which can be used to test an element in a slice.  It receives the element in the slice and
+// returns a boolean value indicating whether the element is a match.
 type FindFunc[T any] func(T) bool
 
 // Find tests each element of the input with the provided function.  If the function returns true, the selected element
@@ -82,6 +87,8 @@ func First[T any](input []T) (result T, ok bool) {
 	return
 }
 
+// Get provides the element of the input slice at the specified index.  If the index is out of bounds, the default value
+// is returned.
 func Get[T any](input []T, index int, defaultValue T) T {
 	if index < 0 || index >= len(input) {
 		return defaultValue
@@ -110,10 +117,13 @@ func IndexOf[T comparable](input []T, value T) int {
 	return -1
 }
 
+// IsEmpty determines whether the input slice is empty.  If it is, a truthy boolean is returned.  Otherwise, a falsy
+// boolean is returned.
 func IsEmpty[T any](input []T) bool {
 	return len(input) == 0
 }
 
+// Length provides the length of the input slice.
 func Length[T any](input []T) int {
 	return len(input)
 }

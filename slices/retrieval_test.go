@@ -62,7 +62,7 @@ func TestAllMatch(t *testing.T) {
 					return element < 4
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name: "empty input results in true",
@@ -72,7 +72,7 @@ func TestAllMatch(t *testing.T) {
 					return element < 4
 				},
 			},
-			want: true,
+			want: false,
 		},
 	}
 	for _, tt := range tests {
@@ -523,6 +523,73 @@ func TestFirst(t *testing.T) {
 	}
 }
 
+func TestGet(t *testing.T) {
+	type args[T any] struct {
+		input        []T
+		index        int
+		defaultValue T
+	}
+	type testCase[T any] struct {
+		name string
+		args args[T]
+		want T
+	}
+	tests := []testCase[int]{
+		{
+			name: "retrieves the value at the specified index",
+			args: args[int]{
+				input:        []int{1, 2, 3, 4, 5},
+				index:        2,
+				defaultValue: -1,
+			},
+			want: 3,
+		},
+		{
+			name: "receives the default value if the index is negative",
+			args: args[int]{
+				input:        []int{1, 2, 3, 4, 5},
+				index:        -1,
+				defaultValue: -1,
+			},
+			want: -1,
+		},
+		{
+			name: "receives the default value if the index is equal to the length of the input",
+			args: args[int]{
+				input:        []int{1, 2, 3, 4, 5},
+				index:        5,
+				defaultValue: -1,
+			},
+			want: -1,
+		},
+		{
+			name: "receives the default value if the input is empty",
+			args: args[int]{
+				input:        []int{},
+				index:        5,
+				defaultValue: -1,
+			},
+			want: -1,
+		},
+		{
+			name: "receives the default value if the input is nil",
+			args: args[int]{
+				input:        nil,
+				index:        5,
+				defaultValue: -1,
+			},
+			want: -1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := slices.Get(tt.args.input, tt.args.index, tt.args.defaultValue); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Get() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func ExampleIncludes() {
 	sli := []int{1, 2, 3, 4, 5}
 
@@ -643,6 +710,133 @@ func TestIndexOf(t *testing.T) {
 			got := slices.IndexOf(tt.args.input, tt.args.value)
 			if got != tt.want {
 				t.Errorf("IndexOf() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func ExampleIsEmpty() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	isEmpty := slices.IsEmpty(sli)
+	fmt.Printf("is empty: %v\n", isEmpty)
+
+	sli = []int{}
+	isEmpty = slices.IsEmpty(sli)
+	fmt.Printf("is empty: %v\n", isEmpty)
+
+	// Output:
+	// is empty: false
+	// is empty: true
+}
+
+func TestIsEmpty(t *testing.T) {
+	type args[T any] struct {
+		input []T
+	}
+	type testCase[T any] struct {
+		name string
+		args args[T]
+		want bool
+	}
+	tests := []testCase[int]{
+		{
+			name: "returns true if input is empty",
+			args: args[int]{
+				input: []int{},
+			},
+			want: true,
+		},
+		{
+			name: "returns true if input is empty",
+			args: args[int]{
+				input: nil,
+			},
+			want: true,
+		},
+		{
+			name: "returns false if input has a single element",
+			args: args[int]{
+				input: []int{1},
+			},
+			want: false,
+		},
+		{
+			name: "returns false if input has multiple elements",
+			args: args[int]{
+				input: []int{1, 2},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := slices.IsEmpty(tt.args.input); got != tt.want {
+				t.Errorf("IsEmpty() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func ExampleLength() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	length := slices.Length(sli)
+
+	fmt.Printf("length: %v", length)
+	// Output: length: 5
+}
+
+func TestLength(t *testing.T) {
+	type args[T any] struct {
+		input []T
+	}
+	type testCase[T any] struct {
+		name string
+		args args[T]
+		want int
+	}
+	tests := []testCase[int]{
+		{
+			name: "5 elements",
+			args: args[int]{
+				input: []int{1, 2, 3, 4, 5},
+			},
+			want: 5,
+		},
+		{
+			name: "4 elements",
+			args: args[int]{
+				input: []int{1, 2, 3, 4},
+			},
+			want: 4,
+		},
+		{
+			name: "1 element",
+			args: args[int]{
+				input: []int{1},
+			},
+			want: 1,
+		},
+		{
+			name: "empty input",
+			args: args[int]{
+				input: []int{},
+			},
+			want: 0,
+		},
+		{
+			name: "nil input",
+			args: args[int]{
+				input: nil,
+			},
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := slices.Length(tt.args.input); got != tt.want {
+				t.Errorf("Length() = %v, want %v", got, tt.want)
 			}
 		})
 	}

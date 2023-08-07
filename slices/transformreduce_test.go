@@ -1,10 +1,20 @@
 package slices_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
+
+func ExampleReduce() {
+	a := []int{1, 2, 3, 4, 5}
+	b := slices.Reduce(a, slices.TotalReducer[int])
+	fmt.Printf("total: %v\n", b)
+
+	// Output:
+	// total: 15
+}
 
 func TestReduce(t *testing.T) {
 	type args[I any, O any] struct {
@@ -50,6 +60,15 @@ func TestReduce(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleNewCountOccurrencesReducer() {
+	a := []int{1, 2, 3, 4, 5, 3, 2, 2, 5, 4, 1}
+	b := slices.Reduce(a, slices.NewCountOccurrencesReducer[int, int]([]int{1, 2, 3}))
+	fmt.Printf("occurrences: %v\n", b)
+
+	// Output:
+	// occurrences: 7
 }
 
 func TestReduce_CountOccurrences(t *testing.T) {

@@ -1,10 +1,21 @@
 package slices_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
+
+func ExampleFilter() {
+	input := []int{1, 2, 3, 4, 5}
+	output := slices.Filter(input, func(element int) bool {
+		return element > 2
+	})
+	fmt.Printf("Output: %v\n", output)
+
+	// Output: Output: [3 4 5]
+}
 
 func TestFilter_Strings(t *testing.T) {
 	type args struct {

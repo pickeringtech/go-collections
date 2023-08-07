@@ -1,10 +1,26 @@
 package slices_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
+
+func ExampleReverse() {
+	a := []int{1, 2, 3, 4, 5}
+	b := slices.Reverse(a)
+	for _, element := range b {
+		fmt.Printf("element: %v\n", element)
+	}
+
+	// Output:
+	// element: 5
+	// element: 4
+	// element: 3
+	// element: 2
+	// element: 1
+}
 
 func TestReverse(t *testing.T) {
 	type args[T any] struct {

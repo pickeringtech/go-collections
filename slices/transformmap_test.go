@@ -1,10 +1,22 @@
 package slices_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
+
+func ExampleMap() {
+	a := []string{"a", "ab", "abc", "d"}
+	b := slices.Map(a, func(element string) int {
+		return len(element)
+	})
+	fmt.Printf("%v\n", b)
+
+	// Output:
+	// [1 2 3 1]
+}
 
 func TestMap_StringToInt(t *testing.T) {
 	type args struct {

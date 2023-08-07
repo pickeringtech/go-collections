@@ -20,6 +20,7 @@ func NewConcurrentArrayRW[T any](elements ...T) ConcurrentArrayRW[T] {
 // Interface guards
 var _ Filterable[int] = &ConcurrentArrayRW[int]{}
 var _ Indexable[int] = &ConcurrentArrayRW[int]{}
+var _ Iterable[int] = &ConcurrentArrayRW[int]{}
 var _ Searchable[int] = &ConcurrentArrayRW[int]{}
 var _ Sortable[int] = &ConcurrentArrayRW[int]{}
 
@@ -42,13 +43,6 @@ func (a ConcurrentArrayRW[T]) Filter(fun func(T) bool) []T {
 	defer a.lock.RUnlock()
 
 	return slices.Filter(a.elements, fun)
-}
-
-func (a ConcurrentArrayRW[T]) FilterInPlace(fun func(T) bool) {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-
-	slices.FilterInPlace(a.elements, fun)
 }
 
 func (a ConcurrentArrayRW[T]) Find(fun func(T) bool) (T, bool) {
@@ -74,7 +68,7 @@ func (a ConcurrentArrayRW[T]) ForEach(fun EachFunc[T]) {
 	}
 }
 
-func (a ConcurrentArrayRW[T]) ForEachWithIndex(fun EachFuncWithIndex[T]) {
+func (a ConcurrentArrayRW[T]) ForEachWithIndex(fun IndexedEachFunc[T]) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 

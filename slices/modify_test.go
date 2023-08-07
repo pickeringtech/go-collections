@@ -525,6 +525,73 @@ func TestFillTo(t *testing.T) {
 	}
 }
 
+func ExampleInsert() {
+	sli := []int{1, 2, 3, 4, 5}
+	inserted := slices.Insert(sli, 2, 10, 11, 12)
+
+	fmt.Printf("original: %v, inserted: %v", sli, inserted)
+	// Output: original: [1 2 3 4 5], inserted: [1 2 10 11 12 3 4 5]
+}
+
+func TestInsert(t *testing.T) {
+	type args[T any] struct {
+		input    []T
+		startIdx int
+		elements []T
+	}
+	type testCase[T any] struct {
+		name string
+		args args[T]
+		want []T
+	}
+	tests := []testCase[int]{
+		{
+			name: "inserts one element",
+			args: args[int]{
+				input:    []int{1, 2, 3, 4, 5},
+				startIdx: 2,
+				elements: []int{10},
+			},
+			want: []int{1, 2, 10, 3, 4, 5},
+		},
+		{
+			name: "inserts multiple elements",
+			args: args[int]{
+				input:    []int{1, 2, 3, 4, 5},
+				startIdx: 2,
+				elements: []int{10, 11, 12},
+			},
+			want: []int{1, 2, 10, 11, 12, 3, 4, 5},
+		},
+		{
+			name: "empty input results in nil",
+			args: args[int]{
+				input:    []int{},
+				startIdx: 0,
+				elements: []int{10, 11, 12},
+			},
+			want: nil,
+		},
+		{
+			name: "nil input results in nil",
+			args: args[int]{
+				input:    nil,
+				startIdx: 0,
+				elements: []int{10, 11, 12},
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := slices.Insert(tt.args.input, tt.args.startIdx, tt.args.elements...)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Insert() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func ExampleJoinToString() {
 	sli := []int{1, 2, 3}
 	result := slices.JoinToString(sli, " + ")

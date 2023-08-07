@@ -18,5 +18,3 @@ func NewPipeline[I, O any](input <-chan I, fn PipelineCreationFunc[I, O]) *Pipel
 func (p Pipeline[I, O]) CollectAsSlice() []O {
 	return CollectAsSlice(p.end)
 }
-
-// TODO: Paged iterator.

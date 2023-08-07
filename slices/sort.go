@@ -39,6 +39,9 @@ func Sort[T any](input []T, fun SortFunc[T]) []T {
 	return inputCopy
 }
 
+// SortFieldExtractorFunc is a function which extracts a field from an element of a slice, returning a value which can
+// be compared to other values of the same type for the purposes of sorting. This can be used to sort a slice of structs
+// by one of the struct member fields.
 type SortFieldExtractorFunc[T any, S constraints.Ordered] func(T) S
 
 // SortByOrderedField orders the elements within the input slice using the sort function, and using a field which is
