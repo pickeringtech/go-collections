@@ -1,10 +1,35 @@
 package maps_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/maps"
 	"reflect"
 	"testing"
 )
+
+func ExampleUpdate() {
+	input := map[int]string{
+		1:  "one",
+		-1: "negative one",
+		0:  "zero",
+	}
+	update := map[int]string{
+		-1: "negative one",
+		0:  "zero",
+		10: "ten",
+	}
+	out := maps.Update(input, update)
+
+	for k, v := range out {
+		fmt.Printf("%v: %v\n", k, v)
+	}
+
+	// Unordered output:
+	// 1: one
+	// -1: negative one
+	// 0: zero
+	// 10: ten
+}
 
 func TestUpdate(t *testing.T) {
 	type args[K comparable, V any] struct {

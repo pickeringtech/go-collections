@@ -1,10 +1,20 @@
 package maps_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/maps"
 	"reflect"
 	"testing"
 )
+
+func ExampleFromKeys() {
+	keys := []int{1, 2, 3, 4, 5}
+	defaultVal := "default"
+	out := maps.FromKeys(keys, defaultVal)
+
+	fmt.Printf("result: %v", out[2])
+	// Output: result: default
+}
 
 func TestFromKeys(t *testing.T) {
 	type args[K comparable, V any] struct {

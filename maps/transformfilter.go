@@ -1,5 +1,7 @@
 package maps
 
+// FilterFunc is a function that takes a key and value and returns true if the entry should be included in the result
+// map.
 type FilterFunc[K comparable, V any] func(key K, value V) bool
 
 // Filter applies the provided FilterFunc to each entry in the input map, including the entry in the result map if the

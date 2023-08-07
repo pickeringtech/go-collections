@@ -1,5 +1,6 @@
 package maps
 
+// MapFunc is a function that takes a key and value and returns a new key and value.
 type MapFunc[K comparable, V any, OK comparable, OV any] func(key K, value V) (OK, OV)
 
 // Map takes each entry in the input map, transforming them using the provided mapping function, building a new map to

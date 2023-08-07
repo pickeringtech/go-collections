@@ -1,10 +1,25 @@
 package maps_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/maps"
 	"reflect"
 	"testing"
 )
+
+func ExampleFilter() {
+	input := map[int]string{
+		1:  "one",
+		-1: "negative one",
+		0:  "zero",
+	}
+	out := maps.Filter(input, func(key int, value string) bool {
+		return key > 0
+	})
+
+	fmt.Printf("result: %v", out)
+	// Output: result: map[1:one]
+}
 
 func TestFilter(t *testing.T) {
 	type args[K comparable, V any] struct {

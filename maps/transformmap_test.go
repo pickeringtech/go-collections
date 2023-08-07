@@ -1,10 +1,32 @@
 package maps_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/maps"
 	"reflect"
 	"testing"
 )
+
+func ExampleMap() {
+	input := map[int]string{
+		1:  "one",
+		2:  "two",
+		5:  "five",
+		-1: "negative one",
+	}
+	out := maps.Map(input, func(key int, value string) (string, int) {
+		return value, key
+	})
+
+	for k, v := range out {
+		fmt.Printf("%v %v\n", k, v)
+	}
+	// Unordered output:
+	// one 1
+	// two 2
+	// five 5
+	// negative one -1
+}
 
 func TestMap(t *testing.T) {
 	type args[K comparable, V any, OK comparable, OV any] struct {

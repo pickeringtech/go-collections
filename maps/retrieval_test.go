@@ -1,11 +1,23 @@
 package maps_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/maps"
 	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
+
+func ExampleClear() {
+	input := map[int]string{
+		1:  "one",
+		-1: "negative one",
+		10: "ten",
+	}
+	maps.Clear(input)
+	fmt.Printf("%v", input)
+	// Output: map[]
+}
 
 func TestClear(t *testing.T) {
 	type args[K comparable, V any] struct {
@@ -35,6 +47,18 @@ func TestClear(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleContainsValue() {
+	input := map[int]string{
+		1:  "one",
+		-1: "negative one",
+		10: "ten",
+	}
+	value := "negative one"
+	result := maps.ContainsValue(input, value)
+	fmt.Printf("result: %v", result)
+	// Output: result: true
 }
 
 func TestContainsValue(t *testing.T) {
@@ -91,6 +115,16 @@ func TestContainsValue(t *testing.T) {
 	}
 }
 
+func ExampleCopy() {
+	input := map[int]string{
+		1: "one",
+	}
+	output := maps.Copy(input)
+	maps.Clear(input)
+	fmt.Printf("%v", output)
+	// Output: map[1:one]
+}
+
 func TestCopy(t *testing.T) {
 	type args[K comparable, V any] struct {
 		input map[K]V
@@ -135,6 +169,18 @@ func TestCopy(t *testing.T) {
 	}
 }
 
+func ExampleGetMany() {
+	input := map[int]string{
+		1:  "one",
+		-1: "negative one",
+		10: "ten",
+	}
+
+	results := maps.GetMany(input, []int{1, 100, 10})
+	fmt.Printf("results: %v", results)
+	// Output: results: [one ten]
+}
+
 func TestGetMany(t *testing.T) {
 	type args[K comparable, V any] struct {
 		input map[K]V
@@ -175,6 +221,18 @@ func TestGetMany(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleGetManyOrDefault() {
+	input := map[int]string{
+		1:  "one",
+		-1: "negative one",
+		10: "ten",
+	}
+
+	results := maps.GetManyOrDefault(input, []int{1, 100, 10}, "missing")
+	fmt.Printf("results: %v", results)
+	// Output: results: [one missing ten]
 }
 
 func TestGetManyOrDefault(t *testing.T) {
@@ -220,6 +278,18 @@ func TestGetManyOrDefault(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleGetOrDefault() {
+	input := map[int]string{
+		1:  "one",
+		-1: "negative one",
+		10: "ten",
+	}
+
+	result := maps.GetOrDefault(input, -1, "missing")
+	fmt.Printf("result: %v", result)
+	// Output: result: negative one
 }
 
 func TestGetOrDefault(t *testing.T) {
@@ -280,6 +350,16 @@ func TestGetOrDefault(t *testing.T) {
 	}
 }
 
+func ExampleItems() {
+	input := map[int]string{
+		1: "one",
+	}
+
+	results := maps.Items(input)
+	fmt.Printf("results: %v", results)
+	// Output: results: [{1 one}]
+}
+
 func TestItems(t *testing.T) {
 	type args[K comparable, V any] struct {
 		input map[K]V
@@ -335,6 +415,16 @@ func TestItems(t *testing.T) {
 	}
 }
 
+func ExampleKeys() {
+	input := map[int]string{
+		1: "one",
+	}
+
+	results := maps.Keys(input)
+	fmt.Printf("results: %v", results)
+	// Output: results: [1]
+}
+
 func TestKeys(t *testing.T) {
 	type args[K comparable, V any] struct {
 		input map[K]V
@@ -373,6 +463,16 @@ func TestKeys(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleValues() {
+	input := map[int]string{
+		1: "one",
+	}
+
+	results := maps.Values(input)
+	fmt.Printf("results: %v", results)
+	// Output: results: [one]
 }
 
 func TestValues(t *testing.T) {
