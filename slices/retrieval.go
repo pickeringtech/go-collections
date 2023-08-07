@@ -82,6 +82,13 @@ func First[T any](input []T) (result T, ok bool) {
 	return
 }
 
+func Get[T any](input []T, index int, defaultValue T) T {
+	if index < 0 || index >= len(input) {
+		return defaultValue
+	}
+	return input[index]
+}
+
 // Includes determines whether the input slice contains the specified value.  If it does, a truthy boolean is returned.
 // Otherwise, a falsy boolean is returned.
 func Includes[T comparable](input []T, value T) bool {
@@ -101,6 +108,14 @@ func IndexOf[T comparable](input []T, value T) int {
 		}
 	}
 	return -1
+}
+
+func IsEmpty[T any](input []T) bool {
+	return len(input) == 0
+}
+
+func Length[T any](input []T) int {
+	return len(input)
 }
 
 // SubSlice provides a new slice containing the entries between the two indexes of the input slice (from is inclusive,

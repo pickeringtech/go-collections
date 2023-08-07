@@ -1,4 +1,4 @@
-package collections
+package lists
 
 type EachFunc[T any] func(element T)
 
