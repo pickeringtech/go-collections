@@ -8,6 +8,52 @@ import (
 	"testing"
 )
 
+func TestBuildMapFromEntries(t *testing.T) {
+	type args[K comparable, V any] struct {
+		entries []maps.Entry[K, V]
+	}
+	type testCase[K comparable, V any] struct {
+		name string
+		args args[K, V]
+		want map[K]V
+	}
+	tests := []testCase[string, int]{
+		{
+			name: "builds a map from the input entries",
+			args: args[string, int]{
+				entries: []maps.Entry[string, int]{
+					{
+						Key:   "hello",
+						Value: 10,
+					},
+					{
+						Key:   "world",
+						Value: 20,
+					},
+				},
+			},
+			want: map[string]int{
+				"hello": 10,
+				"world": 20,
+			},
+		},
+		{
+			name: "empty input produces empty output",
+			args: args[string, int]{
+				entries: []maps.Entry[string, int]{},
+			},
+			want: map[string]int{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := channels.BuildMapFromEntries(tt.args.entries); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("BuildMapFromEntries() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func ExampleCollectAsSlice() {
 	input := channels.FromSlice([]int{1, 2, 3, 4, 5})
 	mapOut := channels.Map(input, func(element int) int {
