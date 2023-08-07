@@ -5,7 +5,7 @@
 Go Collections is a zero dependency library of collections for Go, simplifying the use of common data structures as well
 as simplifying common pattern in Go, such as channel based Pipelines, Map/Reduce functionality, and more.
 
-Made with ♥ by Pickering Technologies - your Strategic Technology Partner.
+Made with ♥ by [Pickering Technologies - your Strategic Technology Partner.](https://www.picktech.co.uk)
 
 ## Why Use It?
 
