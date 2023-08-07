@@ -1,9 +1,24 @@
 package channels
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
+
+func ExampleMap() {
+	input := FromSlice([]string{"one", "two", "three", "four", "five"})
+	output := Map(input, func(s string) int {
+		return len(s)
+	})
+
+	// Capture results in a slice.
+	results := CollectAsSlice(output)
+
+	// Print results.
+	fmt.Printf("Results: %v", results)
+	// Output: Results: [3 3 5 4 4]
+}
 
 func TestMap(t *testing.T) {
 	type args[I any, O any] struct {

@@ -4,6 +4,8 @@ import (
 	"github.com/pickeringtech/go-collectionutil/maps"
 )
 
+// CollectAsSlice reads all elements from the input channel and returns them as a slice. This function will block until
+// the input channel is closed.
 func CollectAsSlice[T any](input <-chan T) []T {
 	var results []T
 	for el := range input {
@@ -12,8 +14,19 @@ func CollectAsSlice[T any](input <-chan T) []T {
 	return results
 }
 
+// MapBuilderFunc is a function which takes an input element and returns a maps.Entry, which is used to build a map.
 type MapBuilderFunc[I any, OK comparable, OV any] func(input I) maps.Entry[OK, OV]
 
+func BuildMapFromEntries[K comparable, V any](entries []maps.Entry[K, V]) map[K]V {
+	results := map[K]V{}
+	for _, entry := range entries {
+		results[entry.Key] = entry.Value
+	}
+	return results
+}
+
+// CollectAsMap reads all elements from the input channel and returns them as a map. This function will block until the
+// input channel is closed.
 func CollectAsMap[I any, OK comparable, OV any](input <-chan I, fn MapBuilderFunc[I, OK, OV]) map[OK]OV {
 	results := map[OK]OV{}
 	for el := range input {

@@ -1,12 +1,25 @@
 package channels_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/channels"
 	"github.com/pickeringtech/go-collectionutil/maps"
 	"github.com/pickeringtech/go-collectionutil/slices"
 	"reflect"
 	"testing"
 )
+
+func ExampleFromSlice() {
+	input := []int{1, 2, 5, 4, 3}
+	output := channels.FromSlice(input)
+
+	// Capture results in a slice.
+	results := channels.CollectAsSlice(output)
+
+	// Print results.
+	fmt.Printf("Results: %v", results)
+	// Output: Results: [1 2 5 4 3]
+}
 
 func TestFromSlice(t *testing.T) {
 	type args[T any] struct {
@@ -50,6 +63,28 @@ func TestFromSlice(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleFromMap() {
+	input := map[int]string{
+		1:  "one",
+		5:  "five",
+		2:  "two",
+		-1: "negative one",
+	}
+	output := channels.FromMap(input)
+
+	// Capture results in a slice.
+	results := channels.CollectAsSlice(output)
+
+	// Sort results.
+	results = slices.SortByOrderedField(results, slices.AscendingSortFunc[int], func(element maps.Entry[int, string]) int {
+		return element.Key
+	})
+
+	// Print results.
+	fmt.Printf("results: %v", results)
+	// Output: results: [{-1 negative one} {1 one} {2 two} {5 five}]
 }
 
 func TestFromMap(t *testing.T) {

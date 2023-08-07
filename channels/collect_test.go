@@ -1,11 +1,22 @@
 package channels_test
 
 import (
+	"fmt"
 	"github.com/pickeringtech/go-collectionutil/channels"
 	"github.com/pickeringtech/go-collectionutil/maps"
 	"reflect"
 	"testing"
 )
+
+func ExampleCollectAsSlice() {
+	input := channels.FromSlice([]int{1, 2, 3, 4, 5})
+	mapOut := channels.Map(input, func(element int) int {
+		return element * 2
+	})
+	output := channels.CollectAsSlice(mapOut)
+	fmt.Printf("result: %v", output)
+	// Output: result: [2 4 6 8 10]
+}
 
 func TestCollectAsSlice(t *testing.T) {
 	type args[T any] struct {
@@ -47,6 +58,18 @@ func TestCollectAsSlice(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleCollectAsMap() {
+	input := channels.FromSlice([]string{"hello", "generous", "and", "glorious", "world"})
+	output := channels.CollectAsMap(input, func(element string) maps.Entry[string, int] {
+		return maps.Entry[string, int]{
+			Key:   element,
+			Value: len(element),
+		}
+	})
+	fmt.Printf("result: %v", output)
+	// Output: result: map[and:3 generous:8 glorious:8 hello:5 world:5]
 }
 
 func TestCollectAsMap(t *testing.T) {

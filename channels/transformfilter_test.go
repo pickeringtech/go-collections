@@ -1,9 +1,24 @@
 package channels
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
+
+func ExampleFilter() {
+	input := FromSlice([]string{"hello", "everyone", "world", "goodness", "gracious"})
+	output := Filter(input, func(element string) bool {
+		return len(element) > 5
+	})
+
+	// Capture results in a slice.
+	results := CollectAsSlice(output)
+
+	// Print results.
+	fmt.Printf("Results: %v", results)
+	// Output: Results: [everyone goodness gracious]
+}
 
 func TestFilter(t *testing.T) {
 	type args[T any] struct {
