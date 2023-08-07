@@ -30,7 +30,7 @@ Check out the README files in each of the packages for examples of how to use th
 
 Run the following command at a terminal:
 ```bash
-go get github.com/rpickz/go-collections
+go get github.com/pickeringtech/go-collections
 ```
 
 ## License Information
