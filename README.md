@@ -1,4 +1,5 @@
 # Go Collections
+<a href="https://pkg.go.dev/github.com/pickeringtech/go-collections"><img src="https://img.shields.io/badge/api-reference-blue.svg?style=flat-square" alt="GoDoc"></a>
 
 ## What Is It?
 

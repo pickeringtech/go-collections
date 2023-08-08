@@ -86,23 +86,35 @@ func JoinToString[T any](input []T, separator string) string {
 }
 
 // Pop removes the last element from the input slice, returning it as well as the new, smaller slice.
-func Pop[T any](input []T) (lastElement T, newSlice []T) {
+func Pop[T any](input []T) (T, bool, []T) {
+	var lastElement T
 	if len(input) == 0 {
-		return
+		return lastElement, false, nil
 	}
+
 	lastElement = input[len(input)-1]
-	newSlice = input[:len(input)-1]
-	return
+
+	// If there's only one element, return a nil slice.
+	if len(input) == 1 {
+		return lastElement, true, nil
+	}
+
+	newSlice := input[:len(input)-1]
+	return lastElement, true, newSlice
 }
 
 // PopFront removes the first element from the input slice, returning it as well as the new, smaller slice.
-func PopFront[T any](input []T) (firstElement T, newSlice []T) {
+func PopFront[T any](input []T) (T, bool, []T) {
+	var firstElement T
 	if len(input) == 0 {
-		return
+		return firstElement, false, nil
 	}
 	firstElement = input[0]
-	newSlice = input[1:]
-	return
+	if len(input) == 1 {
+		return firstElement, true, nil
+	}
+	newSlice := input[1:]
+	return firstElement, true, newSlice
 }
 
 // Push adds new elements to the end of the input slice.

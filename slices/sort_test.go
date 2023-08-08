@@ -2,8 +2,8 @@ package slices_test
 
 import (
 	"fmt"
-	"github.com/pickeringtech/go-collectionutil/constraints"
-	"github.com/pickeringtech/go-collectionutil/slices"
+	"github.com/pickeringtech/go-collections/constraints"
+	"github.com/pickeringtech/go-collections/slices"
 	"reflect"
 	"testing"
 )
@@ -200,6 +200,57 @@ func TestSort(t *testing.T) {
 	}
 }
 
+func BenchmarkSort(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+		fn   slices.SortFunc[int]
+	}{
+		{
+			name: "3 elements desc",
+			sli:  []int{1, 2, 3},
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "10 elements desc",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "100 elements desc",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "1_000 elements desc",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "10_000 elements desc",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "100_000 elements desc",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "1_000_000 elements desc",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.Sort(bm.sli, bm.fn)
+			}
+		})
+	}
+}
+
 func ExampleSortInPlace() {
 	sli := []int{10, 2, -1, 1000, -10, 0, 1}
 
@@ -264,6 +315,57 @@ func TestSortInPlace(t *testing.T) {
 	}
 }
 
+func BenchmarkSortInPlace(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+		fn   slices.SortFunc[int]
+	}{
+		{
+			name: "3 elements desc",
+			sli:  []int{1, 2, 3},
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "10 elements desc",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "100 elements desc",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "1_000 elements desc",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "10_000 elements desc",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "100_000 elements desc",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+		{
+			name: "1_000_000 elements desc",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.DescendingSortFunc[int],
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				slices.SortInPlace(bm.sli, bm.fn)
+			}
+		})
+	}
+}
+
 func ExampleSortOrderedAsc() {
 	sli := []int{10, 2, -1, 1000, -10, 0, 1}
 
@@ -320,6 +422,49 @@ func TestSortOrderedAsc(t *testing.T) {
 	}
 }
 
+func BenchmarkSortOrderedAsc(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+	}{
+		{
+			name: "3 elements desc",
+			sli:  []int{1, 2, 3},
+		},
+		{
+			name: "10 elements desc",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100 elements desc",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000 elements desc",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "10_000 elements desc",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100_000 elements desc",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000_000 elements desc",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.SortOrderedAsc(bm.sli)
+			}
+		})
+	}
+}
+
 func ExampleSortOrderedAscInPlace() {
 	sli := []int{10, 2, -1, 1000, -10, 0, 1}
 
@@ -366,6 +511,49 @@ func TestSortOrderedAscInPlace(t *testing.T) {
 			slices.SortOrderedAscInPlace(tt.args.input)
 			if !reflect.DeepEqual(tt.args.input, tt.want) {
 				t.Errorf("SortAscInPlace() = %v, want %v", tt.args.input, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkSortOrderedAscInPlace(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+	}{
+		{
+			name: "3 elements desc",
+			sli:  []int{1, 2, 3},
+		},
+		{
+			name: "10 elements desc",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100 elements desc",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000 elements desc",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "10_000 elements desc",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100_000 elements desc",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000_000 elements desc",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				slices.SortOrderedAscInPlace(bm.sli)
 			}
 		})
 	}
@@ -427,6 +615,49 @@ func TestSortOrderedDesc(t *testing.T) {
 	}
 }
 
+func BenchmarkSortOrderedDesc(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+	}{
+		{
+			name: "3 elements desc",
+			sli:  []int{1, 2, 3},
+		},
+		{
+			name: "10 elements desc",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100 elements desc",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000 elements desc",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "10_000 elements desc",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100_000 elements desc",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000_000 elements desc",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.SortOrderedDesc(bm.sli)
+			}
+		})
+	}
+}
+
 func ExampleSortOrderedDescInPlace() {
 	sli := []int{10, 2, -1, 1000, -10, 0, 1}
 
@@ -474,6 +705,49 @@ func TestSortOrderedDescInPlace(t *testing.T) {
 			slices.SortOrderedDescInPlace(input)
 			if !reflect.DeepEqual(input, tt.want) {
 				t.Errorf("SortOrderedDescInPlace() = %v, want %v", input, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkSortOrderedDescInPlace(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+	}{
+		{
+			name: "3 elements desc",
+			sli:  []int{1, 2, 3},
+		},
+		{
+			name: "10 elements desc",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100 elements desc",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000 elements desc",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "10_000 elements desc",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100_000 elements desc",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000_000 elements desc",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				slices.SortOrderedDescInPlace(bm.sli)
 			}
 		})
 	}
@@ -570,6 +844,59 @@ func TestSortByOrderedField(t *testing.T) {
 			got := slices.SortByOrderedField[language, int](tt.args.input, tt.args.fun, tt.args.extractor)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("SortByOrderedField() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkSortByOrderedField(b *testing.B) {
+	type person struct {
+		age      int
+		shoeSize int
+	}
+
+	generator := func(index int) person {
+		return person{
+			age:      index,
+			shoeSize: index / 2,
+		}
+	}
+
+	benchmarks := []struct {
+		name string
+		sli  []person
+	}{
+		{
+			name: "10 elements desc",
+			sli:  slices.Generate(10, generator),
+		},
+		{
+			name: "100 elements desc",
+			sli:  slices.Generate(100, generator),
+		},
+		{
+			name: "1_000 elements desc",
+			sli:  slices.Generate(1_000, generator),
+		},
+		{
+			name: "10_000 elements desc",
+			sli:  slices.Generate(10_000, generator),
+		},
+		{
+			name: "100_000 elements desc",
+			sli:  slices.Generate(100_000, generator),
+		},
+		{
+			name: "1_000_000 elements desc",
+			sli:  slices.Generate(1_000_000, generator),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.SortByOrderedField(bm.sli, slices.DescendingSortFunc[int], func(p person) int {
+					return p.shoeSize
+				})
 			}
 		})
 	}

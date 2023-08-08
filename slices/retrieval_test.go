@@ -2,7 +2,7 @@ package slices_test
 
 import (
 	"fmt"
-	"github.com/pickeringtech/go-collectionutil/slices"
+	"github.com/pickeringtech/go-collections/slices"
 	"reflect"
 	"testing"
 )
@@ -85,6 +85,120 @@ func TestAllMatch(t *testing.T) {
 	}
 }
 
+func BenchmarkAllMatch(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+		fn   func(int) bool
+	}{
+		{
+			name: "3 elements all match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return i < 4
+			},
+		},
+		{
+			name: "10 elements all match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 10
+			},
+		},
+		{
+			name: "100 elements all match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 100
+			},
+		},
+		{
+			name: "1_000 elements all match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 1_000
+			},
+		},
+		{
+			name: "10_000 elements all match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 10_000
+			},
+		},
+		{
+			name: "100_000 elements all match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 100_000
+			},
+		},
+		{
+			name: "1_000_000 elements all match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 1_000_000
+			},
+		},
+		{
+			name: "3 elements half match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return i < 2
+			},
+		},
+		{
+			name: "10 elements half match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 5
+			},
+		},
+		{
+			name: "100 elements half match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 50
+			},
+		},
+		{
+			name: "1_000 elements half match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 500
+			},
+		},
+		{
+			name: "10_000 elements half match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 5_000
+			},
+		},
+		{
+			name: "100_000 elements half match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 50_000
+			},
+		},
+		{
+			name: "1_000_000 elements half match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i < 500_000
+			},
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				slices.AllMatch(bm.sli, bm.fn)
+			}
+		})
+	}
+}
+
 func ExampleAnyMatch() {
 	sli := []int{1, 2, 3, 4, 5}
 
@@ -161,6 +275,120 @@ func TestAnyMatch(t *testing.T) {
 	}
 }
 
+func BenchmarkAnyMatch(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+		fn   func(int) bool
+	}{
+		{
+			name: "3 elements with match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return i == 3
+			},
+		},
+		{
+			name: "10 elements with match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 9
+			},
+		},
+		{
+			name: "100 elements with match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 99
+			},
+		},
+		{
+			name: "1_000 elements with match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 999
+			},
+		},
+		{
+			name: "10_000 elements with match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 9_999
+			},
+		},
+		{
+			name: "100_000 elements with match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 99_999
+			},
+		},
+		{
+			name: "1_000_000 elements with match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 999_999
+			},
+		},
+		{
+			name: "3 elements no match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "10 elements no match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "100 elements no match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "1_000 elements no match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "10_000 elements no match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "100_000 elements no match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "1_000_000 elements no match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				slices.AnyMatch(bm.sli, bm.fn)
+			}
+		})
+	}
+}
+
 func ExampleFind() {
 	sli := []int{1, 2, 3, 4, 5}
 
@@ -225,6 +453,120 @@ func TestFind(t *testing.T) {
 			}
 			if gotOk != tt.wantOk {
 				t.Errorf("FindAny() gotOk = %v, want %v", gotOk, tt.wantOk)
+			}
+		})
+	}
+}
+
+func BenchmarkFind(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+		fn   func(i int) bool
+	}{
+		{
+			name: "3 elements with match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return i == 3
+			},
+		},
+		{
+			name: "10 elements with match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 9
+			},
+		},
+		{
+			name: "100 elements with match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 99
+			},
+		},
+		{
+			name: "1_000 elements with match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 999
+			},
+		},
+		{
+			name: "10_000 elements with match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 9_999
+			},
+		},
+		{
+			name: "100_000 elements with match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 99_999
+			},
+		},
+		{
+			name: "1_000_000 elements with match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 999_999
+			},
+		},
+		{
+			name: "3 elements no match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "10 elements no match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "100 elements no match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "1_000 elements no match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "10_000 elements no match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "100_000 elements no match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "1_000_000 elements no match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, _ = slices.Find(bm.sli, bm.fn)
 			}
 		})
 	}
@@ -302,6 +644,120 @@ func TestFindIndex(t *testing.T) {
 			got := slices.FindIndex(tt.args.input, tt.args.fun)
 			if got != tt.want {
 				t.Errorf("FindIndex() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkFindIndex(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+		fn   func(i int) bool
+	}{
+		{
+			name: "3 elements with match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return i == 3
+			},
+		},
+		{
+			name: "10 elements with match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 9
+			},
+		},
+		{
+			name: "100 elements with match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 99
+			},
+		},
+		{
+			name: "1_000 elements with match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 999
+			},
+		},
+		{
+			name: "10_000 elements with match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 9_999
+			},
+		},
+		{
+			name: "100_000 elements with match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 99_999
+			},
+		},
+		{
+			name: "1_000_000 elements with match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 999_999
+			},
+		},
+		{
+			name: "3 elements no match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "10 elements no match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "100 elements no match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "1_000 elements no match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "10_000 elements no match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "100_000 elements no match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "1_000_000 elements no match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.FindIndex(bm.sli, bm.fn)
 			}
 		})
 	}
@@ -388,6 +844,120 @@ func TestFindLast(t *testing.T) {
 	}
 }
 
+func BenchmarkFindLast(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+		fn   func(i int) bool
+	}{
+		{
+			name: "3 elements with match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return i == 1
+			},
+		},
+		{
+			name: "10 elements with match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "100 elements with match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "1_000 elements with match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "10_000 elements with match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "100_000 elements with match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "1_000_000 elements with match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "3 elements no match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "10 elements no match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "100 elements no match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "1_000 elements no match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "10_000 elements no match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "100_000 elements no match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "1_000_000 elements no match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, _ = slices.FindLast(bm.sli, bm.fn)
+			}
+		})
+	}
+}
+
 func ExampleFindLastIndex() {
 	sli := []int{1, 2, 3, 4, 5}
 
@@ -465,6 +1035,120 @@ func TestFindLastIndex(t *testing.T) {
 	}
 }
 
+func BenchmarkFindLastIndex(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+		fn   func(i int) bool
+	}{
+		{
+			name: "3 elements with match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return i == 1
+			},
+		},
+		{
+			name: "10 elements with match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "100 elements with match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "1_000 elements with match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "10_000 elements with match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "100_000 elements with match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "1_000_000 elements with match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return i == 0
+			},
+		},
+		{
+			name: "3 elements no match",
+			sli:  []int{1, 2, 3},
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "10 elements no match",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "100 elements no match",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "1_000 elements no match",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "10_000 elements no match",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "100_000 elements no match",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+		{
+			name: "1_000_000 elements no match",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn: func(i int) bool {
+				return false
+			},
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.FindLastIndex(bm.sli, bm.fn)
+			}
+		})
+	}
+}
+
 func ExampleFirst() {
 	sli := []int{1, 2, 3, 4, 5}
 
@@ -521,6 +1205,59 @@ func TestFirst(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkFirst(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+	}{
+		{
+			name: "3 elements",
+			sli:  []int{1, 2, 3},
+		},
+		{
+			name: "10 elements",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100 elements",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000 elements",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "10_000 elements",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100_000 elements",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000_000 elements",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, _ = slices.First(bm.sli)
+			}
+		})
+	}
+}
+
+func ExampleGet() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	firstElement := slices.Get(sli, 0, -1)
+	missingElement := slices.Get(sli, 10, -1)
+
+	fmt.Printf("first element: %v, missing element: %v", firstElement, missingElement)
+	// Output: first element: 1, missing element: -1
 }
 
 func TestGet(t *testing.T) {
@@ -590,6 +1327,65 @@ func TestGet(t *testing.T) {
 	}
 }
 
+func BenchmarkGet(b *testing.B) {
+	benchmarks := []struct {
+		name         string
+		sli          []int
+		index        int
+		defaultValue int
+	}{
+		{
+			name:         "3 elements",
+			sli:          []int{1, 2, 3},
+			index:        1,
+			defaultValue: -1,
+		},
+		{
+			name:         "10 elements",
+			sli:          slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			index:        5,
+			defaultValue: -1,
+		},
+		{
+			name:         "100 elements",
+			sli:          slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			index:        50,
+			defaultValue: -1,
+		},
+		{
+			name:         "1_000 elements",
+			sli:          slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			index:        500,
+			defaultValue: -1,
+		},
+		{
+			name:         "10_000 elements",
+			sli:          slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			index:        5_000,
+			defaultValue: -1,
+		},
+		{
+			name:         "100_000 elements",
+			sli:          slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			index:        50_000,
+			defaultValue: -1,
+		},
+		{
+			name:         "1_000_000 elements",
+			sli:          slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			index:        500_000,
+			defaultValue: -1,
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.Get(bm.sli, 0, bm.defaultValue)
+			}
+		})
+	}
+}
+
 func ExampleIncludes() {
 	sli := []int{1, 2, 3, 4, 5}
 
@@ -647,6 +1443,57 @@ func TestIncludes(t *testing.T) {
 			got := slices.Includes(tt.args.input, tt.args.value)
 			if got != tt.want {
 				t.Errorf("Includes() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkIncludes(b *testing.B) {
+	benchmarks := []struct {
+		name  string
+		sli   []int
+		value int
+	}{
+		{
+			name:  "3 elements",
+			sli:   []int{1, 2, 3},
+			value: 2,
+		},
+		{
+			name:  "10 elements",
+			sli:   slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			value: 5,
+		},
+		{
+			name:  "100 elements",
+			sli:   slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			value: 50,
+		},
+		{
+			name:  "1_000 elements",
+			sli:   slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			value: 500,
+		},
+		{
+			name:  "10_000 elements",
+			sli:   slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			value: 5_000,
+		},
+		{
+			name:  "100_000 elements",
+			sli:   slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			value: 50_000,
+		},
+		{
+			name:  "1_000_000 elements",
+			sli:   slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			value: 500_000,
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.Includes(bm.sli, bm.value)
 			}
 		})
 	}
@@ -715,6 +1562,57 @@ func TestIndexOf(t *testing.T) {
 	}
 }
 
+func BenchmarkIndexOf(b *testing.B) {
+	benchmarks := []struct {
+		name  string
+		sli   []int
+		value int
+	}{
+		{
+			name:  "3 elements",
+			sli:   []int{1, 2, 3},
+			value: 2,
+		},
+		{
+			name:  "10 elements",
+			sli:   slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			value: 5,
+		},
+		{
+			name:  "100 elements",
+			sli:   slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			value: 50,
+		},
+		{
+			name:  "1_000 elements",
+			sli:   slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			value: 500,
+		},
+		{
+			name:  "10_000 elements",
+			sli:   slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			value: 5_000,
+		},
+		{
+			name:  "100_000 elements",
+			sli:   slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			value: 50_000,
+		},
+		{
+			name:  "1_000_000 elements",
+			sli:   slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			value: 500_000,
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.IndexOf(bm.sli, bm.value)
+			}
+		})
+	}
+}
+
 func ExampleIsEmpty() {
 	sli := []int{1, 2, 3, 4, 5}
 
@@ -773,6 +1671,57 @@ func TestIsEmpty(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := slices.IsEmpty(tt.args.input); got != tt.want {
 				t.Errorf("IsEmpty() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkIsEmpty(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+	}{
+		{
+			name: "empty sli",
+			sli:  []int{},
+		},
+		{
+			name: "nil sli",
+			sli:  nil,
+		},
+		{
+			name: "3 elements",
+			sli:  []int{1, 2, 3},
+		},
+		{
+			name: "10 elements",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100 elements",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000 elements",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "10_000 elements",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100_000 elements",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000_000 elements",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.IsEmpty(bm.sli)
 			}
 		})
 	}
@@ -837,6 +1786,266 @@ func TestLength(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := slices.Length(tt.args.input); got != tt.want {
 				t.Errorf("Length() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkLength(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+	}{
+		{
+			name: "empty sli",
+			sli:  []int{},
+		},
+		{
+			name: "nil sli",
+			sli:  nil,
+		},
+		{
+			name: "3 elements",
+			sli:  []int{1, 2, 3},
+		},
+		{
+			name: "10 elements",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100 elements",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000 elements",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "10_000 elements",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100_000 elements",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000_000 elements",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.Length(bm.sli)
+			}
+		})
+	}
+}
+
+func ExamplePeekEnd() {
+	sli := []int{1, 2, 3, 4, 5}
+
+	lastElement, ok := slices.PeekEnd(sli)
+
+	fmt.Printf("last element: %v, ok: %v", lastElement, ok)
+	// Output: last element: 5, ok: true
+}
+
+func TestPeekEnd(t *testing.T) {
+	type args[T any] struct {
+		input []T
+	}
+	type testCase[T any] struct {
+		name            string
+		args            args[T]
+		wantLastElement T
+		wantOk          bool
+	}
+	tests := []testCase[int]{
+		{
+			name: "returns the last element",
+			args: args[int]{
+				input: []int{1, 2, 3, 4, 5},
+			},
+			wantLastElement: 5,
+			wantOk:          true,
+		},
+		{
+			name: "empty input returns nothing and falsy boolean",
+			args: args[int]{
+				input: []int{},
+			},
+			wantLastElement: 0,
+			wantOk:          false,
+		},
+		{
+			name: "nil input returns nothing and falsy boolean",
+			args: args[int]{
+				input: nil,
+			},
+			wantLastElement: 0,
+			wantOk:          false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotLastElement, gotOk := slices.PeekEnd(tt.args.input)
+			if !reflect.DeepEqual(gotLastElement, tt.wantLastElement) {
+				t.Errorf("PeekEnd() gotLastElement = %v, want %v", gotLastElement, tt.wantLastElement)
+			}
+			if gotOk != tt.wantOk {
+				t.Errorf("PeekEnd() gotOk = %v, want %v", gotOk, tt.wantOk)
+			}
+		})
+	}
+}
+
+func BenchmarkPeekEnd(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+	}{
+		{
+			name: "empty input",
+			sli:  []int{},
+		},
+		{
+			name: "nil input",
+			sli:  nil,
+		},
+		{
+			name: "3 elements",
+			sli:  []int{1, 2, 3},
+		},
+		{
+			name: "10 elements",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100 elements",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000 elements",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "10_000 elements",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100_000 elements",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000_000 elements",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, _ = slices.PeekEnd(bm.sli)
+			}
+		})
+	}
+}
+
+func TestPeekFront(t *testing.T) {
+	type args[T any] struct {
+		input []T
+	}
+	type testCase[T any] struct {
+		name            string
+		args            args[T]
+		wantLastElement T
+		wantOk          bool
+	}
+	tests := []testCase[int]{
+		{
+			name: "returns the last element",
+			args: args[int]{
+				input: []int{1, 2, 3, 4, 5},
+			},
+			wantLastElement: 1,
+			wantOk:          true,
+		},
+		{
+			name: "empty input returns nothing and falsy boolean",
+			args: args[int]{
+				input: []int{},
+			},
+			wantLastElement: 0,
+			wantOk:          false,
+		},
+		{
+			name: "nil input returns nothing and falsy boolean",
+			args: args[int]{
+				input: nil,
+			},
+			wantLastElement: 0,
+			wantOk:          false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotLastElement, gotOk := slices.PeekFront(tt.args.input)
+			if !reflect.DeepEqual(gotLastElement, tt.wantLastElement) {
+				t.Errorf("PeekEnd() gotLastElement = %v, want %v", gotLastElement, tt.wantLastElement)
+			}
+			if gotOk != tt.wantOk {
+				t.Errorf("PeekEnd() gotOk = %v, want %v", gotOk, tt.wantOk)
+			}
+		})
+	}
+}
+
+func BenchmarkPeekFront(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+	}{
+		{
+			name: "empty input",
+			sli:  []int{},
+		},
+		{
+			name: "nil input",
+			sli:  nil,
+		},
+		{
+			name: "3 elements",
+			sli:  []int{1, 2, 3},
+		},
+		{
+			name: "10 elements",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100 elements",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000 elements",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "10_000 elements",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100_000 elements",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000_000 elements",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_, _ = slices.PeekFront(bm.sli)
 			}
 		})
 	}
@@ -941,6 +2150,65 @@ func TestSubSlice(t *testing.T) {
 			got := slices.SubSlice(tt.args.input, tt.args.fromIndex, tt.args.toIndex)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("SubSlice() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkSubSlice(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+		from int
+		to   int
+	}{
+		{
+			name: "3 elements",
+			sli:  []int{1, 2, 3},
+			from: 1,
+			to:   2,
+		},
+		{
+			name: "10 elements",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			from: 3,
+			to:   8,
+		},
+		{
+			name: "100 elements",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			from: 30,
+			to:   80,
+		},
+		{
+			name: "1_000 elements",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			from: 300,
+			to:   800,
+		},
+		{
+			name: "10_000 elements",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			from: 3_000,
+			to:   8_000,
+		},
+		{
+			name: "100_000 elements",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			from: 30_000,
+			to:   80_000,
+		},
+		{
+			name: "1_000_000 elements",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			from: 300_000,
+			to:   800_000,
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.SubSlice(bm.sli, bm.from, bm.to)
 			}
 		})
 	}

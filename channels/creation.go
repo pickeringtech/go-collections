@@ -1,6 +1,6 @@
 package channels
 
-import "github.com/pickeringtech/go-collectionutil/maps"
+import "github.com/pickeringtech/go-collections/maps"
 
 // FromSlice converts a slice into a channel, writing them to the channel one-by-one. The channel will be closed after
 // all elements have been read.

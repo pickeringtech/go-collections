@@ -2,7 +2,7 @@ package constraints_test
 
 import (
 	"fmt"
-	"github.com/pickeringtech/go-collectionutil/constraints"
+	"github.com/pickeringtech/go-collections/constraints"
 )
 
 func ExampleOrdered() {

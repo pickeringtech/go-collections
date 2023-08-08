@@ -2,7 +2,7 @@ package slices_test
 
 import (
 	"fmt"
-	"github.com/pickeringtech/go-collectionutil/slices"
+	"github.com/pickeringtech/go-collections/slices"
 	"reflect"
 	"testing"
 )
@@ -64,6 +64,83 @@ func TestMap_StringToInt(t *testing.T) {
 			got := slices.Map(tt.args.input, tt.args.fun)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Map() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkMap(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []string
+		fn   slices.MapFunc[string, int]
+	}{
+		{
+			name: "3 elements",
+			sli:  []string{"a", "ab", "abc", "d"},
+			fn: func(element string) int {
+				return len(element)
+			},
+		},
+		{
+			name: "10 elements",
+			sli: slices.Generate(10, func(i int) string {
+				return "a"
+			}),
+			fn: func(element string) int {
+				return len(element)
+			},
+		},
+		{
+			name: "100 elements",
+			sli: slices.Generate(100, func(i int) string {
+				return "a"
+			}),
+			fn: func(element string) int {
+				return len(element)
+			},
+		},
+		{
+			name: "1_000 elements",
+			sli: slices.Generate(1_000, func(i int) string {
+				return "a"
+			}),
+			fn: func(element string) int {
+				return len(element)
+			},
+		},
+		{
+			name: "10_000 elements",
+			sli: slices.Generate(10_000, func(i int) string {
+				return "a"
+			}),
+			fn: func(element string) int {
+				return len(element)
+			},
+		},
+		{
+			name: "100_000 elements",
+			sli: slices.Generate(100_000, func(i int) string {
+				return "a"
+			}),
+			fn: func(element string) int {
+				return len(element)
+			},
+		},
+		{
+			name: "1_000_000 elements",
+			sli: slices.Generate(1_000_000, func(i int) string {
+				return "a"
+			}),
+			fn: func(element string) int {
+				return len(element)
+			},
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.Map(bm.sli, bm.fn)
 			}
 		})
 	}

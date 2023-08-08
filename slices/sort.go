@@ -1,7 +1,7 @@
 package slices
 
 import (
-	"github.com/pickeringtech/go-collectionutil/constraints"
+	"github.com/pickeringtech/go-collections/constraints"
 	"sort"
 )
 

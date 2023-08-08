@@ -2,8 +2,8 @@ package channels_test
 
 import (
 	"fmt"
-	"github.com/pickeringtech/go-collectionutil/channels"
-	"github.com/pickeringtech/go-collectionutil/maps"
+	"github.com/pickeringtech/go-collections/channels"
+	"github.com/pickeringtech/go-collections/maps"
 	"reflect"
 	"testing"
 )

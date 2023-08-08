@@ -2,7 +2,7 @@ package maps_test
 
 import (
 	"fmt"
-	"github.com/pickeringtech/go-collectionutil/maps"
+	"github.com/pickeringtech/go-collections/maps"
 	"reflect"
 	"testing"
 )

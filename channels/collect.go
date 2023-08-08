@@ -1,7 +1,7 @@
 package channels
 
 import (
-	"github.com/pickeringtech/go-collectionutil/maps"
+	"github.com/pickeringtech/go-collections/maps"
 )
 
 // BuildMapFromEntries takes a slice of maps.Entry and returns a map built from those entries.

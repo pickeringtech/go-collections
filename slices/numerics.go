@@ -1,6 +1,6 @@
 package slices
 
-import "github.com/pickeringtech/go-collectionutil/constraints"
+import "github.com/pickeringtech/go-collections/constraints"
 
 // NumericSlice represents a slice of numeric values. This type exposes some mathematical operations that can be
 // performed on such a slice.

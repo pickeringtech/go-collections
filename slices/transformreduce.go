@@ -1,6 +1,6 @@
 package slices
 
-import "github.com/pickeringtech/go-collectionutil/constraints"
+import "github.com/pickeringtech/go-collections/constraints"
 
 // ReductionFunc is a function that can be used to reduce a slice of values to a single value.
 type ReductionFunc[I, O any] func(accum O, currVal I) O

@@ -4,16 +4,21 @@ type Filterable[T any] interface {
 	Filter(fn func(T) bool) []T
 }
 
+type MutableFilterable[T any] interface {
+	FilterInPlace(fn func(T) bool)
+}
+
 type Indexable[T any] interface {
 	Get(index int, defaultValue T) T
 	Length() int
 }
 
 type Insertable[T any] interface {
-	Insert(index int, element T) []T
-	InsertAll(index int, elements []T) []T
-	InsertInPlace(index int, element T)
-	InsertAllInPlace(index int, elements []T)
+	Insert(index int, element ...T) []T
+}
+
+type MutableInsertable[T any] interface {
+	InsertInPlace(index int, element ...T)
 }
 
 type Iterable[T any] interface {
@@ -21,8 +26,25 @@ type Iterable[T any] interface {
 	ForEachWithIndex(fn IndexedEachFunc[T])
 }
 
-type Mappable[I, O any] interface {
-	Map(fn func(I) O) []O
+type List[T any] interface {
+	Filterable[T]
+	Indexable[T]
+	Insertable[T]
+	Iterable[T]
+	Searchable[T]
+	Sortable[T]
+	Stack[T]
+	Queue[T]
+	GetAsSlice() []T
+}
+
+type MutableList[T any] interface {
+	List[T]
+	MutableFilterable[T]
+	MutableInsertable[T]
+	MutableSortable[T]
+	MutableStack[T]
+	MutableQueue[T]
 }
 
 type Searchable[T any] interface {
@@ -37,6 +59,28 @@ type Sortable[T any] interface {
 	SortInPlace(fn func(T, T) bool)
 }
 
-type Reducible[I, O any] interface {
-	Reduce(fn func(O, I) O, initial O) O
+type MutableSortable[T any] interface {
+	SortInPlace(fn func(T, T) bool)
+}
+
+type Stack[T any] interface {
+	Push(element T) []T
+	Pop() (T, bool, []T)
+	PeekEnd() (T, bool)
+}
+
+type MutableStack[T any] interface {
+	PushInPlace(element T)
+	PopInPlace() (T, bool)
+}
+
+type Queue[T any] interface {
+	Enqueue(element T) []T
+	Dequeue() (T, bool, []T)
+	PeekFront() (T, bool)
+}
+
+type MutableQueue[T any] interface {
+	EnqueueInPlace(element T)
+	DequeueInPlace() (T, bool)
 }

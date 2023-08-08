@@ -9,14 +9,14 @@ import (
 	"testing"
 )
 
-func ExampleArray_AllMatch() {
-	a := lists.NewArray(3, 4)
+func ExampleConcurrentRWArray_AllMatch() {
+	a := lists.NewConcurrentRWArray(3, 4)
 	match := a.AllMatch(func(a int) bool {
 		return a > 2 && a < 5
 	})
 	fmt.Printf("Matches 1: %v\n", match)
 
-	a = lists.NewArray(2, 3, 4)
+	a = lists.NewConcurrentRWArray(2, 3, 4)
 	match = a.AllMatch(func(a int) bool {
 		return a > 2 && a < 5
 	})
@@ -27,20 +27,20 @@ func ExampleArray_AllMatch() {
 	// Matches 2: false
 }
 
-func TestArray_AllMatch(t *testing.T) {
+func TestConcurrentRWArray_AllMatch(t *testing.T) {
 	type args[T any] struct {
 		fn func(T) bool
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want bool
 	}
 	tests := []testCase[int]{
 		{
 			name: "all matches",
-			a:    lists.NewArray(3, 4),
+			a:    lists.NewConcurrentRWArray(3, 4),
 			args: args[int]{
 				fn: func(a int) bool {
 					return a > 2 && a < 5
@@ -50,7 +50,7 @@ func TestArray_AllMatch(t *testing.T) {
 		},
 		{
 			name: "do not all match",
-			a:    lists.NewArray(2, 3, 4),
+			a:    lists.NewConcurrentRWArray(2, 3, 4),
 			args: args[int]{
 				fn: func(a int) bool {
 					return a > 2 && a < 5
@@ -60,7 +60,7 @@ func TestArray_AllMatch(t *testing.T) {
 		},
 		{
 			name: "empty input provides true",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: func(a int) bool {
 					return a > 2 && a < 5
@@ -79,15 +79,15 @@ func TestArray_AllMatch(t *testing.T) {
 	}
 }
 
-func ExampleArray_AnyMatch() {
-	arr := lists.NewArray(4, 5, 3, 1, 2)
+func ExampleConcurrentRWArray_AnyMatch() {
+	arr := lists.NewConcurrentRWArray(4, 5, 3, 1, 2)
 
 	match := arr.AnyMatch(func(a int) bool {
 		return a == 3
 	})
 	fmt.Printf("Matches 1: %v\n", match)
 
-	arr = lists.NewArray(4, 5, 1, 2)
+	arr = lists.NewConcurrentRWArray(4, 5, 1, 2)
 	match = arr.AnyMatch(func(a int) bool {
 		return a == 3
 	})
@@ -98,20 +98,20 @@ func ExampleArray_AnyMatch() {
 	// Matches 2: false
 }
 
-func TestArray_AnyMatch(t *testing.T) {
+func TestConcurrentRWArray_AnyMatch(t *testing.T) {
 	type args[T any] struct {
 		fn func(T) bool
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want bool
 	}
 	tests := []testCase[int]{
 		{
 			name: "matches with first element",
-			a:    lists.NewArray(3, 4, 5, 1, 2),
+			a:    lists.NewConcurrentRWArray(3, 4, 5, 1, 2),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i == 3
@@ -121,7 +121,7 @@ func TestArray_AnyMatch(t *testing.T) {
 		},
 		{
 			name: "matches with last element",
-			a:    lists.NewArray(4, 5, 1, 2, 3),
+			a:    lists.NewConcurrentRWArray(4, 5, 1, 2, 3),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i == 3
@@ -131,7 +131,7 @@ func TestArray_AnyMatch(t *testing.T) {
 		},
 		{
 			name: "matches with middle element",
-			a:    lists.NewArray(4, 5, 3, 1, 2),
+			a:    lists.NewConcurrentRWArray(4, 5, 3, 1, 2),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i == 3
@@ -141,7 +141,7 @@ func TestArray_AnyMatch(t *testing.T) {
 		},
 		{
 			name: "no match",
-			a:    lists.NewArray(4, 5, 1, 2),
+			a:    lists.NewConcurrentRWArray(4, 5, 1, 2),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i == 3
@@ -151,7 +151,7 @@ func TestArray_AnyMatch(t *testing.T) {
 		},
 		{
 			name: "empty input provides false",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i == 3
@@ -169,8 +169,8 @@ func TestArray_AnyMatch(t *testing.T) {
 	}
 }
 
-func ExampleArray_Dequeue() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_Dequeue() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	first, ok, rest := arr.Dequeue()
 	fmt.Printf("First: %v\n", first)
@@ -183,10 +183,10 @@ func ExampleArray_Dequeue() {
 	// Rest: [2 3 4 5]
 }
 
-func TestArray_Dequeue(t *testing.T) {
+func TestConcurrentRWArray_Dequeue(t *testing.T) {
 	type testCase[T any] struct {
 		name    string
-		a       *lists.Array[T]
+		a       *lists.ConcurrentRWArray[T]
 		want    T
 		wantOK  bool
 		wantSli []T
@@ -194,21 +194,21 @@ func TestArray_Dequeue(t *testing.T) {
 	tests := []testCase[int]{
 		{
 			name:    "dequeues first element",
-			a:       lists.NewArray[int](1, 2, 3, 4, 5),
+			a:       lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			want:    1,
 			wantOK:  true,
 			wantSli: []int{2, 3, 4, 5},
 		},
 		{
 			name:    "dequeueing last element returns true, but nil slice",
-			a:       lists.NewArray[int](1),
+			a:       lists.NewConcurrentRWArray[int](1),
 			want:    1,
 			wantOK:  true,
 			wantSli: nil,
 		},
 		{
 			name:    "dequeueing empty input returns false, and nil slice",
-			a:       lists.NewArray[int](),
+			a:       lists.NewConcurrentRWArray[int](),
 			want:    0,
 			wantOK:  false,
 			wantSli: nil,
@@ -230,10 +230,10 @@ func TestArray_Dequeue(t *testing.T) {
 	}
 }
 
-func TestArray_DequeueInPlace(t *testing.T) {
+func TestConcurrentRWArray_DequeueInPlace(t *testing.T) {
 	type testCase[T any] struct {
 		name     string
-		a        *lists.Array[T]
+		a        *lists.ConcurrentRWArray[T]
 		wantVal  T
 		wantOK   bool
 		wantRest []T
@@ -241,21 +241,21 @@ func TestArray_DequeueInPlace(t *testing.T) {
 	tests := []testCase[int]{
 		{
 			name:     "dequeues first element",
-			a:        lists.NewArray[int](1, 2, 3, 4, 5),
+			a:        lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			wantVal:  1,
 			wantOK:   true,
 			wantRest: []int{2, 3, 4, 5},
 		},
 		{
 			name:     "dequeueing last element returns true, but nil slice",
-			a:        lists.NewArray[int](1),
+			a:        lists.NewConcurrentRWArray[int](1),
 			wantVal:  1,
 			wantOK:   true,
 			wantRest: nil,
 		},
 		{
 			name:     "dequeueing empty input returns false, and nil slice",
-			a:        lists.NewArray[int](),
+			a:        lists.NewConcurrentRWArray[int](),
 			wantVal:  0,
 			wantOK:   false,
 			wantRest: nil,
@@ -278,38 +278,38 @@ func TestArray_DequeueInPlace(t *testing.T) {
 	}
 }
 
-func ExampleArray_Enqueue() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_Enqueue() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	arr.Enqueue(10)
-	fmt.Printf("Array: %v\n", arr.GetAsSlice())
+	fmt.Printf("ConcurrentRWArray: %v\n", arr.GetAsSlice())
 
 	// Output:
-	// Array: [1 2 3 4 5]
+	// ConcurrentRWArray: [1 2 3 4 5]
 }
 
-func TestArray_Enqueue(t *testing.T) {
+func TestConcurrentRWArray_Enqueue(t *testing.T) {
 	type args[T any] struct {
 		element T
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want []T
 	}
 	tests := []testCase[int]{
 		{
-			name: "adds element to end of array",
-			a:    lists.NewArray(1, 2, 3, 4, 5),
+			name: "adds element to end of ConcurrentRWArray",
+			a:    lists.NewConcurrentRWArray(1, 2, 3, 4, 5),
 			args: args[int]{
 				element: 10,
 			},
 			want: []int{1, 2, 3, 4, 5, 10},
 		},
 		{
-			name: "adding to empty array works",
-			a:    lists.NewArray[int](),
+			name: "adding to empty ConcurrentRWArray works",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				element: 10,
 			},
@@ -326,28 +326,28 @@ func TestArray_Enqueue(t *testing.T) {
 	}
 }
 
-func TestArray_EnqueueInPlace(t *testing.T) {
+func TestConcurrentRWArray_EnqueueInPlace(t *testing.T) {
 	type args[T any] struct {
 		element T
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want []T
 	}
 	tests := []testCase[int]{
 		{
-			name: "adds element to end of array",
-			a:    lists.NewArray(1, 2, 3, 4, 5),
+			name: "adds element to end of ConcurrentRWArray",
+			a:    lists.NewConcurrentRWArray(1, 2, 3, 4, 5),
 			args: args[int]{
 				element: 10,
 			},
 			want: []int{1, 2, 3, 4, 5, 10},
 		},
 		{
-			name: "adding to empty array works",
-			a:    lists.NewArray[int](),
+			name: "adding to empty ConcurrentRWArray works",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				element: 10,
 			},
@@ -366,32 +366,32 @@ func TestArray_EnqueueInPlace(t *testing.T) {
 	}
 }
 
-func ExampleArray_Filter() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_Filter() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	out := arr.Filter(func(i int) bool {
 		return i > 2 && i < 5
 	})
-	fmt.Printf("Array: %v\n", out)
+	fmt.Printf("ConcurrentRWArray: %v\n", out)
 
 	// Output:
-	// Array: [3 4]
+	// ConcurrentRWArray: [3 4]
 }
 
-func TestArray_Filter(t *testing.T) {
+func TestConcurrentRWArray_Filter(t *testing.T) {
 	type args[T any] struct {
 		fn func(T) bool
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want []T
 	}
 	tests := []testCase[int]{
 		{
 			name: "filters out values outside range",
-			a:    lists.NewArray(1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray(1, 2, 3, 4, 5),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i > 2 && i < 5
@@ -401,7 +401,7 @@ func TestArray_Filter(t *testing.T) {
 		},
 		{
 			name: "empty input provides nil output",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i > 2 && i < 5
@@ -420,20 +420,20 @@ func TestArray_Filter(t *testing.T) {
 	}
 }
 
-func TestArray_FilterInPlace(t *testing.T) {
+func TestConcurrentRWArray_FilterInPlace(t *testing.T) {
 	type args[T any] struct {
 		fn func(T) bool
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want []T
 	}
 	tests := []testCase[int]{
 		{
 			name: "filters out values outside range",
-			a:    lists.NewArray(1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray(1, 2, 3, 4, 5),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i > 2 && i < 5
@@ -443,7 +443,7 @@ func TestArray_FilterInPlace(t *testing.T) {
 		},
 		{
 			name: "empty input provides nil output",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i > 2 && i < 5
@@ -464,8 +464,8 @@ func TestArray_FilterInPlace(t *testing.T) {
 	}
 }
 
-func ExampleArray_Find() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_Find() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	out, ok := arr.Find(func(i int) bool {
 		return i == 3
@@ -476,13 +476,13 @@ func ExampleArray_Find() {
 	// Found: 3, true
 }
 
-func TestArray_Find(t *testing.T) {
+func TestConcurrentRWArray_Find(t *testing.T) {
 	type args[T any] struct {
 		fn func(T) bool
 	}
 	type testCase[T any] struct {
 		name   string
-		a      *lists.Array[T]
+		a      *lists.ConcurrentRWArray[T]
 		args   args[T]
 		want   T
 		wantOK bool
@@ -490,7 +490,7 @@ func TestArray_Find(t *testing.T) {
 	tests := []testCase[int]{
 		{
 			name: "finds first element",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i == 1
@@ -501,7 +501,7 @@ func TestArray_Find(t *testing.T) {
 		},
 		{
 			name: "finds last element",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i == 5
@@ -512,7 +512,7 @@ func TestArray_Find(t *testing.T) {
 		},
 		{
 			name: "does not find element",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: func(i int) bool {
 					return false
@@ -523,7 +523,7 @@ func TestArray_Find(t *testing.T) {
 		},
 		{
 			name: "empty input triggers not found",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: func(i int) bool {
 					return true
@@ -546,8 +546,8 @@ func TestArray_Find(t *testing.T) {
 	}
 }
 
-func ExampleArray_FindIndex() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_FindIndex() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	out := arr.FindIndex(func(i int) bool {
 		return i == 3
@@ -558,20 +558,20 @@ func ExampleArray_FindIndex() {
 	// Index: 2
 }
 
-func TestArray_FindIndex(t *testing.T) {
+func TestConcurrentRWArray_FindIndex(t *testing.T) {
 	type args[T any] struct {
 		fn func(T) bool
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want int
 	}
 	tests := []testCase[int]{
 		{
 			name: "finds first element",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i == 1
@@ -581,7 +581,7 @@ func TestArray_FindIndex(t *testing.T) {
 		},
 		{
 			name: "finds last element",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i == 5
@@ -591,7 +591,7 @@ func TestArray_FindIndex(t *testing.T) {
 		},
 		{
 			name: "does not find element",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: func(i int) bool {
 					return false
@@ -601,7 +601,7 @@ func TestArray_FindIndex(t *testing.T) {
 		},
 		{
 			name: "empty input triggers not found",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: func(i int) bool {
 					return true
@@ -619,8 +619,8 @@ func TestArray_FindIndex(t *testing.T) {
 	}
 }
 
-func ExampleArray_ForEach() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_ForEach() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	arr.ForEach(func(element int) {
 		fmt.Printf("%v\n", element)
@@ -634,21 +634,21 @@ func ExampleArray_ForEach() {
 	// 5
 }
 
-func TestArray_ForEach(t *testing.T) {
+func TestConcurrentRWArray_ForEach(t *testing.T) {
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		want []int
 	}
 	tests := []testCase[int]{
 		{
 			name: "iterates over each element in order",
-			a:    lists.NewArray(1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray(1, 2, 3, 4, 5),
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
 			name: "does not iterate over empty input",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			want: nil,
 		},
 	}
@@ -667,8 +667,8 @@ func TestArray_ForEach(t *testing.T) {
 	}
 }
 
-func ExampleArray_ForEachWithIndex() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_ForEachWithIndex() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	arr.ForEachWithIndex(func(index int, element int) {
 		fmt.Printf("%v: %v\n", index, element)
@@ -682,16 +682,16 @@ func ExampleArray_ForEachWithIndex() {
 	// 4: 5
 }
 
-func TestArray_ForEachWithIndex(t *testing.T) {
+func TestConcurrentRWArray_ForEachWithIndex(t *testing.T) {
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		want []maps.Entry[int, int]
 	}
 	tests := []testCase[int]{
 		{
 			name: "iterates over each element in order",
-			a:    lists.NewArray(1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray(1, 2, 3, 4, 5),
 			want: []maps.Entry[int, int]{
 				{Key: 0, Value: 1},
 				{Key: 1, Value: 2},
@@ -702,7 +702,7 @@ func TestArray_ForEachWithIndex(t *testing.T) {
 		},
 		{
 			name: "does not iterate over empty input",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			want: nil,
 		},
 	}
@@ -721,8 +721,8 @@ func TestArray_ForEachWithIndex(t *testing.T) {
 	}
 }
 
-func ExampleArray_Get() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_Get() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	fmt.Printf("%v\n", arr.Get(2, -1))
 	fmt.Printf("%v\n", arr.Get(-1, -1))
@@ -732,21 +732,21 @@ func ExampleArray_Get() {
 	// -1
 }
 
-func TestArray_Get(t *testing.T) {
+func TestConcurrentRWArray_Get(t *testing.T) {
 	type args[T any] struct {
 		index        int
 		defaultValue T
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want T
 	}
 	tests := []testCase[int]{
 		{
 			name: "retrieves element at index",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				index:        2,
 				defaultValue: -1,
@@ -755,7 +755,7 @@ func TestArray_Get(t *testing.T) {
 		},
 		{
 			name: "returns default at index -1",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				index:        -1,
 				defaultValue: -1,
@@ -764,7 +764,7 @@ func TestArray_Get(t *testing.T) {
 		},
 		{
 			name: "returns default at index 5",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				index:        5,
 				defaultValue: -1,
@@ -773,7 +773,7 @@ func TestArray_Get(t *testing.T) {
 		},
 		{
 			name: "returns default for empty input",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:        0,
 				defaultValue: -1,
@@ -791,8 +791,8 @@ func TestArray_Get(t *testing.T) {
 	}
 }
 
-func ExampleArray_GetAsSlice() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_GetAsSlice() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	fmt.Printf("%v\n", arr.GetAsSlice())
 
@@ -800,21 +800,21 @@ func ExampleArray_GetAsSlice() {
 	// [1 2 3 4 5]
 }
 
-func TestArray_GetAsSlice(t *testing.T) {
+func TestConcurrentRWArray_GetAsSlice(t *testing.T) {
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		want []T
 	}
 	tests := []testCase[int]{
 		{
 			name: "converts input to slice",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
 			name: "empty input provides nil output",
-			a:    lists.NewArray[int](),
+			a:    lists.NewConcurrentRWArray[int](),
 			want: nil,
 		},
 	}
@@ -828,8 +828,8 @@ func TestArray_GetAsSlice(t *testing.T) {
 	}
 }
 
-func ExampleArray_Insert() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_Insert() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	out := arr.Insert(2, 6, 7, 8)
 
@@ -839,21 +839,21 @@ func ExampleArray_Insert() {
 	// [1 2 6 7 8 3 4 5]
 }
 
-func TestArray_Insert(t *testing.T) {
+func TestConcurrentRWArray_Insert(t *testing.T) {
 	type args[T any] struct {
 		index    int
 		elements []T
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want []T
 	}
 	tests := []testCase[int]{
 		{
 			name: "inserts elements at specified index",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				index:    2,
 				elements: []int{6, 7, 8},
@@ -862,7 +862,7 @@ func TestArray_Insert(t *testing.T) {
 		},
 		{
 			name: "inserting empty elements slice does nothing",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				index:    2,
 				elements: []int{},
@@ -871,7 +871,7 @@ func TestArray_Insert(t *testing.T) {
 		},
 		{
 			name: "inserting nil elements slice does nothing",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				index:    2,
 				elements: nil,
@@ -879,8 +879,8 @@ func TestArray_Insert(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "inserting into empty array yields nil output",
-			a:    lists.NewArray[int](),
+			name: "inserting into empty ConcurrentRWArray yields nil output",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    0,
 				elements: []int{6, 7, 8},
@@ -888,8 +888,8 @@ func TestArray_Insert(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "empty array and empty elements slice yields nil output",
-			a:    lists.NewArray[int](),
+			name: "empty ConcurrentRWArray and empty elements slice yields nil output",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    2,
 				elements: []int{},
@@ -897,8 +897,8 @@ func TestArray_Insert(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "empty array and nil elements slice yields nil output",
-			a:    lists.NewArray[int](),
+			name: "empty ConcurrentRWArray and nil elements slice yields nil output",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    2,
 				elements: nil,
@@ -916,21 +916,21 @@ func TestArray_Insert(t *testing.T) {
 	}
 }
 
-func TestArray_InsertInPlace(t *testing.T) {
+func TestConcurrentRWArray_InsertInPlace(t *testing.T) {
 	type args[T any] struct {
 		index    int
 		elements []T
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want []T
 	}
 	tests := []testCase[int]{
 		{
 			name: "inserts elements at specified index",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				index:    2,
 				elements: []int{6, 7, 8},
@@ -939,7 +939,7 @@ func TestArray_InsertInPlace(t *testing.T) {
 		},
 		{
 			name: "inserting empty elements slice does nothing",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				index:    2,
 				elements: []int{},
@@ -948,7 +948,7 @@ func TestArray_InsertInPlace(t *testing.T) {
 		},
 		{
 			name: "inserting nil elements slice does nothing",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				index:    2,
 				elements: nil,
@@ -956,8 +956,8 @@ func TestArray_InsertInPlace(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "inserting into empty array yields nil output",
-			a:    lists.NewArray[int](),
+			name: "inserting into empty ConcurrentRWArray yields nil output",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    0,
 				elements: []int{6, 7, 8},
@@ -965,8 +965,8 @@ func TestArray_InsertInPlace(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "empty array and empty elements slice yields nil output",
-			a:    lists.NewArray[int](),
+			name: "empty ConcurrentRWArray and empty elements slice yields nil output",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    2,
 				elements: []int{},
@@ -974,8 +974,8 @@ func TestArray_InsertInPlace(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "empty array and nil elements slice yields nil output",
-			a:    lists.NewArray[int](),
+			name: "empty ConcurrentRWArray and nil elements slice yields nil output",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    2,
 				elements: nil,
@@ -995,8 +995,8 @@ func TestArray_InsertInPlace(t *testing.T) {
 	}
 }
 
-func ExampleArray_Length() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_Length() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	fmt.Printf("%v\n", arr.Length())
 
@@ -1004,21 +1004,21 @@ func ExampleArray_Length() {
 	// 5
 }
 
-func TestArray_Length(t *testing.T) {
+func TestConcurrentRWArray_Length(t *testing.T) {
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		want int
 	}
 	tests := []testCase[int]{
 		{
 			name: "counts 5 elements",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			want: 5,
 		},
 		{
-			name: "empty array has length 0",
-			a:    lists.NewArray[int](),
+			name: "empty ConcurrentRWArray has length 0",
+			a:    lists.NewConcurrentRWArray[int](),
 			want: 0,
 		},
 	}
@@ -1032,8 +1032,8 @@ func TestArray_Length(t *testing.T) {
 	}
 }
 
-func ExampleArray_PeekEnd() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_PeekEnd() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	out, ok := arr.PeekEnd()
 
@@ -1043,23 +1043,23 @@ func ExampleArray_PeekEnd() {
 	// 5, true
 }
 
-func TestArray_PeekEnd(t *testing.T) {
+func TestConcurrentRWArray_PeekEnd(t *testing.T) {
 	type testCase[T any] struct {
 		name   string
-		a      *lists.Array[T]
+		a      *lists.ConcurrentRWArray[T]
 		want   T
 		wantOK bool
 	}
 	tests := []testCase[int]{
 		{
 			name:   "peeks last element",
-			a:      lists.NewArray(1, 2, 3, 4, 5),
+			a:      lists.NewConcurrentRWArray(1, 2, 3, 4, 5),
 			want:   5,
 			wantOK: true,
 		},
 		{
-			name:   "empty array yields nil output and false ok",
-			a:      lists.NewArray[int](),
+			name:   "empty ConcurrentRWArray yields nil output and false ok",
+			a:      lists.NewConcurrentRWArray[int](),
 			want:   0,
 			wantOK: false,
 		},
@@ -1077,8 +1077,8 @@ func TestArray_PeekEnd(t *testing.T) {
 	}
 }
 
-func ExampleArray_PeekFront() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_PeekFront() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	out, ok := arr.PeekFront()
 
@@ -1088,23 +1088,23 @@ func ExampleArray_PeekFront() {
 	// 1, true
 }
 
-func TestArray_PeekFront(t *testing.T) {
+func TestConcurrentRWArray_PeekFront(t *testing.T) {
 	type testCase[T any] struct {
 		name   string
-		a      *lists.Array[T]
+		a      *lists.ConcurrentRWArray[T]
 		want   T
 		wantOK bool
 	}
 	tests := []testCase[int]{
 		{
-			name:   "peeks start of array",
-			a:      lists.NewArray(1, 2, 3, 4, 5),
+			name:   "peeks start of ConcurrentRWArray",
+			a:      lists.NewConcurrentRWArray(1, 2, 3, 4, 5),
 			want:   1,
 			wantOK: true,
 		},
 		{
-			name:   "empty array yields nil output and false ok",
-			a:      lists.NewArray[int](),
+			name:   "empty ConcurrentRWArray yields nil output and false ok",
+			a:      lists.NewConcurrentRWArray[int](),
 			want:   0,
 			wantOK: false,
 		},
@@ -1122,8 +1122,8 @@ func TestArray_PeekFront(t *testing.T) {
 	}
 }
 
-func ExampleArray_Pop() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_Pop() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	out, ok, outSli := arr.Pop()
 
@@ -1133,10 +1133,10 @@ func ExampleArray_Pop() {
 	// 5, true, [1 2 3 4]
 }
 
-func TestArray_Pop(t *testing.T) {
+func TestConcurrentRWArray_Pop(t *testing.T) {
 	type testCase[T any] struct {
 		name    string
-		a       *lists.Array[T]
+		a       *lists.ConcurrentRWArray[T]
 		want    T
 		wantOK  bool
 		wantSli []T
@@ -1144,14 +1144,14 @@ func TestArray_Pop(t *testing.T) {
 	tests := []testCase[int]{
 		{
 			name:    "pops last element",
-			a:       lists.NewArray[int](1, 2, 3, 4, 5),
+			a:       lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			want:    5,
 			wantOK:  true,
 			wantSli: []int{1, 2, 3, 4},
 		},
 		{
-			name:    "empty array yields zero value output and nil slice",
-			a:       lists.NewArray[int](),
+			name:    "empty ConcurrentRWArray yields zero value output and nil slice",
+			a:       lists.NewConcurrentRWArray[int](),
 			want:    0,
 			wantOK:  false,
 			wantSli: nil,
@@ -1173,10 +1173,10 @@ func TestArray_Pop(t *testing.T) {
 	}
 }
 
-func TestArray_PopInPlace(t *testing.T) {
+func TestConcurrentRWArray_PopInPlace(t *testing.T) {
 	type testCase[T any] struct {
 		name     string
-		a        *lists.Array[T]
+		a        *lists.ConcurrentRWArray[T]
 		wantVal  T
 		wantOK   bool
 		wantRest []T
@@ -1184,14 +1184,14 @@ func TestArray_PopInPlace(t *testing.T) {
 	tests := []testCase[int]{
 		{
 			name:     "pops last element",
-			a:        lists.NewArray[int](1, 2, 3, 4, 5),
+			a:        lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			wantVal:  5,
 			wantOK:   true,
 			wantRest: []int{1, 2, 3, 4},
 		},
 		{
-			name:     "empty array yields zero value output and nil slice",
-			a:        lists.NewArray[int](),
+			name:     "empty ConcurrentRWArray yields zero value output and nil slice",
+			a:        lists.NewConcurrentRWArray[int](),
 			wantVal:  0,
 			wantOK:   false,
 			wantRest: nil,
@@ -1214,8 +1214,8 @@ func TestArray_PopInPlace(t *testing.T) {
 	}
 }
 
-func ExampleArray_Push() {
-	arr := lists.NewArray(1, 2, 3, 4, 5)
+func ExampleConcurrentRWArray_Push() {
+	arr := lists.NewConcurrentRWArray(1, 2, 3, 4, 5)
 
 	out := arr.Push(10)
 
@@ -1225,28 +1225,28 @@ func ExampleArray_Push() {
 	// [1 2 3 4 5 10]
 }
 
-func TestArray_Push(t *testing.T) {
+func TestConcurrentRWArray_Push(t *testing.T) {
 	type args[T any] struct {
 		element T
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want []T
 	}
 	tests := []testCase[int]{
 		{
-			name: "push adds element to end of array",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			name: "push adds element to end of ConcurrentRWArray",
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				element: 10,
 			},
 			want: []int{1, 2, 3, 4, 5, 10},
 		},
 		{
-			name: "pushing to empty array adds element to end of array",
-			a:    lists.NewArray[int](),
+			name: "pushing to empty ConcurrentRWArray adds element to end of ConcurrentRWArray",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				element: 10,
 			},
@@ -1263,28 +1263,28 @@ func TestArray_Push(t *testing.T) {
 	}
 }
 
-func TestArray_PushInPlace(t *testing.T) {
+func TestConcurrentRWArray_PushInPlace(t *testing.T) {
 	type args[T any] struct {
 		element T
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want []T
 	}
 	tests := []testCase[int]{
 		{
-			name: "push adds element to end of array",
-			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			name: "push adds element to end of ConcurrentRWArray",
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
 			args: args[int]{
 				element: 10,
 			},
 			want: []int{1, 2, 3, 4, 5, 10},
 		},
 		{
-			name: "pushing to empty array adds element to end of array",
-			a:    lists.NewArray[int](),
+			name: "pushing to empty ConcurrentRWArray adds element to end of ConcurrentRWArray",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				element: 10,
 			},
@@ -1303,8 +1303,8 @@ func TestArray_PushInPlace(t *testing.T) {
 	}
 }
 
-func ExampleArray_Sort() {
-	arr := lists.NewArray(5, 4, 3, 2, 1)
+func ExampleConcurrentRWArray_Sort() {
+	arr := lists.NewConcurrentRWArray(5, 4, 3, 2, 1)
 
 	out := arr.Sort(slices.AscendingSortFunc[int])
 
@@ -1314,20 +1314,20 @@ func ExampleArray_Sort() {
 	// [1 2 3 4 5]
 }
 
-func TestArray_Sort(t *testing.T) {
+func TestConcurrentRWArray_Sort(t *testing.T) {
 	type args[T any] struct {
 		fn func(T, T) bool
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want []T
 	}
 	tests := []testCase[int]{
 		{
 			name: "sorts descending",
-			a:    lists.NewArray(1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray(1, 2, 3, 4, 5),
 			args: args[int]{
 				fn: slices.DescendingSortFunc[int],
 			},
@@ -1335,15 +1335,15 @@ func TestArray_Sort(t *testing.T) {
 		},
 		{
 			name: "sorts ascending",
-			a:    lists.NewArray(5, 4, 3, 2, 1),
+			a:    lists.NewConcurrentRWArray(5, 4, 3, 2, 1),
 			args: args[int]{
 				fn: slices.AscendingSortFunc[int],
 			},
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "sorting empty array results in nil",
-			a:    lists.NewArray[int](),
+			name: "sorting empty ConcurrentRWArray results in nil",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: slices.AscendingSortFunc[int],
 			},
@@ -1360,8 +1360,8 @@ func TestArray_Sort(t *testing.T) {
 	}
 }
 
-func ExampleArray_SortInPlace() {
-	arr := lists.NewArray(5, 4, 3, 2, 1)
+func ExampleConcurrentRWArray_SortInPlace() {
+	arr := lists.NewConcurrentRWArray(5, 4, 3, 2, 1)
 
 	arr.SortInPlace(slices.AscendingSortFunc[int])
 
@@ -1371,20 +1371,20 @@ func ExampleArray_SortInPlace() {
 	// [1 2 3 4 5]
 }
 
-func TestArray_SortInPlace(t *testing.T) {
+func TestConcurrentRWArray_SortInPlace(t *testing.T) {
 	type args[T any] struct {
 		fn func(T, T) bool
 	}
 	type testCase[T any] struct {
 		name string
-		a    *lists.Array[T]
+		a    *lists.ConcurrentRWArray[T]
 		args args[T]
 		want []T
 	}
 	tests := []testCase[int]{
 		{
 			name: "sorts descending",
-			a:    lists.NewArray(1, 2, 3, 4, 5),
+			a:    lists.NewConcurrentRWArray(1, 2, 3, 4, 5),
 			args: args[int]{
 				fn: slices.DescendingSortFunc[int],
 			},
@@ -1392,15 +1392,15 @@ func TestArray_SortInPlace(t *testing.T) {
 		},
 		{
 			name: "sorts ascending",
-			a:    lists.NewArray(5, 4, 3, 2, 1),
+			a:    lists.NewConcurrentRWArray(5, 4, 3, 2, 1),
 			args: args[int]{
 				fn: slices.AscendingSortFunc[int],
 			},
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "sorting empty array results in nil",
-			a:    lists.NewArray[int](),
+			name: "sorting empty ConcurrentRWArray results in nil",
+			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: slices.AscendingSortFunc[int],
 			},

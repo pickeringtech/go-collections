@@ -2,7 +2,7 @@ package slices_test
 
 import (
 	"fmt"
-	"github.com/pickeringtech/go-collectionutil/slices"
+	"github.com/pickeringtech/go-collections/slices"
 	"reflect"
 	"testing"
 )
@@ -62,6 +62,57 @@ func TestReduce(t *testing.T) {
 	}
 }
 
+func BenchmarkReduce(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+		fn   slices.ReductionFunc[int, int]
+	}{
+		{
+			name: "3 elements",
+			sli:  []int{1, 2, 3},
+			fn:   slices.TotalReducer[int],
+		},
+		{
+			name: "10 elements",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			fn:   slices.TotalReducer[int],
+		},
+		{
+			name: "100 elements",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			fn:   slices.TotalReducer[int],
+		},
+		{
+			name: "1_000 elements",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.TotalReducer[int],
+		},
+		{
+			name: "10_000 elements",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.TotalReducer[int],
+		},
+		{
+			name: "100_000 elements",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.TotalReducer[int],
+		},
+		{
+			name: "1_000_000 elements",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			fn:   slices.TotalReducer[int],
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.Reduce(bm.sli, bm.fn)
+			}
+		})
+	}
+}
+
 func ExampleNewCountOccurrencesReducer() {
 	a := []int{1, 2, 3, 4, 5, 3, 2, 2, 5, 4, 1}
 	b := slices.Reduce(a, slices.NewCountOccurrencesReducer[int, int]([]int{1, 2, 3}))
@@ -108,6 +159,57 @@ func TestReduce_CountOccurrences(t *testing.T) {
 			got := slices.Reduce[int, int](tt.args.input, slices.NewCountOccurrencesReducer[int, int]([]int{1, 2, 3}))
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Reduce() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkReduce_CountOccurrences(b *testing.B) {
+	benchmarks := []struct {
+		name   string
+		sli    []int
+		values []int
+	}{
+		{
+			name:   "3 elements",
+			sli:    []int{1, 2, 3},
+			values: []int{2, 3},
+		},
+		{
+			name:   "10 elements",
+			sli:    slices.Generate(10, slices.NumericIdentityGenerator[int]),
+			values: []int{2, 3},
+		},
+		{
+			name:   "100 elements",
+			sli:    slices.Generate(100, slices.NumericIdentityGenerator[int]),
+			values: []int{2, 3},
+		},
+		{
+			name:   "1_000 elements",
+			sli:    slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+			values: []int{2, 3},
+		},
+		{
+			name:   "10_000 elements",
+			sli:    slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+			values: []int{2, 3},
+		},
+		{
+			name:   "100_000 elements",
+			sli:    slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+			values: []int{2, 3},
+		},
+		{
+			name:   "1_000_000 elements",
+			sli:    slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+			values: []int{2, 3},
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.Reduce(bm.sli, slices.NewCountOccurrencesReducer[int, int](bm.values))
 			}
 		})
 	}

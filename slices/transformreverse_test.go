@@ -2,7 +2,7 @@ package slices_test
 
 import (
 	"fmt"
-	"github.com/pickeringtech/go-collectionutil/slices"
+	"github.com/pickeringtech/go-collections/slices"
 	"reflect"
 	"testing"
 )
@@ -59,6 +59,49 @@ func TestReverse(t *testing.T) {
 			got := slices.Reverse(tt.args.input)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Reverse() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func BenchmarkReverse(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		sli  []int
+	}{
+		{
+			name: "3 elements",
+			sli:  []int{1, 2, 3},
+		},
+		{
+			name: "10 elements",
+			sli:  slices.Generate(10, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100 elements",
+			sli:  slices.Generate(100, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000 elements",
+			sli:  slices.Generate(1_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "10_000 elements",
+			sli:  slices.Generate(10_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "100_000 elements",
+			sli:  slices.Generate(100_000, slices.NumericIdentityGenerator[int]),
+		},
+		{
+			name: "1_000_000 elements",
+			sli:  slices.Generate(1_000_000, slices.NumericIdentityGenerator[int]),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = slices.Reverse(bm.sli)
 			}
 		})
 	}
