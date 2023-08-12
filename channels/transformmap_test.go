@@ -1,19 +1,20 @@
-package channels
+package channels_test
 
 import (
 	"fmt"
+	"github.com/pickeringtech/go-collections/channels"
 	"reflect"
 	"testing"
 )
 
 func ExampleMap() {
-	input := FromSlice([]string{"one", "two", "three", "four", "five"})
-	output := Map(input, func(s string) int {
+	input := channels.FromSlice([]string{"one", "two", "three", "four", "five"})
+	output := channels.Map(input, func(s string) int {
 		return len(s)
 	})
 
 	// Capture results in a slice.
-	results := CollectAsSlice(output)
+	results := channels.CollectAsSlice(output)
 
 	// Print results.
 	fmt.Printf("Results: %v", results)
@@ -23,7 +24,7 @@ func ExampleMap() {
 func TestMap(t *testing.T) {
 	type args[I any, O any] struct {
 		input <-chan I
-		fn    MapFunc[I, O]
+		fn    channels.MapFunc[I, O]
 	}
 	type testCase[I any, O any] struct {
 		name string
@@ -34,7 +35,7 @@ func TestMap(t *testing.T) {
 		{
 			name: "transforms elements correctly",
 			args: args[string, int]{
-				input: FromSlice[string]([]string{"one", "two", "three", "four", "five"}),
+				input: channels.FromSlice[string]([]string{"one", "two", "three", "four", "five"}),
 				fn: func(s string) int {
 					return len(s)
 				},
@@ -44,7 +45,7 @@ func TestMap(t *testing.T) {
 		{
 			name: "empty input provides nil output",
 			args: args[string, int]{
-				input: FromSlice[string]([]string{}),
+				input: channels.FromSlice[string]([]string{}),
 				fn: func(s string) int {
 					return len(s)
 				},
@@ -54,7 +55,7 @@ func TestMap(t *testing.T) {
 		{
 			name: "nil input provides nil output",
 			args: args[string, int]{
-				input: FromSlice[string](nil),
+				input: channels.FromSlice[string](nil),
 				fn: func(s string) int {
 					return len(s)
 				},
@@ -64,8 +65,8 @@ func TestMap(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := Map(tt.args.input, tt.args.fn)
-			got := CollectAsSlice(output)
+			output := channels.Map(tt.args.input, tt.args.fn)
+			got := channels.CollectAsSlice(output)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Map() = %v, want %v", got, tt.want)
 			}

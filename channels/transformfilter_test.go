@@ -1,19 +1,20 @@
-package channels
+package channels_test
 
 import (
 	"fmt"
+	"github.com/pickeringtech/go-collections/channels"
 	"reflect"
 	"testing"
 )
 
 func ExampleFilter() {
-	input := FromSlice([]string{"hello", "everyone", "world", "goodness", "gracious"})
-	output := Filter(input, func(element string) bool {
+	input := channels.FromSlice([]string{"hello", "everyone", "world", "goodness", "gracious"})
+	output := channels.Filter(input, func(element string) bool {
 		return len(element) > 5
 	})
 
 	// Capture results in a slice.
-	results := CollectAsSlice(output)
+	results := channels.CollectAsSlice(output)
 
 	// Print results.
 	fmt.Printf("Results: %v", results)
@@ -23,7 +24,7 @@ func ExampleFilter() {
 func TestFilter(t *testing.T) {
 	type args[T any] struct {
 		input <-chan T
-		fn    FilterFunc[T]
+		fn    channels.FilterFunc[T]
 	}
 	type testCase[T any] struct {
 		name string
@@ -34,7 +35,7 @@ func TestFilter(t *testing.T) {
 		{
 			name: "filters out words with 5 characters or less",
 			args: args[string]{
-				input: FromSlice([]string{"hello", "everyone", "world", "goodness", "gracious"}),
+				input: channels.FromSlice([]string{"hello", "everyone", "world", "goodness", "gracious"}),
 				fn: func(element string) bool {
 					return len(element) > 5
 				},
@@ -44,7 +45,7 @@ func TestFilter(t *testing.T) {
 		{
 			name: "empty input provides nil output",
 			args: args[string]{
-				input: FromSlice([]string{}),
+				input: channels.FromSlice([]string{}),
 				fn: func(element string) bool {
 					return len(element) > 5
 				},
@@ -54,7 +55,7 @@ func TestFilter(t *testing.T) {
 		{
 			name: "nil input provides nil output",
 			args: args[string]{
-				input: FromSlice[string](nil),
+				input: channels.FromSlice[string](nil),
 				fn: func(element string) bool {
 					return len(element) > 5
 				},
@@ -64,8 +65,8 @@ func TestFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := Filter(tt.args.input, tt.args.fn)
-			got := CollectAsSlice(output)
+			output := channels.Filter(tt.args.input, tt.args.fn)
+			got := channels.CollectAsSlice(output)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Filter() = %v, want %v", got, tt.want)
 			}
