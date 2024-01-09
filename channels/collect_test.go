@@ -158,3 +158,75 @@ func TestCollectAsMap(t *testing.T) {
 		})
 	}
 }
+
+func TestCollectNAsSlice(t *testing.T) {
+	type args[T any] struct {
+		input   <-chan T
+		howMany int
+	}
+	type testCase[T any] struct {
+		name string
+		args args[T]
+		want []T
+	}
+	tests := []testCase[int]{
+		{
+			name: "correctly collect as a slice",
+			args: args[int]{
+				input:   channels.FromSlice([]int{1, 19, 21, 3, -1, 100}),
+				howMany: 6,
+			},
+			want: []int{1, 19, 21, 3, -1, 100},
+		},
+		{
+			name: "empty input provides nil output",
+			args: args[int]{
+				input:   channels.FromSlice([]int{}),
+				howMany: 0,
+			},
+			want: nil,
+		},
+		{
+			name: "nil input provides nil output",
+			args: args[int]{
+				input:   channels.FromSlice[int](nil),
+				howMany: 0,
+			},
+			want: nil,
+		},
+		{
+			name: "collects a subset of the input",
+			args: args[int]{
+				input:   channels.FromSlice([]int{1, 19, 21, 3, -1, 100}),
+				howMany: 3,
+			},
+			want: []int{1, 19, 21},
+		},
+		{
+			name: "collects all elements when howMany is greater than the input",
+			args: args[int]{
+				input:   channels.FromSlice([]int{1, 19, 21, 3, -1, 100}),
+				howMany: 10,
+			},
+			want: []int{1, 19, 21, 3, -1, 100},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := channels.CollectNAsSlice(tt.args.input, tt.args.howMany); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CollectNAsSlice() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func ExampleCollectNAsSlice() {
+	input := channels.FromSlice([]int{1, 2, 3, 4, 5})
+	mapOut := channels.Map(input, func(element int) int {
+		return element * 2
+	})
+	output := channels.CollectNAsSlice(mapOut, 3)
+
+	fmt.Printf("result: %v", output)
+	// Output: result: [2 4 6]
+}

@@ -64,6 +64,7 @@ func (a *ConcurrentArray[T]) EnqueueInPlace(element T) {
 
 	a.elements = slices.Push(a.elements, element)
 }
+
 func (a *ConcurrentArray[T]) Filter(fun func(T) bool) []T {
 	a.lock.Lock()
 	defer a.lock.Unlock()

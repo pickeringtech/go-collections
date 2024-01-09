@@ -23,6 +23,21 @@ func CollectAsSlice[T any](input <-chan T) []T {
 	return results
 }
 
+// CollectNAsSlice reads all elements from the input channel and returns them as a slice. This function will block until
+// the input channel is closed.
+func CollectNAsSlice[T any](input <-chan T, howMany int) []T {
+	var results []T
+
+	for i := 0; i < howMany; i++ {
+		el, ok := <-input
+		if !ok {
+			break
+		}
+		results = append(results, el)
+	}
+	return results
+}
+
 // MapBuilderFunc is a function which takes an input element and returns a maps.Entry, which is used to build a map.
 type MapBuilderFunc[I any, OK comparable, OV any] func(input I) maps.Entry[OK, OV]
 
@@ -30,6 +45,7 @@ type MapBuilderFunc[I any, OK comparable, OV any] func(input I) maps.Entry[OK, O
 // input channel is closed.
 func CollectAsMap[I any, OK comparable, OV any](input <-chan I, fn MapBuilderFunc[I, OK, OV]) map[OK]OV {
 	results := map[OK]OV{}
+
 	for el := range input {
 		entry := fn(el)
 		results[entry.Key] = entry.Value
