@@ -1,4 +1,4 @@
 module github.com/pickeringtech/go-collections
 
-go 1.20
+go 1.24
 
