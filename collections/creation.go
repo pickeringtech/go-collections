@@ -54,14 +54,16 @@ func NewConcurrentRWDict[K comparable, V any](entries ...dicts.Pair[K, V]) dicts
 	return dicts.NewConcurrentHashRW[K, V](entries...)
 }
 
-func NewSet[T comparable]() sets.Set[T] {
-	return dicts.NewHash[T, struct{}]()
+func NewSet[T comparable](elements ...T) sets.Set[T] {
+	return sets.NewHash[T](elements...)
 }
 
-func NewConcurrentSet[T comparable]() sets.Set[T] {
-	return dicts.NewHash[T, struct{}]()
+func NewConcurrentSet[T comparable](elements ...T) sets.Set[T] {
+	return sets.NewConcurrentHash[T](elements...)
 }
 
-func NewConcurrentRWSet[T comparable]() sets.Set[T] {
-	return dicts.NewHash[T, struct{}]()
+func NewConcurrentRWSet[T comparable](elements ...T) sets.Set[T] {
+	return sets.NewConcurrentHashRW[T](elements...)
 }
+
+
