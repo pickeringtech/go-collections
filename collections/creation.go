@@ -66,4 +66,28 @@ func NewConcurrentRWSet[T comparable](elements ...T) sets.Set[T] {
 	return sets.NewConcurrentHashRW[T](elements...)
 }
 
+func NewLinkedList[T any](elements ...T) lists.List[T] {
+	return lists.NewLinked[T](elements...)
+}
+
+func NewConcurrentLinkedList[T any](elements ...T) lists.List[T] {
+	return lists.NewConcurrentLinked[T](elements...)
+}
+
+func NewConcurrentRWLinkedList[T any](elements ...T) lists.List[T] {
+	return lists.NewConcurrentRWLinked[T](elements...)
+}
+
+func NewDoublyLinkedList[T any](elements ...T) lists.List[T] {
+	return lists.NewDoublyLinked[T](elements...)
+}
+
+func NewConcurrentDoublyLinkedList[T any](elements ...T) lists.List[T] {
+	return lists.NewConcurrentDoublyLinked[T](elements...)
+}
+
+func NewConcurrentRWDoublyLinkedList[T any](elements ...T) lists.List[T] {
+	return lists.NewConcurrentRWDoublyLinked[T](elements...)
+}
+
 

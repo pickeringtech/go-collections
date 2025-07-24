@@ -38,7 +38,7 @@ func (l *Linked[T]) insertAtEnd(value T) {
 	newNode := &node[T]{
 		value:  value,
 		linked: l,
-		next:   l.tail,
+		next:   nil,
 	}
 
 	if l.head == nil {
