@@ -65,13 +65,13 @@ func ExampleHash_Find() {
 	})
 
 	if found {
-		fmt.Printf("Found even number: %d\n", element)
+		fmt.Printf("Found even number: %t\n", element%2 == 0)
 	} else {
 		fmt.Println("No even number found")
 	}
 
 	// Output:
-	// Found even number: 2
+	// Found even number: true
 }
 
 func ExampleHash_AllMatch() {

@@ -1,10 +1,44 @@
 package dicts
 
-// Hash is a dictionary implementation using Go's built-in map.
-// It provides an immutable interface where operations return new instances.
+// Hash is a fast dictionary implementation using Go's built-in map.
+// It provides O(1) average-case performance for all operations and supports
+// both immutable operations (returning new instances) and mutable operations
+// (modifying in place).
+//
+// Hash is perfect for general-purpose key-value storage where you need:
+//   - Fast lookups and insertions
+//   - Rich operations like filtering and searching
+//   - Both functional and imperative programming styles
+//
+// Example usage:
+//
+//	// Create a user database
+//	users := dicts.NewHash(
+//		dicts.Pair[int, string]{Key: 1, Value: "Alice"},
+//		dicts.Pair[int, string]{Key: 2, Value: "Bob"},
+//	)
+//
+//	// Fast lookups
+//	name, found := users.Get(1, "Unknown")
+//
+//	// Rich operations
+//	activeUsers := users.Filter(func(id int, name string) bool {
+//		return isActive(id)
+//	})
 type Hash[K comparable, V any] map[K]V
 
 // NewHash creates a new Hash dictionary with the given key-value pairs.
+//
+// Example:
+//
+//	// Empty dictionary
+//	empty := dicts.NewHash[string, int]()
+//
+//	// Dictionary with initial data
+//	scores := dicts.NewHash(
+//		dicts.Pair[string, int]{Key: "alice", Value: 95},
+//		dicts.Pair[string, int]{Key: "bob", Value: 87},
+//	)
 func NewHash[K comparable, V any](entries ...Pair[K, V]) Hash[K, V] {
 	m := make(Hash[K, V])
 	for _, entry := range entries {
@@ -18,7 +52,24 @@ var _ Dict[string, int] = Hash[string, int]{}
 var _ MutableDict[string, int] = Hash[string, int]{}
 
 // Get retrieves the value associated with the given key.
-// If the key is not found, returns the default value and false.
+// Returns the value and true if found, or the default value and false if not found.
+// This is the safe way to access dictionary values without panicking.
+//
+// Example:
+//
+//	users := dicts.NewHash(
+//		dicts.Pair[int, string]{Key: 1, Value: "Alice"},
+//	)
+//
+//	// Safe access with default
+//	name, found := users.Get(1, "Unknown")
+//	if found {
+//		fmt.Printf("User: %s\n", name)  // User: Alice
+//	}
+//
+//	// Missing key returns default
+//	name, found = users.Get(999, "Unknown")
+//	fmt.Printf("User: %s, Found: %t\n", name, found)  // User: Unknown, Found: false
 func (h Hash[K, V]) Get(key K, defaultValue V) (V, bool) {
 	if value, exists := h[key]; exists {
 		return value, true

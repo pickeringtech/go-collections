@@ -6,12 +6,50 @@ type node[T any] struct {
 	linked *Linked[T]
 }
 
+// Linked is a singly linked list implementation that provides O(1) operations
+// at both ends and rich data manipulation capabilities. It's perfect for implementing
+// stacks, queues, and ordered sequences where you primarily access elements from the ends.
+//
+// Linked supports both immutable operations (returning slices) and mutable operations
+// (modifying the list in place) to fit different programming styles.
+//
+// Example usage:
+//
+//	// Create a task queue
+//	tasks := lists.NewLinked("design", "implement", "test")
+//
+//	// Stack operations (LIFO)
+//	tasks.PushInPlace("deploy")
+//	lastTask, found := tasks.PopInPlace()  // "deploy"
+//
+//	// Queue operations (FIFO)
+//	tasks.EnqueueInPlace("monitor")
+//	firstTask, found := tasks.DequeueInPlace()  // "design"
+//
+//	// Rich operations
+//	longTasks := tasks.Filter(func(task string) bool {
+//		return len(task) > 4
+//	})
 type Linked[T any] struct {
 	head       *node[T]
 	tail       *node[T]
 	isCircular bool
 }
 
+// NewLinked creates a new singly linked list with the given elements.
+// Elements are added in the order provided.
+//
+// Example:
+//
+//	// Empty list
+//	empty := lists.NewLinked[int]()
+//
+//	// List with initial elements
+//	numbers := lists.NewLinked(1, 2, 3, 4, 5)
+//
+//	// List from slice
+//	items := []string{"apple", "banana", "cherry"}
+//	fruits := lists.NewLinked(items...)
 func NewLinked[T any](values ...T) *Linked[T] {
 	linked := &Linked[T]{}
 
@@ -367,12 +405,31 @@ func (l *Linked[T]) Push(element T) []T {
 	return append(slice, element)
 }
 
-// PushInPlace adds an element to the end.
+// PushInPlace adds an element to the end of the list (stack operation).
+// This is a mutable operation that modifies the list in place.
+// Use this for implementing stacks (LIFO - Last In, First Out).
+//
+// Example:
+//
+//	stack := lists.NewLinked[int]()
+//	stack.PushInPlace(1)
+//	stack.PushInPlace(2)
+//	stack.PushInPlace(3)
+//	// Stack now contains: [1, 2, 3] (3 is at the top)
 func (l *Linked[T]) PushInPlace(element T) {
 	l.insertAtEnd(element)
 }
 
-// Pop removes and returns the last element.
+// Pop removes and returns the last element (stack operation).
+// This is an immutable operation that returns a new slice.
+// Returns the removed element, whether it was found, and the new slice.
+//
+// Example:
+//
+//	stack := lists.NewLinked(1, 2, 3)
+//	element, found, newSlice := stack.Pop()
+//	// element: 3, found: true, newSlice: [1, 2]
+//	// Original stack unchanged
 func (l *Linked[T]) Pop() (T, bool, []T) {
 	slice := l.GetAsSlice()
 	if len(slice) == 0 {
@@ -382,7 +439,16 @@ func (l *Linked[T]) Pop() (T, bool, []T) {
 	return slice[len(slice)-1], true, slice[:len(slice)-1]
 }
 
-// PopInPlace removes and returns the last element.
+// PopInPlace removes and returns the last element (stack operation).
+// This is a mutable operation that modifies the list in place.
+// Returns the removed element and whether it was found.
+//
+// Example:
+//
+//	stack := lists.NewLinked(1, 2, 3)
+//	element, found := stack.PopInPlace()
+//	// element: 3, found: true
+//	// Stack now contains: [1, 2]
 func (l *Linked[T]) PopInPlace() (T, bool) {
 	if l.head == nil {
 		var zero T

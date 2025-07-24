@@ -1,16 +1,48 @@
-# Sets - Unique Collections
+# Sets - Mathematical Collections Made Simple
 
-The `sets` package provides comprehensive set implementations with a focus on performance, thread-safety, and mathematical set operations. It offers both immutable and mutable interfaces, allowing you to choose the right approach for your use case.
+The `sets` package brings the power of mathematical sets to Go with a clean, intuitive API. Perfect for membership testing, eliminating duplicates, and performing set operations like union and intersection.
 
-## Features
+## 🚀 Quick Start
 
-- **Multiple Implementations**: Hash-based sets with different concurrency models
-- **Thread-Safe Options**: Concurrent implementations with mutex and read-write mutex
-- **Rich Interface**: Comprehensive set operations including union, intersection, difference
-- **Mathematical Operations**: Subset, superset, disjoint, and equality checks
-- **Immutable & Mutable**: Choose between functional-style immutable operations or in-place mutations
-- **Type-Safe**: Full generic type support for comparable elements
-- **Performance Optimized**: Benchmarked against native Go maps
+```go
+import "github.com/pickeringtech/go-collections/collections/sets"
+
+// Create sets with unique elements
+permissions := sets.NewHash("read", "write", "execute")
+userPerms := sets.NewHash("read", "write")
+
+// Mathematical operations
+canExecute := permissions.Contains("execute")           // true
+common := permissions.Intersection(userPerms)          // {read, write}
+missing := permissions.Difference(userPerms)           // {execute}
+isSubset := userPerms.IsSubsetOf(permissions)          // true
+```
+
+## ✨ Why Use Sets?
+
+**Native Go maps for sets are clunky:**
+```go
+// Native approach - verbose and error-prone
+permissions := map[string]struct{}{
+    "read": {}, "write": {}, "execute": {},
+}
+if _, exists := permissions["read"]; exists {
+    // Can read
+}
+// No built-in operations for union, intersection, etc.
+```
+
+**Sets are elegant and powerful:**
+```go
+// Clean and expressive
+permissions := sets.NewHash("read", "write", "execute")
+if permissions.Contains("read") {
+    // Can read
+}
+
+// Rich mathematical operations built-in
+adminPerms := permissions.Union(sets.NewHash("admin", "delete"))
+```
 
 ## Implementations
 

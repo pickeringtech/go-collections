@@ -110,4 +110,103 @@
 // Error Handling:
 //   - Always check the boolean return value from Get() operations
 //   - Use Contains() for existence checks when you don't need the value
+// Package dicts provides powerful key-value mappings that extend Go's built-in maps
+// with rich operations, thread safety, and both immutable and mutable interfaces.
+//
+// # Quick Start
+//
+//	import "github.com/pickeringtech/go-collections/collections/dicts"
+//
+//	// Create a dictionary with initial data
+//	inventory := dicts.NewHash(
+//		dicts.Pair[string, int]{Key: "apples", Value: 50},
+//		dicts.Pair[string, int]{Key: "oranges", Value: 30},
+//	)
+//
+//	// Rich operations that native maps can't do
+//	lowStock := inventory.Filter(func(item string, count int) bool {
+//		return count < 40
+//	})
+//
+// # Available Implementations
+//
+// Hash Dictionary (dicts.Hash):
+//   - Fast O(1) operations using Go's built-in map
+//   - Perfect for general-purpose key-value storage
+//   - Single-threaded use
+//
+// Concurrent Hash Dictionary (dicts.ConcurrentHash):
+//   - Thread-safe with mutex protection
+//   - O(1) operations with locking overhead
+//   - Perfect for balanced read/write workloads
+//
+// Concurrent RW Hash Dictionary (dicts.ConcurrentHashRW):
+//   - Thread-safe with read-write mutex
+//   - Concurrent reads, exclusive writes
+//   - Perfect for read-heavy workloads (10:1 read/write ratio)
+//
+// Tree Dictionary (dicts.Tree):
+//   - Maintains keys in sorted order
+//   - O(log n) operations
+//   - Perfect when you need sorted iteration
+//
+// # Immutable vs Mutable Operations
+//
+// Immutable operations return new dictionaries:
+//
+//	newDict := dict.Put("key", value)        // Returns new dict
+//	filtered := dict.Filter(predicate)       // Returns new dict
+//	removed := dict.Remove("key")            // Returns new dict
+//
+// Mutable operations modify the original:
+//
+//	dict.PutInPlace("key", value)            // Modifies original
+//	dict.FilterInPlace(predicate)            // Modifies original
+//	removed, found := dict.RemoveInPlace("key") // Modifies original
+//
+// # Thread Safety
+//
+// Choose the right concurrent implementation:
+//
+//	// Balanced read/write workloads
+//	cache := dicts.NewConcurrentHash[string, []byte]()
+//
+//	// Read-heavy workloads (concurrent reads)
+//	config := dicts.NewConcurrentHashRW[string, string]()
+//
+// # Common Patterns
+//
+// Web application cache:
+//
+//	cache := dicts.NewConcurrentHashRW[string, []byte]()
+//
+//	func getPage(url string) []byte {
+//		if content, found := cache.Get(url, nil); found {
+//			return content
+//		}
+//		content := fetchFromNetwork(url)
+//		cache.PutInPlace(url, content)
+//		return content
+//	}
+//
+// Configuration management:
+//
+//	config := dicts.NewTree(
+//		dicts.Pair[string, string]{Key: "database.host", Value: "localhost"},
+//		dicts.Pair[string, string]{Key: "server.port", Value: "8080"},
+//	)
+//
+//	// Iterate in sorted order
+//	config.ForEach(func(key, value string) {
+//		fmt.Printf("%s = %s\n", key, value)
+//	})
+//
+// # Performance
+//
+//	BenchmarkDict_Get/Hash-16                231M    5.188 ns/op
+//	BenchmarkDict_Get/ConcurrentHash-16      121M   10.02 ns/op
+//	BenchmarkDict_Get/ConcurrentHashRW-16    123M    9.814 ns/op
+//	BenchmarkDict_Get/Tree-16                 50M   25.67 ns/op
+//
+// Start with NewHash() and upgrade to concurrent versions only when needed.
 package dicts

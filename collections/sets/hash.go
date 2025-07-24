@@ -1,10 +1,43 @@
 package sets
 
-// Hash is a set implementation using Go's built-in map.
-// It provides an immutable interface where operations return new instances.
+// Hash is a fast set implementation using Go's built-in map for O(1) operations.
+// It automatically handles deduplication and provides rich mathematical set operations
+// like union, intersection, and difference.
+//
+// Hash is perfect for:
+//   - Membership testing (Contains)
+//   - Removing duplicates from data
+//   - Mathematical set operations
+//   - Fast lookups and insertions
+//
+// Example usage:
+//
+//	// Create permission sets
+//	adminPerms := sets.NewHash("read", "write", "delete", "admin")
+//	userPerms := sets.NewHash("read", "write")
+//
+//	// Mathematical operations
+//	common := adminPerms.Intersection(userPerms)  // {"read", "write"}
+//	extra := adminPerms.Difference(userPerms)     // {"delete", "admin"}
+//
+//	// Membership testing
+//	canDelete := adminPerms.Contains("delete")    // true
 type Hash[T comparable] map[T]struct{}
 
 // NewHash creates a new Hash set with the given elements.
+// Duplicate elements are automatically removed.
+//
+// Example:
+//
+//	// Empty set
+//	empty := sets.NewHash[string]()
+//
+//	// Set with initial elements (duplicates removed)
+//	colors := sets.NewHash("red", "green", "blue", "red")  // {"red", "green", "blue"}
+//
+//	// Set from slice (deduplication)
+//	items := []string{"apple", "banana", "apple", "cherry"}
+//	unique := sets.NewHash(items...)  // {"apple", "banana", "cherry"}
 func NewHash[T comparable](values ...T) Hash[T] {
 	m := make(Hash[T])
 	for _, value := range values {
@@ -18,6 +51,19 @@ var _ Set[string] = Hash[string]{}
 var _ MutableSet[string] = Hash[string]{}
 
 // Contains checks if the given element exists in the set.
+// This is the primary operation for membership testing.
+//
+// Example:
+//
+//	permissions := sets.NewHash("read", "write", "execute")
+//
+//	if permissions.Contains("write") {
+//		fmt.Println("User can write")  // This will print
+//	}
+//
+//	if !permissions.Contains("delete") {
+//		fmt.Println("User cannot delete")  // This will print
+//	}
 func (h Hash[T]) Contains(element T) bool {
 	_, exists := h[element]
 	return exists
