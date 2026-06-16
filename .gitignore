@@ -3,3 +3,9 @@
 # CI / test artifacts
 /coverage.out
 /mutation-report.json
+
+# Benchmark-report scratch space (the committed artifacts are BENCHMARKS.md and
+# docs/bench.svg; the raw bench/CSV and the built generator binary are transient)
+/build
+# Stray binary if someone runs `go build .` inside the generator module directly
+/tools/benchreport/benchreport

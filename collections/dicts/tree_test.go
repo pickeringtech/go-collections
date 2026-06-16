@@ -178,33 +178,57 @@ func ExampleTree_Keys() {
 	// Sorted keys: [1 2 3]
 }
 
+// BenchmarkTree_Get sub-benchmarks across the shared size matrix so the
+// generated BENCHMARKS.md report can compare Tree.Get against the Hash variants
+// at each size (see issue #50 and hash_bench_test.go for the template).
 func BenchmarkTree_Get(b *testing.B) {
-	// Setup
-	pairs := make([]dicts.Pair[int, string], 1000)
-	for i := 0; i < 1000; i++ {
-		pairs[i] = dicts.Pair[int, string]{Key: i, Value: fmt.Sprintf("value_%d", i)}
-	}
-	tree := dicts.NewTree(pairs...)
+	sizes := []int{10, 100, 1000, 10000}
 
-	b.ResetTimer()
-	b.ReportAllocs()
+	for _, size := range sizes {
+		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
+			// Setup
+			pairs := make([]dicts.Pair[int, string], size)
+			for i := 0; i < size; i++ {
+				pairs[i] = dicts.Pair[int, string]{Key: i, Value: fmt.Sprintf("value_%d", i)}
+			}
+			tree := dicts.NewTree(pairs...)
 
-	for i := 0; i < b.N; i++ {
-		key := i % 1000
-		_, _ = tree.Get(key, "default")
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			for i := 0; i < b.N; i++ {
+				key := i % size
+				_, _ = tree.Get(key, "default")
+			}
+		})
 	}
 }
 
+// BenchmarkTree_PutInPlace inserts one key into a tree already holding `size`
+// entries, rebuilding it under StopTimer each iteration so the timed work is a
+// single insert at that size rather than an unbounded run of inserts.
 func BenchmarkTree_PutInPlace(b *testing.B) {
-	b.ResetTimer()
-	b.ReportAllocs()
+	// Stop at 1000: the tree is rebuilt under StopTimer each iteration, so the
+	// 10k cell's untimed rebuild would dominate CI time (cf. BenchmarkHash_Put).
+	sizes := []int{10, 100, 1000}
 
-	for i := 0; i < b.N; i++ {
-		b.StopTimer()
-		tree := dicts.NewTree[int, string]()
-		b.StartTimer()
+	for _, size := range sizes {
+		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
+			b.ResetTimer()
+			b.ReportAllocs()
 
-		tree.PutInPlace(i, fmt.Sprintf("value_%d", i))
+			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				pairs := make([]dicts.Pair[int, string], size)
+				for j := 0; j < size; j++ {
+					pairs[j] = dicts.Pair[int, string]{Key: j, Value: fmt.Sprintf("value_%d", j)}
+				}
+				tree := dicts.NewTree(pairs...)
+				b.StartTimer()
+
+				tree.PutInPlace(size+i, fmt.Sprintf("value_%d", i))
+			}
+		})
 	}
 }
 
