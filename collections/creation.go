@@ -1,6 +1,7 @@
 package collections
 
 import (
+	"github.com/pickeringtech/go-collections/collections/deques"
 	"github.com/pickeringtech/go-collections/collections/dicts"
 	"github.com/pickeringtech/go-collections/collections/lists"
 	"github.com/pickeringtech/go-collections/collections/multimaps"
@@ -48,6 +49,36 @@ func NewConcurrentStack[T any](values ...T) lists.Stack[T] {
 //func NewConcurrentRWStack[T any](values ...T) lists.List[T] {
 //	return lists.NewConcurrentArrayRW[T](values...)
 //}
+
+// NewDeque creates an unbounded Deque (double-ended queue) backed by a ring buffer with the given values (values[0] becomes the front).
+func NewDeque[T any](values ...T) deques.Deque[T] {
+	return deques.NewRingBuffer[T](values...)
+}
+
+// NewConcurrentDeque creates a thread-safe, unbounded Deque (mutex-guarded) backed by a ring buffer with the given values.
+func NewConcurrentDeque[T any](values ...T) deques.Deque[T] {
+	return deques.NewConcurrentRingBuffer[T](values...)
+}
+
+// NewConcurrentRWDeque creates a thread-safe, unbounded Deque optimised for concurrent reads (RWMutex-guarded) with the given values.
+func NewConcurrentRWDeque[T any](values ...T) deques.Deque[T] {
+	return deques.NewConcurrentRWRingBuffer[T](values...)
+}
+
+// NewBoundedDeque creates a bounded (circular) Deque with the given capacity and overflow policy, seeded with the given values.
+func NewBoundedDeque[T any](capacity int, policy deques.OverflowPolicy, values ...T) deques.Deque[T] {
+	return deques.NewBoundedRingBuffer[T](capacity, policy, values...)
+}
+
+// NewBoundedConcurrentDeque creates a thread-safe, bounded Deque (mutex-guarded) with the given capacity and overflow policy, seeded with the given values.
+func NewBoundedConcurrentDeque[T any](capacity int, policy deques.OverflowPolicy, values ...T) deques.Deque[T] {
+	return deques.NewBoundedConcurrentRingBuffer[T](capacity, policy, values...)
+}
+
+// NewBoundedConcurrentRWDeque creates a thread-safe, bounded Deque optimised for concurrent reads (RWMutex-guarded) with the given capacity and overflow policy, seeded with the given values.
+func NewBoundedConcurrentRWDeque[T any](capacity int, policy deques.OverflowPolicy, values ...T) deques.Deque[T] {
+	return deques.NewBoundedConcurrentRWRingBuffer[T](capacity, policy, values...)
+}
 
 // NewDict creates a Dict backed by a hash map with the given entries.
 func NewDict[K comparable, V any](entries ...dicts.Pair[K, V]) dicts.Dict[K, V] {

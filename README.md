@@ -71,6 +71,7 @@ func main() {
 | **[Sets](./collections/sets/)** | Mathematical sets with union, intersection | Mutex & RWMutex |
 | **[Lists](./collections/lists/)** | Flexible sequences with stack/queue operations | Mutex & RWMutex |
 | **[Multimaps](./collections/multimaps/)** | One key to many values (list- or set-backed) | Mutex & RWMutex |
+| **[Deques](./collections/deques/)** | Double-ended queue / bounded ring buffer | Mutex & RWMutex |
 | **[Heaps](./collections/heaps/)** | Binary heap / priority queue (min, max, comparator) | Mutex & RWMutex |
 
 ### Utilities
