@@ -57,8 +57,8 @@ jobs:
           go-version-file: go.mod   # project tests run under the declared Go version
       - name: Install gremlins (pinned)
         # GOTOOLCHAIN=auto lets `go install` fetch the newer Go the gremlins
-        # module requires to *build the tool*, without changing the toolchain
-        # gremlins then shells out to for `go test` on this module.
+        # module requires to *build the tool*, without changing the `go`
+        # toolchain that gremlins itself then uses for `go test` on this module.
         env:
           GOTOOLCHAIN: auto
         run: go install "github.com/go-gremlins/gremlins/cmd/gremlins@${GREMLINS_VERSION}"
@@ -96,13 +96,15 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
-          set -uo pipefail
+          set -euo pipefail   # fail fast: a broken fetch/diff must not look like "no changes"
           git fetch --quiet origin "$BASE_REF"
           # Skip entirely when the PR touches no non-test Go source — otherwise an
           # empty diff would make gremlins fall back to mutating the whole module,
-          # defeating the point of the scoped job.
+          # defeating the point of the scoped job. The `|| true` is scoped to *grep*
+          # alone (its exit 1 just means "no match"); a failing git diff still
+          # propagates via pipefail rather than masquerading as an empty result.
           changed=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- '*.go' \
-                    | grep -vE '_test\.go$' || true)
+                    | { grep -vE '_test\.go$' || true; })
           if [ -z "$changed" ]; then
             echo "No non-test Go source changed by this PR — nothing to mutate."
             exit 0
