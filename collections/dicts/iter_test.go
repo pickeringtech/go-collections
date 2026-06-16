@@ -107,6 +107,36 @@ func TestDict_All_EarlyBreak(t *testing.T) {
 	}
 }
 
+func TestDict_KeysSeq_EarlyBreak(t *testing.T) {
+	for _, ctor := range allDictConstructors() {
+		t.Run(ctor.name, func(t *testing.T) {
+			count := 0
+			for range ctor.make(seedPairs()...).KeysSeq() {
+				count++
+				break
+			}
+			if count != 1 {
+				t.Errorf("KeysSeq() with early break yielded %d times, want 1", count)
+			}
+		})
+	}
+}
+
+func TestDict_ValuesSeq_EarlyBreak(t *testing.T) {
+	for _, ctor := range allDictConstructors() {
+		t.Run(ctor.name, func(t *testing.T) {
+			count := 0
+			for range ctor.make(seedPairs()...).ValuesSeq() {
+				count++
+				break
+			}
+			if count != 1 {
+				t.Errorf("ValuesSeq() with early break yielded %d times, want 1", count)
+			}
+		})
+	}
+}
+
 func TestTree_All_SortedOrder(t *testing.T) {
 	tree := dicts.NewTree(
 		dicts.Pair[string, int]{Key: "charlie", Value: 3},
