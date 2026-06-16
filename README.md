@@ -92,7 +92,7 @@ userRoles := collections.NewDict(
 
 // Rich operations
 admins := userRoles.Filter(func(role, title string) bool {
-    return strings.Contains(title, "Admin")
+    return role == "admin"
 })
 ```
 
@@ -132,15 +132,17 @@ task, found := queue.DequeueInPlace()
 All collections offer thread-safe variants:
 
 ```go
-// Choose your concurrency model
-dict := collections.NewConcurrentDict(...)     // Balanced read/write
-dict := collections.NewConcurrentRWDict(...)   // Read-heavy workloads
+// Each collection has two thread-safe variants. Pick one per use:
 
-set := collections.NewConcurrentSet(...)       // Balanced read/write
-set := collections.NewConcurrentRWSet(...)     // Read-heavy workloads
+// Balanced read/write:
+dict := collections.NewConcurrentDict(pairs...)
+set := collections.NewConcurrentSet(items...)
+list := collections.NewConcurrentList(items...)
 
-list := collections.NewConcurrentList(...)     // Balanced read/write
-list := collections.NewConcurrentRWList(...)   // Read-heavy workloads
+// Or, for read-heavy workloads:
+dict = collections.NewConcurrentRWDict(pairs...)
+set = collections.NewConcurrentRWSet(items...)
+list = collections.NewConcurrentRWList(items...)
 ```
 
 ## Performance
