@@ -442,7 +442,13 @@ jobs:
     #   3. Keep an allowlist/override label for intentional perf trade-offs.
     permissions:
       contents: read
-      pull-requests: write   # to post/refresh the benchstat comment (no-op on forks)
+      # The sticky report is a PR *conversation* comment, posted via the issues
+      # comments endpoint (PRs are issues) — that needs issues:write, not just
+      # pull-requests:write. Grant both so the comment posts on same-repo PRs;
+      # all comment steps stay continue-on-error so forks (read-only token) just
+      # fall back to the job summary.
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
