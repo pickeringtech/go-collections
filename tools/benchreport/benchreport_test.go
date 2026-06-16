@@ -284,13 +284,15 @@ func TestRenderReadmeRegionContent(t *testing.T) {
 	ci, _ := loadSample(t, Meta{Env: "ci", Label: "CI", Tier: tierSecondary,
 		Commit: "0b87bdf", Date: "2026-06-16T10:00:00Z", GoVersion: "go1.24"})
 
-	region := RenderReadmeRegion([]Dataset{ci, ref}, "docs/bench.svg", "BENCHMARKS.md")
+	region := RenderReadmeRegion([]Dataset{ci, ref}, "docs/bench.svg", "BENCHMARKS.md",
+		"BENCHMARKS.md#"+trendAnchor)
 	for _, want := range []string{
 		"controlled **Reference — Box** baseline",
 		"![Benchmark chart](docs/bench.svg)",
 		"Reference — Box: `cafe123` · 2026-06-16 ·",
 		"CI: `0b87bdf` · 2026-06-16 ·",
 		"Full report → [BENCHMARKS.md](BENCHMARKS.md)",
+		"Performance trend across recent commits → [BENCHMARKS.md](BENCHMARKS.md#" + trendAnchor + ")",
 	} {
 		if !strings.Contains(region, want) {
 			t.Errorf("README region missing %q\n%s", want, region)
@@ -298,5 +300,11 @@ func TestRenderReadmeRegionContent(t *testing.T) {
 	}
 	if !strings.HasSuffix(region, "\n") {
 		t.Error("region must end with a newline so the end marker lands on its own line")
+	}
+
+	// With no trend store yet (empty link), the trend line is omitted entirely.
+	noTrend := RenderReadmeRegion([]Dataset{ci, ref}, "docs/bench.svg", "BENCHMARKS.md", "")
+	if strings.Contains(noTrend, "Performance trend") {
+		t.Errorf("trend link should be omitted when trendLink is empty:\n%s", noTrend)
 	}
 }

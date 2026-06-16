@@ -17,9 +17,12 @@ name: CI
 #                  the delta table — still advisory (see the job for the
 #                  documented path to a future regression gate).
 #   - main-only:   bench-report regenerates BENCHMARKS.md, docs/bench.svg and
-#                  the README preview, then bot-commits with `[skip ci]` (issue
-#                  #50). It runs only on push to main and is the sole job with
-#                  contents:write; the `[skip ci]` tag stops it re-triggering CI.
+#                  the README preview, archives this commit into the long-term
+#                  trend store (docs/bench/history/, issue #51) and re-renders the
+#                  trend section + report-only regression check, then bot-commits
+#                  with `[skip ci]` (issue #50). It runs only on push to main and
+#                  is the sole job with contents:write; the `[skip ci]` tag stops
+#                  it re-triggering CI.
 #
 # Branch protection (#41): the ONLY required check is the `CI Gate` job, which
 # `needs:` every blocking job and fails unless they all succeed. Requiring a
@@ -628,23 +631,41 @@ jobs:
       - name: Install benchstat (pinned)
         # Same pinned version as the PR A/B job, for a reproducible CSV format.
         run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
-      - name: Capture CI dataset and regenerate the combined report
-        # Captures the *ci* (secondary/indicative) environment only, then
-        # re-renders the combined report from it + the committed reference
-        # dataset. Uses the repo's BENCH_TIME/BENCH_COUNT knobs (exported from
-        # env above) rather than the 10x smoke, so the numbers are meaningful.
+      - name: Capture CI dataset, archive trend snapshot, and regenerate the report
+        # Captures the *ci* (secondary/indicative) environment only, archives this
+        # commit's raw multi-sample run into the long-term trend store
+        # (BENCH_HISTORY=1, issue #51), then re-renders the combined report —
+        # including the trend section — from it + the committed reference dataset.
+        # Uses the repo's BENCH_TIME/BENCH_COUNT knobs (exported from env above)
+        # rather than the 10x smoke, so the numbers are meaningful. Only this
+        # consistent CI environment feeds the trend store, so commit-to-commit
+        # drift is comparable; the cap prunes the oldest snapshots to bound growth.
         run: |
           make bench-report \
             BENCH_ENV=ci \
             BENCH_TIER=secondary \
+            BENCH_HISTORY=1 \
             BENCH_LABEL="CI — GitHub-hosted runner (ubuntu-latest)" \
             BENCH_MACHINE="shared ubuntu-latest runner (noisy)"
+      - name: Publish the trend regression check to the run summary (report-only)
+        # The trend store can flag a headline that regressed significantly across
+        # two consecutive commits. There's no PR to comment on at push time, so
+        # surface the verdict in the job summary. Never gates (issue #51): noisy
+        # shared runners make a hard block untrustworthy.
+        if: always()
+        run: |
+          if [ -s "build/bench-alert.md" ]; then
+            cat build/bench-alert.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No trend regression check produced (insufficient history yet)." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Commit regenerated artifacts (if changed) with [skip ci]
         run: |
           set -euo pipefail
           # The reference dataset (docs/bench/reference.csv) is maintainer-owned
-          # and never touched here — only the ci dataset + the rendered outputs.
-          paths="BENCHMARKS.md docs/bench.svg docs/bench/ci.csv README.md"
+          # and never touched here — only the ci dataset, the rendered outputs,
+          # and the appended/pruned trend snapshots under docs/bench/history/.
+          paths="BENCHMARKS.md docs/bench.svg docs/bench/ci.csv docs/bench/history README.md"
           changed=$(git status --porcelain -- $paths)
           if [ -z "$changed" ]; then
             echo "No benchmark-artifact changes — nothing to commit."

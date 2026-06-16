@@ -31,6 +31,19 @@ BENCHREPORT_DIR := tools/benchreport
 BUILD_DIR       := build
 BENCH_DATA_DIR  := docs/bench
 
+# Long-term trend store (issue #51). Each push to `main` archives that run's raw
+# (multi-sample) bench output under docs/bench/history/<timestamp>_<sha>.txt so
+# drift across commits is queryable and significance is recoverable. Archiving is
+# OPT-IN (BENCH_HISTORY non-empty): only the consistent CI environment should
+# feed the store — a maintainer's ad-hoc local `make bench-report` must not
+# pollute it with numbers from a different machine. The cap bounds repo growth by
+# pruning the oldest snapshots. bench-render always *reads* the store (cheap when
+# empty), so the trend section renders for everyone.
+BENCH_HISTORY     ?=
+BENCH_HISTORY_DIR := $(BENCH_DATA_DIR)/history
+BENCH_HISTORY_CAP ?= 100
+BENCH_ALERT       := $(BUILD_DIR)/bench-alert.md
+
 # Provenance, computed once so the generator stays a pure function of its inputs.
 GIT_SHA    := $(shell git rev-parse --short HEAD 2>/dev/null)
 GEN_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -74,9 +87,22 @@ bench-report: ## Benchmark this environment, capture its dataset, and regenerate
 		-goversion "$(GO_VERSION)" \
 		-benchtime "$(BENCH_TIME)" \
 		-count "$(BENCH_COUNT)"
+	@if [ -n "$(BENCH_HISTORY)" ]; then \
+		echo ">> archiving trend snapshot → $(BENCH_HISTORY_DIR) (cap $(BENCH_HISTORY_CAP))"; \
+		$(CURDIR)/$(BUILD_DIR)/benchreport history \
+			-in $(BUILD_DIR)/bench.txt \
+			-dir $(BENCH_HISTORY_DIR) \
+			-commit "$(GIT_SHA)" \
+			-date "$(GEN_DATE)" \
+			-cap $(BENCH_HISTORY_CAP); \
+	fi
 	@$(MAKE) --no-print-directory bench-render
 
 bench-render: ## Re-render BENCHMARKS.md, docs/bench.svg, and the README preview from committed datasets
 	go build -C $(BENCHREPORT_DIR) -o $(CURDIR)/$(BUILD_DIR)/benchreport .
-	@echo ">> rendering combined report from $(BENCH_DATA_DIR)/*.csv"
-	$(CURDIR)/$(BUILD_DIR)/benchreport render -dir $(BENCH_DATA_DIR)
+	@echo ">> rendering combined report from $(BENCH_DATA_DIR)/*.csv (+ trend from $(BENCH_HISTORY_DIR))"
+	@mkdir -p $(BUILD_DIR)
+	$(CURDIR)/$(BUILD_DIR)/benchreport render \
+		-dir $(BENCH_DATA_DIR) \
+		-history $(BENCH_HISTORY_DIR) \
+		-alert $(BENCH_ALERT)
