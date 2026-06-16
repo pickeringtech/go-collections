@@ -250,6 +250,11 @@ if found {
     fmt.Printf("Low stock alert: %s (%d remaining)\n", item, count)
 }
 
+// Predicate checks over (key, value) pairs
+allStocked := inventory.AllMatch(func(name string, qty int) bool { return qty > 0 })
+anyLow := inventory.AnyMatch(func(name string, qty int) bool { return qty < 10 })
+noneEmpty := inventory.NoneMatch(func(name string, qty int) bool { return qty == 0 })
+
 // Find specific key pattern
 fruitKey, found := inventory.FindKey(func(name string) bool {
     return strings.HasPrefix(name, "a")  // Fruits starting with 'a'
@@ -259,6 +264,11 @@ fruitKey, found := inventory.FindKey(func(name string) bool {
 has30 := inventory.ContainsValue(30)
 fmt.Printf("Has item with 30 units: %t\n", has30)
 ```
+
+`Find`, `AllMatch`, `AnyMatch` and `NoneMatch` form the search core shared
+across the `lists`, `dicts` and `sets` families. `FindKey`, `FindValue` and
+`ContainsValue` are deliberate dict-specific extensions that reflect a
+dictionary's key-value shape.
 
 ### 📊 Data Extraction - Get What You Need
 ```go

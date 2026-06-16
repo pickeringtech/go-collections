@@ -121,6 +121,48 @@ func (ch *ConcurrentHash[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	}
 }
 
+// AllMatch returns true if every key-value pair satisfies the given predicate.
+// It is vacuously true for an empty dictionary.
+func (ch *ConcurrentHash[K, V]) AllMatch(fn func(key K, value V) bool) bool {
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
+
+	for key, value := range ch.data {
+		if !fn(key, value) {
+			return false
+		}
+	}
+	return true
+}
+
+// AnyMatch returns true if at least one key-value pair satisfies the given
+// predicate. It is false for an empty dictionary.
+func (ch *ConcurrentHash[K, V]) AnyMatch(fn func(key K, value V) bool) bool {
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
+
+	for key, value := range ch.data {
+		if fn(key, value) {
+			return true
+		}
+	}
+	return false
+}
+
+// NoneMatch returns true if no key-value pair satisfies the given predicate.
+// It is vacuously true for an empty dictionary.
+func (ch *ConcurrentHash[K, V]) NoneMatch(fn func(key K, value V) bool) bool {
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
+
+	for key, value := range ch.data {
+		if fn(key, value) {
+			return false
+		}
+	}
+	return true
+}
+
 // Find returns the first key-value pair that satisfies the given predicate.
 // Returns the key, value, and true if found; zero values and false otherwise.
 func (ch *ConcurrentHash[K, V]) Find(fn func(key K, value V) bool) (K, V, bool) {

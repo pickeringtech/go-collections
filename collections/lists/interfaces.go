@@ -65,9 +65,14 @@ type MutableList[T any] interface {
 }
 
 // Searchable is implemented by collections that can be searched with predicates.
+//
+// AllMatch, AnyMatch, NoneMatch and Find form the search core shared across the
+// lists, dicts and sets families. FindIndex is a deliberate list-specific
+// extension that reflects the positional shape of a list.
 type Searchable[T any] interface {
 	AllMatch(fn func(T) bool) bool
 	AnyMatch(fn func(T) bool) bool
+	NoneMatch(fn func(T) bool) bool
 	Find(fn func(T) bool) (T, bool)
 	FindIndex(fn func(T) bool) int
 }

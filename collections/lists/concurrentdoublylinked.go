@@ -43,6 +43,13 @@ func (cl *ConcurrentDoublyLinked[T]) AnyMatch(fn func(T) bool) bool {
 	return cl.data.AnyMatch(fn)
 }
 
+// NoneMatch returns true if no element satisfies the given predicate.
+func (cl *ConcurrentDoublyLinked[T]) NoneMatch(fn func(T) bool) bool {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	return cl.data.NoneMatch(fn)
+}
+
 // Find returns the first element that satisfies the given predicate.
 func (cl *ConcurrentDoublyLinked[T]) Find(fn func(T) bool) (T, bool) {
 	cl.lock.Lock()

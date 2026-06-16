@@ -206,6 +206,36 @@ func (t *Tree[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	}
 }
 
+// AllMatch returns true if every key-value pair satisfies the given predicate.
+// It is vacuously true for an empty dictionary.
+func (t *Tree[K, V]) AllMatch(fn func(key K, value V) bool) bool {
+	allMatch := true
+	t.ForEach(func(key K, value V) {
+		if allMatch && !fn(key, value) {
+			allMatch = false
+		}
+	})
+	return allMatch
+}
+
+// AnyMatch returns true if at least one key-value pair satisfies the given
+// predicate. It is false for an empty dictionary.
+func (t *Tree[K, V]) AnyMatch(fn func(key K, value V) bool) bool {
+	anyMatch := false
+	t.ForEach(func(key K, value V) {
+		if !anyMatch && fn(key, value) {
+			anyMatch = true
+		}
+	})
+	return anyMatch
+}
+
+// NoneMatch returns true if no key-value pair satisfies the given predicate.
+// It is vacuously true for an empty dictionary.
+func (t *Tree[K, V]) NoneMatch(fn func(key K, value V) bool) bool {
+	return !t.AnyMatch(fn)
+}
+
 // Find returns the first key-value pair that satisfies the given predicate.
 // Returns the key, value, and true if found; zero values and false otherwise.
 func (t *Tree[K, V]) Find(fn func(key K, value V) bool) (K, V, bool) {

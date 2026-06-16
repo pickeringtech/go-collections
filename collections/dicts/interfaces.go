@@ -43,7 +43,24 @@ type MutableFilterable[K comparable, V any] interface {
 }
 
 // Searchable provides search capabilities for dictionaries.
+//
+// AllMatch, AnyMatch, NoneMatch and Find form the search core shared across the
+// lists, dicts and sets families. The remaining methods (FindKey, FindValue and
+// ContainsValue) are deliberate dict-specific extensions that reflect the
+// key-value shape of a dictionary.
 type Searchable[K comparable, V any] interface {
+	// AllMatch returns true if every key-value pair satisfies the given
+	// predicate. It is vacuously true for an empty dictionary.
+	AllMatch(fn func(key K, value V) bool) bool
+
+	// AnyMatch returns true if at least one key-value pair satisfies the given
+	// predicate. It is false for an empty dictionary.
+	AnyMatch(fn func(key K, value V) bool) bool
+
+	// NoneMatch returns true if no key-value pair satisfies the given predicate.
+	// It is vacuously true for an empty dictionary.
+	NoneMatch(fn func(key K, value V) bool) bool
+
 	// Find returns the first key-value pair that satisfies the given predicate.
 	// Returns the key, value, and true if found; zero values and false otherwise.
 	Find(fn func(key K, value V) bool) (K, V, bool)

@@ -212,8 +212,10 @@ large, found := numbers.Find(func(n int) bool { return n > 5 })
 // Sort in descending order
 numbers.SortInPlace(func(a, b int) bool { return a > b })
 
-// Check if all numbers are positive
+// Check if all/any/no numbers are positive
 allPositive := numbers.AllMatch(func(n int) bool { return n > 0 })
+anyPositive := numbers.AnyMatch(func(n int) bool { return n > 0 })
+noneNegative := numbers.NoneMatch(func(n int) bool { return n < 0 })
 
 // Insert at specific position
 numbers.InsertInPlace(2, 99)                  // Insert 99 at index 2
