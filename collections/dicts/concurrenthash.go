@@ -1,6 +1,9 @@
 package dicts
 
-import "sync"
+import (
+	"reflect"
+	"sync"
+)
 
 // ConcurrentHash is a thread-safe dictionary implementation using Go's built-in map
 // with a mutex for synchronization. All operations are protected by a single mutex.
@@ -210,12 +213,16 @@ func (ch *ConcurrentHash[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 }
 
 // ContainsValue checks if the given value exists in the dictionary.
+//
+// Values are compared with reflect.DeepEqual, matching the equality semantics
+// used by list removal. This supports non-comparable value types (slices, maps,
+// funcs) without panicking.
 func (ch *ConcurrentHash[K, V]) ContainsValue(value V) bool {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
 	for _, v := range ch.data {
-		if any(v) == any(value) {
+		if reflect.DeepEqual(v, value) {
 			return true
 		}
 	}

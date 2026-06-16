@@ -1,5 +1,7 @@
 package dicts
 
+import "reflect"
+
 // Hash is a fast dictionary implementation using Go's built-in map.
 // It provides O(1) average-case performance for all operations and supports
 // both immutable operations (returning new instances) and mutable operations
@@ -202,11 +204,13 @@ func (h Hash[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 }
 
 // ContainsValue checks if the given value exists in the dictionary.
+//
+// Values are compared with reflect.DeepEqual, matching the equality semantics
+// used by list removal. This supports non-comparable value types (slices, maps,
+// funcs) without panicking.
 func (h Hash[K, V]) ContainsValue(value V) bool {
 	for _, v := range h {
-		// Note: This requires V to be comparable for equality check
-		// For non-comparable types, this would need a different approach
-		if any(v) == any(value) {
+		if reflect.DeepEqual(v, value) {
 			return true
 		}
 	}
