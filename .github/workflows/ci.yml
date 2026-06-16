@@ -441,7 +441,7 @@ jobs:
     steps:
       - name: Require all blocking jobs to have succeeded
         run: |
-          results='${{ join(needs.*.result, ",") }}'
+          results='${{ join(needs.*.result, ',') }}'
           echo "Blocking-job results: $results"
           case "$results" in
             *failure*|*cancelled*|*skipped*)
