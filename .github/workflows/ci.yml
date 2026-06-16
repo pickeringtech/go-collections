@@ -515,7 +515,7 @@ jobs:
           MARKER='<!-- benchstat-regression-report -->'
           {
             echo "$MARKER"
-            echo "## 📊 Benchmark delta vs \`$BASE_REF\` (report-only)"
+            echo "## Benchmark delta vs \`$BASE_REF\` (report-only)"
             echo
             echo "Base \`${BASE_SHA:0:12}\` → PR head \`${HEAD_SHA:0:12}\` · \`-benchtime=$BENCH_TIME -count=$BENCH_COUNT -benchmem\`"
             echo
