@@ -79,6 +79,9 @@ func FuzzBinaryOracle(f *testing.F) {
 			t.Fatalf("AsSortedSlice mutated the heap: Length() = %d, want %d", built.Length(), len(want))
 		}
 
+		// FromSeq(All) round-trips back to a heap that drains to the oracle.
+		assertUint8Equal(t, "FromSeq", heaps.FromSeq(heaps.Min[uint8], built.All()).AsSortedSlice(), want)
+
 		// The max-heap drains to the reverse of the ascending oracle.
 		maxWant := make([]uint8, len(want))
 		for i, v := range want {

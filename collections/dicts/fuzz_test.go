@@ -1,6 +1,7 @@
 package dicts_test
 
 import (
+	"reflect"
 	"sort"
 	"sync"
 	"testing"
@@ -77,6 +78,62 @@ func runDictOracle(t *testing.T, d dicts.MutableDict[uint8, uint8], program []by
 		if _, ok := oracle[k]; !ok {
 			t.Fatalf("Keys contains %d not in oracle", k)
 		}
+	}
+
+	assertDictIterators(t, d, oracle)
+}
+
+// assertDictIterators checks that All, KeysSeq and ValuesSeq agree with the
+// oracle map, and that FromSeq2(All) round-trips back to the same contents.
+func assertDictIterators(t *testing.T, d dicts.MutableDict[uint8, uint8], oracle map[uint8]uint8) {
+	t.Helper()
+
+	// All must enumerate exactly the oracle's entries, without duplicate keys.
+	allSeen := map[uint8]uint8{}
+	for k, v := range d.All() {
+		if _, dup := allSeen[k]; dup {
+			t.Fatalf("All yielded duplicate key %d", k)
+		}
+		allSeen[k] = v
+	}
+	if !reflect.DeepEqual(allSeen, oracle) {
+		t.Fatalf("All entries = %v, want %v", allSeen, oracle)
+	}
+
+	// KeysSeq must yield exactly the oracle's key set — each key once, no
+	// omissions — independently of All. Tracking membership (not just a count)
+	// catches an iterator that duplicates one key while dropping another.
+	keysSeen := map[uint8]struct{}{}
+	for k := range d.KeysSeq() {
+		if _, ok := oracle[k]; !ok {
+			t.Fatalf("KeysSeq yielded %d not in oracle", k)
+		}
+		if _, dup := keysSeen[k]; dup {
+			t.Fatalf("KeysSeq yielded duplicate key %d", k)
+		}
+		keysSeen[k] = struct{}{}
+	}
+	if len(keysSeen) != len(oracle) {
+		t.Fatalf("KeysSeq yielded %d distinct keys, want %d", len(keysSeen), len(oracle))
+	}
+
+	// ValuesSeq must yield the oracle's values as a multiset (a value repeated
+	// across keys must appear once per key), so compare value->count tallies.
+	wantVals := map[uint8]int{}
+	for _, v := range oracle {
+		wantVals[v]++
+	}
+	gotVals := map[uint8]int{}
+	for v := range d.ValuesSeq() {
+		gotVals[v]++
+	}
+	if !reflect.DeepEqual(gotVals, wantVals) {
+		t.Fatalf("ValuesSeq tally = %v, want %v", gotVals, wantVals)
+	}
+
+	roundTrip := dicts.FromSeq2(d.All())
+	if !reflect.DeepEqual(roundTrip.AsMap(), oracle) {
+		t.Fatalf("FromSeq2 round-trip = %v, want %v", roundTrip.AsMap(), oracle)
 	}
 }
 

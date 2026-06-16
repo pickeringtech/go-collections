@@ -32,6 +32,22 @@ type Iterable[K comparable, V any] interface {
 
 	// ForEachValue executes the given function for each value.
 	ForEachValue(fn func(value V))
+
+	// All returns an iterator over key/value pairs, suitable for use with
+	// range-over-func. KeysSeq and ValuesSeq are the iterator counterparts of
+	// the slice-returning Keys and Values; All is named to avoid colliding with
+	// them.
+	All() iter.Seq2[K, V]
+
+	// KeysSeq returns an iterator over the keys, suitable for use with
+	// range-over-func. It is the iterator counterpart of the slice-returning
+	// Keys.
+	KeysSeq() iter.Seq[K]
+
+	// ValuesSeq returns an iterator over the values, suitable for use with
+	// range-over-func. It is the iterator counterpart of the slice-returning
+	// Values.
+	ValuesSeq() iter.Seq[V]
 }
 
 // Filterable provides filtering capabilities for dictionaries.

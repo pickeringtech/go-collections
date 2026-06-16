@@ -198,6 +198,21 @@
 //	dict.FilterInPlace(predicate)            // Modifies original
 //	removed, found := dict.RemoveInPlace("key") // Modifies original
 //
+// # Iterators (range-over-func)
+//
+// Dictionaries are iterator-native, integrating with Go 1.23+ range-over-func.
+// Because the slice-returning Keys and Values accessors already exist, the
+// iterator accessors are named All, KeysSeq and ValuesSeq:
+//
+//	for k, v := range dict.All() { ... }      // key/value pairs
+//	for k := range dict.KeysSeq() { ... }     // keys
+//	for v := range dict.ValuesSeq() { ... }   // values
+//
+// A Tree dictionary iterates in ascending key order; Hash order is unspecified.
+// FromSeq2 builds a dictionary from any iter.Seq2 (last value wins per key):
+//
+//	dict := dicts.FromSeq2(other.All())
+//
 // # Thread Safety
 //
 // Choose the right concurrent implementation:
