@@ -204,6 +204,7 @@ Each data structure has comprehensive documentation:
 - **[Sets Documentation](./sets/README.md)** - Complete guide to mathematical sets
 - **[Lists Documentation](./lists/README.md)** - Complete guide to ordered sequences
 - **[Heaps Documentation](./heaps/README.md)** - Complete guide to priority queues
+- **[LRU Documentation](./lru/README.md)** - Complete guide to bounded caches with eviction
 
 ## Real-World Examples
 
