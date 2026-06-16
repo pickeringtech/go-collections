@@ -402,46 +402,46 @@ func (t *Tree[K, V]) removeNode(n *node[K, V], key K) (*node[K, V], V, bool) {
 		return nil, zeroV, false
 	}
 
-	switch cmp.Compare(key, n.Key) {
-	case -1:
+	// cmp.Compare returns -1, 0, or +1, so these three branches are exhaustive.
+	comparison := cmp.Compare(key, n.Key)
+	if comparison < 0 {
 		var removedValue V
 		var found bool
 		n.Left, removedValue, found = t.removeNode(n.Left, key)
 		return n, removedValue, found
-	case 1:
+	}
+	if comparison > 0 {
 		var removedValue V
 		var found bool
 		n.Right, removedValue, found = t.removeNode(n.Right, key)
 		return n, removedValue, found
-	case 0:
-		// Found the node to remove
-		removedValue := n.Value
-
-		// Case 1: Node has no children
-		if n.Left == nil && n.Right == nil {
-			return nil, removedValue, true
-		}
-
-		// Case 2: Node has only right child
-		if n.Left == nil {
-			return n.Right, removedValue, true
-		}
-
-		// Case 3: Node has only left child
-		if n.Right == nil {
-			return n.Left, removedValue, true
-		}
-
-		// Case 4: Node has both children
-		// Find the inorder successor (smallest node in right subtree)
-		successor := t.findMin(n.Right)
-		n.Key = successor.Key
-		n.Value = successor.Value
-		n.Right, _, _ = t.removeNode(n.Right, successor.Key)
-		return n, removedValue, true
 	}
 
-	return n, zeroV, false
+	// Found the node to remove
+	removedValue := n.Value
+
+	// Case 1: Node has no children
+	if n.Left == nil && n.Right == nil {
+		return nil, removedValue, true
+	}
+
+	// Case 2: Node has only right child
+	if n.Left == nil {
+		return n.Right, removedValue, true
+	}
+
+	// Case 3: Node has only left child
+	if n.Right == nil {
+		return n.Left, removedValue, true
+	}
+
+	// Case 4: Node has both children
+	// Find the inorder successor (smallest node in right subtree)
+	successor := t.findMin(n.Right)
+	n.Key = successor.Key
+	n.Value = successor.Value
+	n.Right, _, _ = t.removeNode(n.Right, successor.Key)
+	return n, removedValue, true
 }
 
 // findMin finds the node with the minimum key in the subtree rooted at n.
