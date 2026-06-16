@@ -84,7 +84,7 @@ func Example_polymorphicUsage() {
 	// Function that works with any Dict implementation
 	processDict := func(d dicts.Dict[string, int], name string) {
 		fmt.Printf("%s - Length: %d\n", name, d.Length())
-		
+
 		// Find all values greater than 5
 		filtered := d.Filter(func(key string, value int) bool {
 			return value > 5
@@ -133,8 +133,8 @@ func Example_functionalStyle() {
 
 	// Chain immutable operations
 	result := original.
-		Put("d", 4).                    // Add new item
-		Remove("a").                    // Remove item
+		Put("d", 4).                        // Add new item
+		Remove("a").                        // Remove item
 		Filter(func(k string, v int) bool { // Keep only even values
 			return v%2 == 0
 		})

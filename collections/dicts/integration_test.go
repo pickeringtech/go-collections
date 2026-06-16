@@ -54,8 +54,8 @@ func TestIntegration_AllImplementations(t *testing.T) {
 
 	// Test all implementations through the collections package
 	implementations := map[string]dicts.Dict[string, int]{
-		"Hash":            collections.NewDict(pairs...),
-		"ConcurrentHash":  collections.NewConcurrentDict(pairs...),
+		"Hash":             collections.NewDict(pairs...),
+		"ConcurrentHash":   collections.NewConcurrentDict(pairs...),
 		"ConcurrentHashRW": collections.NewConcurrentRWDict(pairs...),
 	}
 
@@ -100,7 +100,7 @@ func TestIntegration_AllImplementations(t *testing.T) {
 
 func TestIntegration_TreeWithOrderedKeys(t *testing.T) {
 	// Test Tree with different ordered types
-	
+
 	// String keys
 	stringTree := dicts.NewTree(
 		dicts.Pair[string, int]{Key: "charlie", Value: 3},

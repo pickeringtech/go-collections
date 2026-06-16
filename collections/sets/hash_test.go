@@ -23,7 +23,7 @@ func ExampleHash_Add() {
 	s := sets.NewHash("apple", "banana")
 
 	newS := s.Add("cherry")
-	
+
 	fmt.Printf("Original length: %d\n", s.Length())
 	fmt.Printf("New length: %d\n", newS.Length())
 	fmt.Printf("New contains 'cherry': %v\n", newS.Contains("cherry"))
@@ -39,7 +39,7 @@ func ExampleHash_Union() {
 	s2 := sets.NewHash("cherry", "date")
 
 	union := s1.Union(s2)
-	
+
 	fmt.Printf("Union length: %d\n", union.Length())
 	fmt.Printf("Union contains 'apple': %v\n", union.Contains("apple"))
 	fmt.Printf("Union contains 'cherry': %v\n", union.Contains("cherry"))
@@ -55,7 +55,7 @@ func ExampleHash_Intersection() {
 	s2 := sets.NewHash("banana", "cherry", "date")
 
 	intersection := s1.Intersection(s2)
-	
+
 	fmt.Printf("Intersection length: %d\n", intersection.Length())
 	fmt.Printf("Intersection contains 'banana': %v\n", intersection.Contains("banana"))
 	fmt.Printf("Intersection contains 'apple': %v\n", intersection.Contains("apple"))
@@ -71,7 +71,7 @@ func ExampleHash_Difference() {
 	s2 := sets.NewHash("banana", "date")
 
 	difference := s1.Difference(s2)
-	
+
 	fmt.Printf("Difference length: %d\n", difference.Length())
 	fmt.Printf("Difference contains 'apple': %v\n", difference.Contains("apple"))
 	fmt.Printf("Difference contains 'banana': %v\n", difference.Contains("banana"))
@@ -88,7 +88,7 @@ func ExampleHash_Filter() {
 	evens := s.Filter(func(n int) bool {
 		return n%2 == 0
 	})
-	
+
 	fmt.Printf("Original length: %d\n", s.Length())
 	fmt.Printf("Evens length: %d\n", evens.Length())
 

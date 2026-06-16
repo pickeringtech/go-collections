@@ -14,7 +14,7 @@ func ExampleNewConcurrentHash() {
 	)
 
 	fmt.Printf("Initial length: %d\n", ch.Length())
-	
+
 	value, found := ch.Get("counter", -1)
 	fmt.Printf("Counter: %d, found: %t\n", value, found)
 
@@ -69,7 +69,7 @@ func ExampleNewConcurrentHashRW() {
 	)
 
 	fmt.Printf("Initial length: %d\n", chrw.Length())
-	
+
 	// Multiple concurrent reads are efficient
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {

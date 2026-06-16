@@ -1,1 +1,4 @@
 /.idea
+
+# CI / test artifacts
+/coverage.out

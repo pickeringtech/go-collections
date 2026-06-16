@@ -11,7 +11,7 @@ func ExampleNewConcurrentLinked() {
 	cl := lists.NewConcurrentLinked(1, 2, 3)
 
 	fmt.Printf("Length: %d\n", cl.Length())
-	
+
 	value := cl.Get(1, -1)
 	fmt.Printf("Element at index 1: %d\n", value)
 
@@ -44,7 +44,7 @@ func ExampleNewConcurrentDoublyLinked() {
 	cdl := lists.NewConcurrentDoublyLinked("apple", "banana", "cherry")
 
 	fmt.Printf("Length: %d\n", cdl.Length())
-	
+
 	value := cdl.Get(0, "default")
 	fmt.Printf("First element: %s\n", value)
 
@@ -72,7 +72,7 @@ func ExampleNewConcurrentRWLinked() {
 	crwl := lists.NewConcurrentRWLinked(10, 20, 30)
 
 	fmt.Printf("Length: %d\n", crwl.Length())
-	
+
 	// Multiple concurrent reads are efficient
 	var wg sync.WaitGroup
 	for i := 0; i < 3; i++ {
@@ -289,10 +289,10 @@ func TestConcurrentDoublyLinked_StackOperations(t *testing.T) {
 
 func BenchmarkConcurrentLinked_PushInPlace(b *testing.B) {
 	cl := lists.NewConcurrentLinked[int]()
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		cl.PushInPlace(i)
 	}
@@ -305,10 +305,10 @@ func BenchmarkConcurrentDoublyLinked_Get(b *testing.B) {
 		elements[i] = i
 	}
 	cdl := lists.NewConcurrentDoublyLinked(elements...)
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		index := i % 1000
 		_ = cdl.Get(index, -1)
@@ -322,10 +322,10 @@ func BenchmarkConcurrentRWLinked_Get(b *testing.B) {
 		elements[i] = i
 	}
 	crwl := lists.NewConcurrentRWLinked(elements...)
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		index := i % 1000
 		_ = crwl.Get(index, -1)

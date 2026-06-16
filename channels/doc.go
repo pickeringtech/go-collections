@@ -8,7 +8,7 @@
 //
 //	// Create a simple data processing pipeline
 //	input := make(chan int, 10)
-//	
+//
 //	// Build pipeline: numbers -> squares -> evens only
 //	pipeline := channels.NewPipeline(input).
 //		Map(func(n int) int { return n * n }).
@@ -97,7 +97,7 @@
 // Producer-Consumer with Backpressure:
 //
 //	work := make(chan Task, 10)
-//	
+//
 //	// Process with 5 workers, batch size 3
 //	results := channels.NewPipeline(work).
 //		Parallel(5, processTask).
@@ -161,7 +161,7 @@
 //	// Process slice data through pipeline
 //	data := []int{1, 2, 3, 4, 5}
 //	input := channels.FromSlice(data)
-//	
+//
 //	results := channels.NewPipeline(input).
 //		Map(transform).
 //		Filter(condition).

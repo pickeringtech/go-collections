@@ -159,16 +159,16 @@
 // # Best Practices
 //
 // 1. Use the most specific constraint possible:
-//    - Use Integer instead of Numeric for integer-only operations
-//    - Use Signed instead of Integer for operations that need negative numbers
+//   - Use Integer instead of Numeric for integer-only operations
+//   - Use Signed instead of Integer for operations that need negative numbers
 //
 // 2. Combine constraints when needed:
-//    - Create custom interfaces that combine multiple constraints
-//    - Use type unions for specific type sets
+//   - Create custom interfaces that combine multiple constraints
+//   - Use type unions for specific type sets
 //
 // 3. Provide clear function signatures:
-//    - Use descriptive type parameter names
-//    - Document constraint requirements in function comments
+//   - Use descriptive type parameter names
+//   - Document constraint requirements in function comments
 //
 // Start with the basic constraints (Numeric, Ordered) and create custom ones
 // as your generic programming needs grow.

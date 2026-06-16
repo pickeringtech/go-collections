@@ -1,0 +1,166 @@
+name: CI
+
+# Every job and step is named for *what it verifies*, so the Actions summary
+# reads as a checklist a reviewer can scan at a glance.
+#
+# Gating policy (first pass):
+#   - Blocking:    build, module hygiene, zero-dependency guard, tests
+#                  (race + shuffle), coverage floor, gofmt, go vet, govulncheck.
+#   - Report-only: golangci-lint (incl. cyclop/gocognit complexity), gosec,
+#                  fuzz, benchmarks. These print findings but do not fail the
+#                  build yet, so the gate can be ratcheted up deliberately.
+#
+# Coverage floor is 40% (current total is ~44%); the long-term goal is 85%.
+# Raise COVERAGE_MIN as tests are added so coverage can only move upward.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  COVERAGE_MIN: "40"   # floor that the suite passes today; goal is 85 (ratchet upward)
+
+jobs:
+  build:
+    name: Build & module hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Compile every package
+        run: go build ./...
+      - name: Ensure go.mod (and go.sum) are tidy and committed
+        run: go mod tidy && git diff --exit-code -- go.mod go.sum
+      - name: Enforce zero runtime dependencies
+        run: |
+          if grep -qE '^[[:space:]]*require' go.mod; then
+            echo "::error::Unexpected dependency in go.mod — this library must stay zero-dependency"
+            grep -nE '^[[:space:]]*require' go.mod
+            exit 1
+          fi
+          echo "go.mod declares no dependencies ✔"
+      - name: Verify module integrity
+        run: go mod verify
+
+  test:
+    name: Test (race + coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run tests with race detector and shuffled order
+        # -shuffle=on surfaces order-dependence; doc Example funcs with
+        # // Output: are verified here as part of `go test`.
+        run: go test -race -shuffle=on -coverprofile=coverage.out ./...
+      - name: Report total coverage
+        run: go tool cover -func=coverage.out | tail -1
+      - name: Enforce minimum coverage floor
+        run: |
+          pct=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | tr -d '%')
+          echo "Total coverage: ${pct}% (floor: ${COVERAGE_MIN}%, goal: 85%)"
+          if awk "BEGIN{exit !(${pct} >= ${COVERAGE_MIN})}"; then
+            echo "Coverage ${pct}% meets the ${COVERAGE_MIN}% floor ✔"
+          else
+            echo "::error::Coverage ${pct}% dropped below the ${COVERAGE_MIN}% floor"
+            exit 1
+          fi
+      - name: Upload coverage to Codecov (non-gating)
+        uses: codecov/codecov-action@v4
+        continue-on-error: true
+        with:
+          files: coverage.out
+          fail_ci_if_error: false
+
+  lint:
+    name: Lint, format & complexity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Check formatting (gofmt)
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::These files are not gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+          echo "All files are gofmt-clean ✔"
+      - name: Vet for suspicious constructs
+        run: go vet ./...
+      - name: Static analysis, style & complexity (golangci-lint) — report-only
+        # Aggregates staticcheck, errcheck, ineffassign, unconvert, misspell,
+        # revive, cyclop (cyclomatic) and gocognit (cognitive). Reported but
+        # non-gating on this first pass; flip continue-on-error to false to gate.
+        continue-on-error: true
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.1.6
+
+  security:
+    name: Security (vuln scan + gosec)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Scan for known vulnerabilities (govulncheck)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+      - name: Security lint (gosec) — report-only
+        continue-on-error: true
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec ./...
+
+  fuzz:
+    name: Fuzz (short run per target) — report-only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run each present fuzz target briefly
+        # Iterates over whatever Fuzz* targets exist; no-ops gracefully when
+        # there are none yet. -fuzz runs one target at a time per package.
+        continue-on-error: true
+        run: |
+          found=0
+          for pkg in $(go list ./...); do
+            dir=$(go list -f '{{.Dir}}' "$pkg")
+            targets=$(grep -rhoE '^func (Fuzz[A-Za-z0-9_]+)' "$dir"/*_test.go 2>/dev/null | awk '{print $2}' | sort -u)
+            for fn in $targets; do
+              found=1
+              echo "::group::Fuzzing $pkg $fn"
+              go test -run='^$' -fuzz="^${fn}$" -fuzztime=30s "$pkg"
+              echo "::endgroup::"
+            done
+          done
+          if [ "$found" = "0" ]; then
+            echo "No fuzz targets found — nothing to fuzz yet."
+          fi
+
+  benchmarks:
+    name: Benchmark smoke (non-gating)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run benchmarks briefly to ensure they compile and run
+        continue-on-error: true
+        run: go test -run='^$' -bench=. -benchtime=10x ./...
