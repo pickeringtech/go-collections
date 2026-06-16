@@ -8,9 +8,10 @@ type GeneratorFunc[T any] func(index int) T
 
 // Generate simplifies creating a slice of any type using a generator function. The generator function is called n times
 // and the result of that function is used as an element in the resulting slice. This can be really helpful when
-// templating a slice of items, in which only small parts of the items differ.
+// templating a slice of items, in which only small parts of the items differ. If n is zero or negative, the output is
+// an initialised, non-nil empty slice.
 func Generate[T any](n int, fn GeneratorFunc[T]) []T {
-	var results []T
+	results := []T{}
 	for i := 0; i < n; i++ {
 		results = append(results, fn(i))
 	}

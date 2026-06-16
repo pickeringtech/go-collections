@@ -156,18 +156,18 @@ func TestCopy(t *testing.T) {
 			want: []int{1, 2, 3},
 		},
 		{
-			name: "nil input provides nil output",
+			name: "nil input provides non-nil empty output",
 			args: args{
 				input: nil,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args{
 				input: []int{},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -379,21 +379,21 @@ func TestFill(t *testing.T) {
 			ensureInputIsUnchanged: true,
 		},
 		{
-			name: "nil input causes nil output",
+			name: "nil input causes non-nil empty output",
 			args: args[any]{
 				input: nil,
 				value: 10,
 			},
-			want:                   nil,
-			ensureInputIsUnchanged: true,
+			want:                   []any{},
+			ensureInputIsUnchanged: false,
 		},
 		{
-			name: "empty input causes nil output",
+			name: "empty input causes non-nil empty output",
 			args: args[any]{
 				input: []any{},
 				value: 10,
 			},
-			want:                   nil,
+			want:                   []any{},
 			ensureInputIsUnchanged: false,
 		},
 	}
@@ -511,22 +511,22 @@ func TestFillFrom(t *testing.T) {
 			want: []any{1, 2, 3, 4, 5},
 		},
 		{
-			name: "nil input results in nil output",
+			name: "nil input results in non-nil empty output",
 			args: args[any]{
 				input:     nil,
 				value:     10,
 				fromIndex: -1,
 			},
-			want: nil,
+			want: []any{},
 		},
 		{
-			name: "empty input results in nil output",
+			name: "empty input results in non-nil empty output",
 			args: args[any]{
 				input:     []any{},
 				value:     10,
 				fromIndex: -1,
 			},
-			want: nil,
+			want: []any{},
 		},
 	}
 	for _, tt := range tests {
@@ -665,24 +665,24 @@ func TestFillFromTo(t *testing.T) {
 			want: []any{1, 2, 3, 4, 5},
 		},
 		{
-			name: "nil input results in nil output",
+			name: "nil input results in non-nil empty output",
 			args: args[any]{
 				input:     nil,
 				value:     10,
 				fromIndex: 0,
 				toIndex:   6,
 			},
-			want: nil,
+			want: []any{},
 		},
 		{
-			name: "empty input results in nil output",
+			name: "empty input results in non-nil empty output",
 			args: args[any]{
 				input:     []any{},
 				value:     10,
 				fromIndex: 0,
 				toIndex:   6,
 			},
-			want: nil,
+			want: []any{},
 		},
 	}
 	for _, tt := range tests {
@@ -815,22 +815,22 @@ func TestFillTo(t *testing.T) {
 			want: []any{1, 2, 3, 4, 5},
 		},
 		{
-			name: "nil input results in nil output",
+			name: "nil input results in non-nil empty output",
 			args: args[any]{
 				input:   nil,
 				value:   10,
 				toIndex: 6,
 			},
-			want: nil,
+			want: []any{},
 		},
 		{
-			name: "empty input results in nil output",
+			name: "empty input results in non-nil empty output",
 			args: args[any]{
 				input:   []any{},
 				value:   10,
 				toIndex: 6,
 			},
-			want: nil,
+			want: []any{},
 		},
 	}
 	for _, tt := range tests {

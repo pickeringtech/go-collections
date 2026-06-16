@@ -39,24 +39,24 @@ func TestMap_StringToInt(t *testing.T) {
 			want: []int{1, 2, 3, 1},
 		},
 		{
-			name: "nil input results in nil output",
+			name: "nil input results in non-nil empty output",
 			args: args{
 				input: nil,
 				fun: func(element string) int {
 					return len(element)
 				},
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "empty input results in nil output",
+			name: "empty input results in non-nil empty output",
 			args: args{
 				input: []string{},
 				fun: func(element string) int {
 					return len(element)
 				},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {

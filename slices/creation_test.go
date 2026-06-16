@@ -48,14 +48,14 @@ func TestGenerate(t *testing.T) {
 			want: []string{"0", "3", "6"},
 		},
 		{
-			name: "amount 0 provides nil output",
+			name: "amount 0 provides non-nil empty output",
 			args: args[string]{
 				amount: 0,
 				fn: func(index int) string {
 					return strconv.Itoa(index * 3)
 				},
 			},
-			want: nil,
+			want: []string{},
 		},
 	}
 	for _, tt := range tests {

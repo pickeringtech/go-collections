@@ -247,18 +247,18 @@ func TestConcurrentRWArray_DequeueInPlace(t *testing.T) {
 			wantRest: []int{2, 3, 4, 5},
 		},
 		{
-			name:     "dequeueing last element returns true, but nil slice",
+			name:     "dequeueing last element returns true, but empty slice",
 			a:        lists.NewConcurrentRWArray[int](1),
 			wantVal:  1,
 			wantOK:   true,
-			wantRest: nil,
+			wantRest: []int{},
 		},
 		{
-			name:     "dequeueing empty input returns false, and nil slice",
+			name:     "dequeueing empty input returns false, and empty slice",
 			a:        lists.NewConcurrentRWArray[int](),
 			wantVal:  0,
 			wantOK:   false,
-			wantRest: nil,
+			wantRest: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -400,14 +400,14 @@ func TestConcurrentRWArray_Filter(t *testing.T) {
 			want: []int{3, 4},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i > 2 && i < 5
 				},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -442,14 +442,14 @@ func TestConcurrentRWArray_FilterInPlace(t *testing.T) {
 			want: []int{3, 4},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i > 2 && i < 5
 				},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -813,9 +813,9 @@ func TestConcurrentRWArray_GetAsSlice(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			a:    lists.NewConcurrentRWArray[int](),
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -956,31 +956,31 @@ func TestConcurrentRWArray_InsertInPlace(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "inserting into empty ConcurrentRWArray yields nil output",
+			name: "inserting into empty ConcurrentRWArray yields non-nil empty output",
 			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    0,
 				elements: []int{6, 7, 8},
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "empty ConcurrentRWArray and empty elements slice yields nil output",
+			name: "empty ConcurrentRWArray and empty elements slice yields non-nil empty output",
 			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    2,
 				elements: []int{},
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "empty ConcurrentRWArray and nil elements slice yields nil output",
+			name: "empty ConcurrentRWArray and nil elements slice yields non-nil empty output",
 			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    2,
 				elements: nil,
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -1190,11 +1190,11 @@ func TestConcurrentRWArray_PopInPlace(t *testing.T) {
 			wantRest: []int{1, 2, 3, 4},
 		},
 		{
-			name:     "empty ConcurrentRWArray yields zero value output and nil slice",
+			name:     "empty ConcurrentRWArray yields zero value output and empty slice",
 			a:        lists.NewConcurrentRWArray[int](),
 			wantVal:  0,
 			wantOK:   false,
-			wantRest: nil,
+			wantRest: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -1342,12 +1342,12 @@ func TestConcurrentRWArray_Sort(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "sorting empty ConcurrentRWArray results in nil",
+			name: "sorting empty ConcurrentRWArray results in empty slice",
 			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: slices.AscendingSortFunc[int],
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -1399,12 +1399,12 @@ func TestConcurrentRWArray_SortInPlace(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "sorting empty ConcurrentRWArray results in nil",
+			name: "sorting empty ConcurrentRWArray results in empty slice",
 			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				fn: slices.AscendingSortFunc[int],
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {

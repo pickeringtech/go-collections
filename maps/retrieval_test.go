@@ -395,11 +395,11 @@ func TestItems(t *testing.T) {
 			},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[int, string]{
 				input: map[int]string{},
 			},
-			want: nil,
+			want: []maps.Entry[int, string]{},
 		},
 	}
 	for _, tt := range tests {
@@ -447,11 +447,11 @@ func TestKeys(t *testing.T) {
 			want: []int{-1, 1, 10},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[int, string]{
 				input: map[int]string{},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -497,11 +497,11 @@ func TestValues(t *testing.T) {
 			want: []string{"negative one", "one", "ten"},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[int, string]{
 				input: map[int]string{},
 			},
-			want: nil,
+			want: []string{},
 		},
 	}
 	for _, tt := range tests {

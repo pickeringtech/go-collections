@@ -26,10 +26,11 @@ func DescendingSortFunc[T constraints.Ordered](a, b T) bool {
 }
 
 // Sort orders the elements within the input slice in order, using the provided function to determine the
-// relative value of each element, and whether they should be before or after each other.
+// relative value of each element, and whether they should be before or after each other. If the input is empty or nil,
+// the output is an initialised, non-nil empty slice.
 func Sort[T any](input []T, fun SortFunc[T]) []T {
 	if len(input) == 0 {
-		return nil
+		return []T{}
 	}
 	inputCopy := append([]T(nil), input...)
 	sort.Slice(inputCopy, func(i, j int) bool {
@@ -46,10 +47,10 @@ type SortFieldExtractorFunc[T any, S constraints.Ordered] func(T) S
 
 // SortByOrderedField orders the elements within the input slice using the sort function, and using a field which is
 // extracted from each element by the extractor function. Particularly useful when trying to sort a slice of structs
-// by one of the struct member fields.
+// by one of the struct member fields. If the input is empty or nil, the output is an initialised, non-nil empty slice.
 func SortByOrderedField[T any, S constraints.Ordered](input []T, fun SortFunc[S], extractor SortFieldExtractorFunc[T, S]) []T {
 	if len(input) == 0 {
-		return nil
+		return []T{}
 	}
 	inputCopy := append([]T(nil), input...)
 	sort.Slice(inputCopy, func(i, j int) bool {
