@@ -155,8 +155,12 @@ func BenchmarkReduce(b *testing.B) {
 		fn := func(acc, el int) int { return acc + el }
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				// Reduce emits a single accumulated value on its output channel.
-				<-channels.Reduce(channels.FromSlice(sli), fn)
+				// Reduce emits a single accumulated value then closes its output
+				// channel. Drain with range (rather than a single receive) so the
+				// Reduce goroutine has fully exited before the next iteration,
+				// avoiding cross-iteration overlap in the measurement.
+				for range channels.Reduce(channels.FromSlice(sli), fn) {
+				}
 			}
 		})
 	}
