@@ -234,6 +234,34 @@ products.FilterInPlace(func(name string, price float64) bool {
 fmt.Printf("Expensive products: %v\n", expensive.Keys())
 ```
 
+### Transforming to New Types: Map / Reduce
+`Filter` is a method because it keeps the same key/value types. A general `Map`
+to a **different** key/value type needs type parameters Go methods cannot have
+([golang/go#49085](https://github.com/golang/go/issues/49085)), so `Map` and
+`Reduce` are **free functions** over the `Dict` interface. `Map` returns the
+`Dict` interface (backed by `NewHash`) so results chain on.
+
+```go
+prices := dicts.NewHash(
+    dicts.Pair[string, float64]{Key: "laptop", Value: 999.99},
+    dicts.Pair[string, float64]{Key: "mouse", Value: 29.99},
+)
+
+// Map: (K, V) -> (OK, OV) — here to (name, rounded-price-as-int)
+rounded := dicts.Map(prices, func(name string, price float64) (string, int) {
+    return name, int(price)
+})                                                                   // Dict[string, int]
+
+// Reduce: fold every pair into a single value
+total := dicts.Reduce(prices, 0.0, func(acc float64, _ string, price float64) float64 {
+    return acc + price
+})
+```
+
+Iteration order over a `Dict` is unspecified, so a reduction should be
+order-independent. (`FlatMap` is intentionally omitted — flattening a dict of
+dicts has no unambiguous key-merging rule.)
+
 ### Advanced Search - Find Exactly What You Want
 ```go
 inventory := dicts.NewHash(

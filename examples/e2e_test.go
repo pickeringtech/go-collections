@@ -52,6 +52,11 @@ func cases() []e2eCase {
 			app:  "ordered-processing",
 			args: []string{"-nums", "5,3,8,1,9,2"},
 		},
+		{
+			name: "collection-transform",
+			app:  "collection-transform",
+			args: []string{"-words", "the,quick,brown,fox,the,lazy,dog"},
+		},
 	}
 }
 
