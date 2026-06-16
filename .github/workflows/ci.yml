@@ -23,6 +23,9 @@ permissions:
 
 env:
   COVERAGE_MIN: "40"   # floor that the suite passes today; goal is 85 (ratchet upward)
+  # Pin security-tool versions so CI is reproducible; bump deliberately.
+  GOVULNCHECK_VERSION: "v1.3.0"
+  GOSEC_VERSION: "v2.27.1"
 
 jobs:
   build:
@@ -36,7 +39,19 @@ jobs:
       - name: Compile every package
         run: go build ./...
       - name: Ensure go.mod (and go.sum) are tidy and committed
-        run: go mod tidy && git diff --exit-code -- go.mod go.sum
+        # git status --porcelain catches modified *and* newly-created/untracked
+        # files (e.g. a go.sum that `go mod tidy` would add), which `git diff`
+        # alone would miss.
+        run: |
+          go mod tidy
+          changed=$(git status --porcelain -- go.mod go.sum)
+          if [ -n "$changed" ]; then
+            echo "::error::go.mod/go.sum are not tidy — run 'go mod tidy' and commit the result:"
+            echo "$changed"
+            git diff -- go.mod go.sum
+            exit 1
+          fi
+          echo "go.mod/go.sum are tidy ✔"
       - name: Enforce zero runtime dependencies
         run: |
           if grep -qE '^[[:space:]]*require' go.mod; then
@@ -66,7 +81,8 @@ jobs:
         run: |
           pct=$(go tool cover -func=coverage.out | tail -1 | awk '{print $3}' | tr -d '%')
           echo "Total coverage: ${pct}% (floor: ${COVERAGE_MIN}%, goal: 85%)"
-          if awk "BEGIN{exit !(${pct} >= ${COVERAGE_MIN})}"; then
+          # Pass values via -v rather than interpolating into the awk program.
+          if awk -v pct="$pct" -v min="$COVERAGE_MIN" 'BEGIN{exit !(pct >= min)}'; then
             echo "Coverage ${pct}% meets the ${COVERAGE_MIN}% floor ✔"
           else
             echo "::error::Coverage ${pct}% dropped below the ${COVERAGE_MIN}% floor"
@@ -117,12 +133,12 @@ jobs:
           go-version-file: go.mod
       - name: Scan for known vulnerabilities (govulncheck)
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
           govulncheck ./...
       - name: Security lint (gosec) — report-only
         continue-on-error: true
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
           gosec ./...
 
   fuzz:
