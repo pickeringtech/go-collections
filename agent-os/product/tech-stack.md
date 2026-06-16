@@ -19,7 +19,7 @@ N/A.
 
 ## Testing & Tooling
 
-- **Testing:** standard library `testing` — table-driven tests, godoc `Example` functions, `Benchmark` functions (scaling ladder), and fuzz targets (`testing.F`). Run with `-race` for concurrent types.
+- **Testing:** standard library `testing` — table-driven tests, GoDoc `Example` functions, `Benchmark` functions (scaling ladder), and fuzz targets (`testing.F`). Run with `-race` for concurrent types.
 - **Formatting / vetting:** `gofmt`, `go vet` (standard Go toolchain).
 
 These are development/CI dependencies only — they do not affect the zero **runtime** dependency guarantee:
