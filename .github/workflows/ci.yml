@@ -12,7 +12,10 @@ name: CI
 #   - Report-only: Go tip; cross-arch (386 build+vet+test, arm64/s390x
 #                  build+vet only); fuzz; benchmarks; API compatibility. These
 #                  print findings/early warnings but do not fail the build (per
-#                  #7's gating policy).
+#                  #7's gating policy). On a PR the benchmark job also
+#                  A/B-compares against the base branch with benchstat and posts
+#                  the delta table — still advisory (see the job for the
+#                  documented path to a future regression gate).
 #
 # Branch protection (#41): the ONLY required check is the `CI Gate` job, which
 # `needs:` every blocking job and fails unless they all succeed. Requiring a
@@ -56,6 +59,15 @@ env:
   GOSEC_VERSION: "v2.27.1"
   # gorelease lives in x/exp, which has no per-command tags — pin the pseudo-version.
   GORELEASE_VERSION: "v0.0.0-20260611194520-c48552f49976"
+  # golang.org/x/perf ships only pseudo-versions (no semver tags); pin one.
+  BENCHSTAT_VERSION: "v0.0.0-20260615155930-9e4b9ddef5b6"
+  # Benchmark A/B knobs. Wall time ≈ (sub-benchmarks) × BENCH_TIME × BENCH_COUNT
+  # × 2 branches, independent of runner speed since BENCH_TIME is a duration.
+  # With ~440 sub-benchmarks that's ≈ 440 × 0.05 × 8 × 2 ≈ 6 min of bench time.
+  # More samples (count) beats longer per-sample time for fighting runner noise,
+  # so prefer raising BENCH_COUNT over BENCH_TIME. Tune here if CI time drifts.
+  BENCH_TIME: "50ms"   # per-sample duration (plenty: even 50ms = millions of ns-scale iters)
+  BENCH_COUNT: "8"     # benchstat samples per benchmark (issue #31 suggests 6–10)
 
 jobs:
   build:
@@ -440,16 +452,141 @@ jobs:
           fi
 
   benchmarks:
-    name: Benchmark smoke (non-gating)
+    name: Benchmark regression (vs base) — report-only
     runs-on: ubuntu-latest
+    # Performance is a mission pillar but was the one claim with no automated
+    # guard (benchmarks ran smoke-only). On a PR this job benchmarks the base
+    # branch and the PR head under identical settings and runs benchstat to
+    # surface deltas + statistical significance. On push (no PR base) it falls
+    # back to a compile-and-run smoke so `main` keeps green, runnable benchmarks.
+    #
+    # Report-only by design: GitHub-hosted runners are shared and noisy, so a
+    # hard gate would be flaky. We publish the table and let humans judge.
+    #
+    # Documented path to a future regression GATE (do NOT enable until a
+    # low-noise runner exists):
+    #   1. Move benchmarks to a dedicated/self-hosted or otherwise quiescent
+    #      runner — micro-benchmark deltas on shared runners are not trustworthy
+    #      enough to block a merge.
+    #   2. Then gate with `benchstat -format=csv` parsed for a tolerance, e.g.
+    #      fail only when a benchmark regresses by > T% (start ~10%) AND
+    #      benchstat reports p < 0.05 (a non-"~" delta). Two consecutive
+    #      regressing runs reduces false positives further.
+    #   3. Keep an allowlist/override label for intentional perf trade-offs.
+    permissions:
+      contents: read
+      # The sticky report is a PR *conversation* comment, posted via the issues
+      # comments endpoint (PRs are issues) — that needs issues:write, not just
+      # pull-requests:write. Grant both so the comment posts on same-repo PRs;
+      # all comment steps stay continue-on-error so forks (read-only token) just
+      # fall back to the job summary.
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so we can check out and benchmark the PR's base commit
+          # within this same job (cheap no-op on push events).
+          fetch-depth: 0
+          # Bench the PR head's actual commit, not the default merge ref, so the
+          # base↔head diff (and the reported SHAs) are exactly the PR's changes.
+          # Empty on push → checkout falls back to the default ref.
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Run benchmarks briefly to ensure they compile and run
+
+      # Install before any `git checkout` below: the binary lands in $GOBIN,
+      # outside the work tree, so switching the tree to the base commit can't
+      # disturb it.
+      - name: Install benchstat (pinned)
+        run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
+
+      # push to main: no PR base to diff against — just confirm benchmarks
+      # compile and run (the previous smoke behaviour).
+      - name: Benchmark smoke (compile + run)
+        if: github.event_name != 'pull_request'
         continue-on-error: true
         run: go test -run='^$' -bench=. -benchtime=10x ./...
+
+      # pull_request: A/B compare base vs head.
+      - name: Benchmark base vs PR head, compare with benchstat
+        if: github.event_name == 'pull_request'
+        continue-on-error: true   # report-only: a slow/failed benchmark never blocks a merge
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -uo pipefail
+          bench() {
+            go test -run='^$' -bench=. -benchmem \
+              -benchtime="$BENCH_TIME" -count="$BENCH_COUNT" ./...
+          }
+
+          # The PR head is already checked out. Bench it first, then detach to
+          # the base commit and bench that. A benchmark erroring is reported but
+          # not fatal (report-only) — partial output still feeds benchstat.
+          echo "::group::Benchmark PR head ($HEAD_SHA)"
+          bench | tee pr.txt || echo "::warning::benchmarks reported errors on PR head (report-only)"
+          echo "::endgroup::"
+
+          echo "::group::Benchmark base ($BASE_REF @ $BASE_SHA)"
+          git checkout --quiet --detach "$BASE_SHA"
+          bench | tee base.txt || echo "::warning::benchmarks reported errors on base (report-only)"
+          echo "::endgroup::"
+
+          echo "::group::benchstat base → PR head"
+          benchstat base.txt pr.txt | tee benchstat.txt
+          echo "::endgroup::"
+
+      - name: Publish benchstat report (job summary + sticky PR comment)
+        if: github.event_name == 'pull_request'
+        continue-on-error: true   # report-only: reporting hiccups (e.g. fork tokens) never block
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          MARKER='<!-- benchstat-regression-report -->'
+          {
+            echo "$MARKER"
+            echo "## Benchmark delta vs \`$BASE_REF\` (report-only)"
+            echo
+            echo "Base \`${BASE_SHA:0:12}\` → PR head \`${HEAD_SHA:0:12}\` · \`-benchtime=$BENCH_TIME -count=$BENCH_COUNT -benchmem\`"
+            echo
+            echo "> GitHub-hosted runners are shared and noisy, so **trust benchstat's significance, not raw numbers**: \`~\` means the change is within noise, and a delta only matters with a low \`p\`-value. This check never fails the build."
+            echo
+            if [ -s benchstat.txt ]; then
+              echo '```'
+              cat benchstat.txt
+              echo '```'
+            else
+              echo "_No benchmark output to compare._"
+            fi
+          } > comment.md
+
+          # The job summary works everywhere (incl. forked PRs) — publish there first.
+          cat comment.md >> "$GITHUB_STEP_SUMMARY"
+
+          # Best-effort sticky comment: update the prior report if one exists,
+          # else create it. Needs pull-requests:write, so it's a graceful no-op
+          # on forked-PR runs where the token is read-only.
+          api="repos/${GITHUB_REPOSITORY}/issues"
+          existing=$(gh api "${api}/${PR_NUMBER}/comments" --paginate \
+            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" 2>/dev/null | head -n1 || true)
+          if [ -n "${existing:-}" ]; then
+            gh api -X PATCH "${api}/comments/${existing}" -F body=@comment.md >/dev/null \
+              && echo "Updated benchstat comment #${existing}." \
+              || echo "::warning::Could not update PR comment (likely a fork's read-only token); see the job summary."
+          else
+            gh api -X POST "${api}/${PR_NUMBER}/comments" -F body=@comment.md >/dev/null \
+              && echo "Posted benchstat comment." \
+              || echo "::warning::Could not post PR comment (likely a fork's read-only token); see the job summary."
+          fi
 
   ci-gate:
     # Single stable required check for branch protection (see #41). Branch
