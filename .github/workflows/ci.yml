@@ -37,8 +37,11 @@ name: CI
 # and fail when gorelease reports incompatible changes to the stable API), per
 # the project's "ratchet the gates" pattern.
 #
-# Coverage floor is 90% (current total is ~99%); the issue-#7 goal of 85% is met.
-# Raise COVERAGE_MIN as tests are added so coverage can only move upward.
+# Coverage floor is 100% (current total is 100%); the issue-#7 goal of 85% and
+# the issue-#45 goal of 100% are both met. This is now a hard "no untested code"
+# gate — every new statement must ship with a covering test. Truly unreachable
+# defensive branches should be refactored away (or made reachable) rather than
+# lowering this floor.
 
 on:
   push:
@@ -49,7 +52,7 @@ permissions:
   contents: read
 
 env:
-  COVERAGE_MIN: "90"   # floor (actual is ~99%); exceeds the 85 goal — ratchet upward only
+  COVERAGE_MIN: "100"   # hard floor: 100% coverage, no untested code (issue #45) — ratchet upward only
   # Primary (go.mod) Go version; the test matrix gates this on every OS and uses
   # it to pick the single Codecov-uploading cell. Keep in sync with go.mod.
   # (The matrix itself can't read env, so the version literals live there.)

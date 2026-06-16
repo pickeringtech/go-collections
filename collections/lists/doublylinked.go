@@ -144,9 +144,8 @@ func (dl *DoublyLinked[T]) FilterInPlace(fn func(T) bool) {
 // by node identity rather than by nil prev/next pointers, so the logic is
 // correct for circular lists too (where prev/next never become nil).
 func (dl *DoublyLinked[T]) removeNode(node *doublyNode[T]) {
-	if node == nil {
-		return
-	}
+	// Every caller guards against an empty list before reaching here, so node is
+	// always non-nil.
 
 	// Removing the only node empties the list.
 	if dl.head == dl.tail {
