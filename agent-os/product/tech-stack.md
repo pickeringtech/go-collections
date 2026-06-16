@@ -26,6 +26,7 @@ These are development/CI dependencies only — they do not affect the zero **run
 
 - **Linting / static analysis:** `golangci-lint` (bundles staticcheck, cyclop, gocognit, etc.).
 - **Security:** `govulncheck` (vulnerability scanning), `gosec` (security lint).
+- **API compatibility:** `gorelease` (`golang.org/x/exp/cmd/gorelease`) compares the working tree's exported API against the last released semver tag and reports the implied version bump plus any breaking changes. Report-only pre-1.0 (breaking changes are permitted while major version is 0); planned to gate post-v1.0. See [#29](https://github.com/pickeringtech/go-collections/issues/29).
 
 ## Distribution & Docs
 
