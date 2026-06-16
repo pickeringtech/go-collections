@@ -50,6 +50,35 @@ func TestBackgroundWorkLimiter_CollectsErrors(t *testing.T) {
 	}
 }
 
+func TestBackgroundWorkLimiter_InvalidLimitIsClamped(t *testing.T) {
+	// limit == 0 once produced an unbuffered semaphore that deadlocked on the first
+	// send; limit < 0 panicked at channel creation. Both must now run to completion.
+	for _, limit := range []int{0, -1, -5} {
+		limit := limit
+		t.Run("", func(t *testing.T) {
+			var counter int64
+
+			limiter := NewBackgroundWorkLimiter(limit)
+			limiter.Start()
+			for i := 0; i < 10; i++ {
+				limiter.Add(func() error {
+					atomic.AddInt64(&counter, 1)
+					return nil
+				})
+			}
+			limiter.Stop()
+			limiter.Wait()
+
+			if got := atomic.LoadInt64(&counter); got != 10 {
+				t.Errorf("ran %d work items, want 10", got)
+			}
+			if errs := limiter.Errors(); len(errs) != 0 {
+				t.Errorf("Errors() = %d, want 0", len(errs))
+			}
+		})
+	}
+}
+
 func TestBackgroundWorkLimiter_NeverExceedsLimit(t *testing.T) {
 	const limit = 3
 	var inFlight int64
