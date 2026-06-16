@@ -154,24 +154,68 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Run each present fuzz target briefly
-        # Iterates over whatever Fuzz* targets exist; no-ops gracefully when
-        # there are none yet. -fuzz runs one target at a time per package.
+      - name: Run every fuzz target for a fixed iteration count, in parallel
+        # Report-only smoke run. Two levers keep this job under budget and keep
+        # it there as targets are added (see #25):
+        #   1. Count-based -fuzztime (2000x, mirroring the benchmark job's
+        #      -benchtime=10x) instead of a 30s wall-clock budget. The job's
+        #      purpose is to confirm each target compiles, runs, and survives
+        #      its seed corpus + a burst of generated inputs — not to fuzz
+        #      deeply — so a fixed iteration count is sub-second per target and
+        #      deterministic. Deep fuzzing belongs in a separate scheduled job.
+        #   2. Fan the targets out across cores with `xargs -P $(nproc)` after
+        #      warming the build cache once, so wall-clock is ~ceil(targets /
+        #      cores) rather than the serial sum.
+        # Parallel stdout interleaves unreadably, so each target writes its own
+        # log file which is replayed under a ::group:: afterwards, keeping output
+        # attributable. No-ops gracefully when there are no targets yet.
         continue-on-error: true
         run: |
-          found=0
-          for pkg in $(go list ./...); do
+          set -uo pipefail
+          go test -run='^$' ./...   # warm the build cache once, serially
+
+          # Build the work list: "<pkg>\t<FuzzFn>", one target per line.
+          jobs=$(for pkg in $(go list ./...); do
             dir=$(go list -f '{{.Dir}}' "$pkg")
-            targets=$(grep -rhoE '^func (Fuzz[A-Za-z0-9_]+)' "$dir"/*_test.go 2>/dev/null | awk '{print $2}' | sort -u)
-            for fn in $targets; do
-              found=1
-              echo "::group::Fuzzing $pkg $fn"
-              go test -run='^$' -fuzz="^${fn}$" -fuzztime=30s "$pkg"
-              echo "::endgroup::"
-            done
-          done
-          if [ "$found" = "0" ]; then
+            grep -rhoE '^func (Fuzz[A-Za-z0-9_]+)' "$dir"/*_test.go 2>/dev/null \
+              | awk -v p="$pkg" '{print p"\t"$2}'
+          done | sort -u)
+
+          if [ -z "$jobs" ]; then
             echo "No fuzz targets found — nothing to fuzz yet."
+            exit 0
+          fi
+
+          count=$(printf '%s\n' "$jobs" | grep -c .)
+          echo "Found $count fuzz target(s); running -fuzztime=2000x across $(nproc) cores."
+
+          # Each parallel worker writes to its own log (passed $logdir as $0) and
+          # drops a marker file on failure. Different targets in one package are
+          # separate `go test` processes — fine; -fuzz takes one pattern at a time.
+          logdir=$(mktemp -d)
+          printf '%s\n' "$jobs" | xargs -P "$(nproc)" -I{} bash -c '
+            set -- {}
+            pkg=$1; fn=$2
+            base="${pkg//\//_}.${fn}"
+            if ! go test -run="^$" -fuzz="^${fn}$" -fuzztime=2000x "$pkg" >"$0/${base}.log" 2>&1; then
+              touch "$0/${base}.FAILED"
+            fi
+          ' "$logdir"
+
+          # Replay per-target output, grouped so it stays attributable.
+          for log in "$logdir"/*.log; do
+            base=$(basename "$log" .log)
+            echo "::group::$base"
+            cat "$log"
+            echo "::endgroup::"
+          done
+
+          failed=$(find "$logdir" -name '*.FAILED' -printf '%f\n' | sed 's/\.FAILED$//')
+          if [ -n "$failed" ]; then
+            echo "::warning::Some fuzz targets reported failures (report-only, non-gating):"
+            echo "$failed"
+          else
+            echo "All $count fuzz target(s) passed the count-based smoke run ✔"
           fi
 
   benchmarks:
