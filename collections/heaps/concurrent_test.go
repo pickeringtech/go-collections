@@ -13,22 +13,24 @@ import (
 // shared behavioural suite runs against every concurrent variant.
 func concurrentFactories() []struct {
 	name string
+	rw   bool // true for the RWMutex-backed variants
 	make func(values ...int) heaps.MutableHeap[int]
 } {
 	return []struct {
 		name string
+		rw   bool
 		make func(values ...int) heaps.MutableHeap[int]
 	}{
-		{name: "ConcurrentBinary", make: func(values ...int) heaps.MutableHeap[int] {
+		{name: "ConcurrentBinary", rw: false, make: func(values ...int) heaps.MutableHeap[int] {
 			return heaps.NewConcurrentMin(values...)
 		}},
-		{name: "ConcurrentBinaryMax", make: func(values ...int) heaps.MutableHeap[int] {
+		{name: "ConcurrentBinaryMax", rw: false, make: func(values ...int) heaps.MutableHeap[int] {
 			return heaps.NewConcurrentMax(values...)
 		}},
-		{name: "ConcurrentRWBinary", make: func(values ...int) heaps.MutableHeap[int] {
+		{name: "ConcurrentRWBinary", rw: true, make: func(values ...int) heaps.MutableHeap[int] {
 			return heaps.NewConcurrentRWMin(values...)
 		}},
-		{name: "ConcurrentRWBinaryMax", make: func(values ...int) heaps.MutableHeap[int] {
+		{name: "ConcurrentRWBinaryMax", rw: true, make: func(values ...int) heaps.MutableHeap[int] {
 			return heaps.NewConcurrentRWMax(values...)
 		}},
 	}
@@ -40,30 +42,33 @@ func TestConcurrent_BehavesLikeBinary(t *testing.T) {
 		t.Run(f.name, func(t *testing.T) {
 			h := f.make(values...)
 
-			// AsSortedSlice / drainInPlace agree on a sorted permutation.
-			sortedLen := len(h.AsSortedSlice())
-			if sortedLen != len(values) {
-				t.Fatalf("AsSortedSlice length = %d, want %d", sortedLen, len(values))
+			// AsSortedSlice and Peek agree on the priority head (compute the
+			// relatively expensive sorted drain once).
+			sorted := h.AsSortedSlice()
+			if len(sorted) != len(values) {
+				t.Fatalf("AsSortedSlice length = %d, want %d", len(sorted), len(values))
 			}
-
-			// Peek matches the head of the priority drain.
 			head, ok := h.Peek()
 			if !ok {
 				t.Fatal("Peek() ok = false, want true")
 			}
-			if first := h.AsSortedSlice()[0]; head != first {
-				t.Errorf("Peek() = %d, want %d (drain head)", head, first)
+			if head != sorted[0] {
+				t.Errorf("Peek() = %d, want %d (drain head)", head, sorted[0])
 			}
 
 			// Immutable ops return a thread-safe heap of the same family and
-			// leave the receiver untouched.
+			// leave the receiver untouched. Keyed off f.rw so every variant —
+			// including the Max constructors — verifies the return type.
 			before := h.Length()
 			pushed := h.Push(7)
-			if _, isRW := pushed.(*heaps.ConcurrentRWBinary[int]); f.name == "ConcurrentRWBinary" && !isRW {
-				t.Errorf("RW Push returned %T, want *ConcurrentRWBinary", pushed)
-			}
-			if _, isMutex := pushed.(*heaps.ConcurrentBinary[int]); f.name == "ConcurrentBinary" && !isMutex {
-				t.Errorf("mutex Push returned %T, want *ConcurrentBinary", pushed)
+			if f.rw {
+				if _, ok := pushed.(*heaps.ConcurrentRWBinary[int]); !ok {
+					t.Errorf("RW Push returned %T, want *ConcurrentRWBinary", pushed)
+				}
+			} else {
+				if _, ok := pushed.(*heaps.ConcurrentBinary[int]); !ok {
+					t.Errorf("mutex Push returned %T, want *ConcurrentBinary", pushed)
+				}
 			}
 			if h.Length() != before {
 				t.Errorf("Push mutated receiver: Length() = %d, want %d", h.Length(), before)

@@ -58,8 +58,9 @@ func FuzzBinaryOracle(f *testing.F) {
 		}
 
 		// The heap-array snapshot honours the heap invariant.
-		if !isMinHeap(built.AsSlice()) {
-			t.Fatalf("AsSlice() = %v violates the min-heap invariant", built.AsSlice())
+		snapshot := built.AsSlice()
+		if !isMinHeap(snapshot) {
+			t.Fatalf("AsSlice() = %v violates the min-heap invariant", snapshot)
 		}
 
 		// Heapify-built and incrementally-pushed heaps both drain to the oracle.
