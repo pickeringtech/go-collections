@@ -15,8 +15,14 @@ type MutableFilterable[T any] interface {
 // Indexable is implemented by collections that support positional access and
 // reporting their length.
 type Indexable[T any] interface {
-	Get(index int, defaultValue T) T
+	Get(index int, defaultValue T) (T, bool)
 	Length() int
+}
+
+// Convertible is implemented by collections that can be converted into a slice
+// without modifying the receiver.
+type Convertible[T any] interface {
+	AsSlice() []T
 }
 
 // Insertable is implemented by collections that can produce a new slice with
@@ -50,7 +56,7 @@ type List[T any] interface {
 	Sortable[T]
 	Stack[T]
 	Queue[T]
-	GetAsSlice() []T
+	Convertible[T]
 }
 
 // MutableList extends List with the in-place mutation operations for filtering,

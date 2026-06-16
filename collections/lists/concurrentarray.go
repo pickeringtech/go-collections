@@ -146,18 +146,21 @@ func (a *ConcurrentArray[T]) ForEachWithIndex(fun IndexedEachFunc[T]) {
 	}
 }
 
-// Get returns the element at index, or defaultValue if the index is out of
-// bounds. It is safe for concurrent use.
-func (a *ConcurrentArray[T]) Get(index int, defaultValue T) T {
+// Get returns the element at index and true, or defaultValue and false if the
+// index is out of bounds. It is safe for concurrent use.
+func (a *ConcurrentArray[T]) Get(index int, defaultValue T) (T, bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	return slices.Get(a.elements, index, defaultValue)
+	if index < 0 || index >= len(a.elements) {
+		return defaultValue, false
+	}
+	return a.elements[index], true
 }
 
-// GetAsSlice returns a copy of the elements as a new slice, independent of the
+// AsSlice returns a copy of the elements as a new slice, independent of the
 // receiver's backing array. It is safe for concurrent use.
-func (a *ConcurrentArray[T]) GetAsSlice() []T {
+func (a *ConcurrentArray[T]) AsSlice() []T {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 

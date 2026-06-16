@@ -81,7 +81,7 @@ top, found := stack.PopInPlace()              // Returns 2 (LIFO)
 deque := lists.NewDoublyLinked(1, 2, 3, 4, 5)
 
 // O(n/2) average access time (can start from either end)
-middle := deque.Get(2, -1)                     // Faster than singly linked
+middle, found := deque.Get(2, -1)              // found reports whether the index was in range
 
 // Efficient insertion anywhere
 deque.InsertInPlace(2, 99)                     // Insert at index 2
@@ -145,7 +145,7 @@ filtered := tasks.Filter(func(task string) bool {
 sorted := tasks.Sort(func(a, b string) bool { return a < b })
 
 // Original list unchanged
-fmt.Printf("Original: %v\n", tasks.GetAsSlice())
+fmt.Printf("Original: %v\n", tasks.AsSlice())
 ```
 
 ### ⚡ Mutable Style (Performance-Focused)
@@ -162,7 +162,7 @@ tasks.FilterInPlace(func(task string) bool {
 tasks.SortInPlace(func(a, b string) bool { return a < b })
 
 // List is modified
-fmt.Printf("Modified: %v\n", tasks.GetAsSlice())
+fmt.Printf("Modified: %v\n", tasks.AsSlice())
 ```
 
 ## 🛠️ Essential Operations

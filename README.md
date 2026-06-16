@@ -57,7 +57,7 @@ func main() {
     tasks := collections.NewList("design", "code", "test")
     tasks.PushInPlace("deploy")
 
-    fmt.Printf("Tasks: %v\n", tasks.GetAsSlice())
+    fmt.Printf("Tasks: %v\n", tasks.AsSlice())
 }
 ```
 

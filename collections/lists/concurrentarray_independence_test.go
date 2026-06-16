@@ -44,7 +44,7 @@ func TestConcurrentArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 		if want := []int{1, 99, 2, 3}; !reflect.DeepEqual(inserted, want) {
 			t.Errorf("Insert result = %v, want %v", inserted, want)
 		}
-		if got := a.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+		if got := a.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
 			t.Errorf("receiver mutated by immutable Insert: %v, want [1 2 3]", got)
 		}
 	})
@@ -54,7 +54,8 @@ func TestConcurrentArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 		pushed := a.Push(9)
 		pushed[0] = 999
 
-		if got := a.Get(0, -1); got != 1 {
+		got, _ := a.Get(0, -1)
+		if got != 1 {
 			t.Errorf("receiver index 0 = %d, want 1 (Push result aliased the receiver)", got)
 		}
 	})
@@ -92,7 +93,7 @@ func TestConcurrentRWArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 		if want := []int{1, 99, 2, 3}; !reflect.DeepEqual(inserted, want) {
 			t.Errorf("Insert result = %v, want %v", inserted, want)
 		}
-		if got := a.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+		if got := a.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
 			t.Errorf("receiver mutated by immutable Insert: %v, want [1 2 3]", got)
 		}
 	})

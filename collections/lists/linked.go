@@ -218,17 +218,18 @@ func (l *Linked[T]) FilterInPlace(fn func(T) bool) {
 	}
 }
 
-// Get returns the element at the given index, or defaultValue if out of bounds.
-func (l *Linked[T]) Get(index int, defaultValue T) T {
+// Get returns the element at the given index and true, or defaultValue and
+// false if the index is out of bounds.
+func (l *Linked[T]) Get(index int, defaultValue T) (T, bool) {
 	if index < 0 {
-		return defaultValue
+		return defaultValue, false
 	}
 
 	current := l.head
 	currentIndex := 0
 	for current != nil {
 		if currentIndex == index {
-			return current.value
+			return current.value, true
 		}
 		current = current.next
 		currentIndex++
@@ -236,7 +237,7 @@ func (l *Linked[T]) Get(index int, defaultValue T) T {
 			break
 		}
 	}
-	return defaultValue
+	return defaultValue, false
 }
 
 // Length returns the number of elements in the list.
@@ -283,8 +284,8 @@ func (l *Linked[T]) ForEachWithIndex(fn IndexedEachFunc[T]) {
 	}
 }
 
-// GetAsSlice returns the list as a slice.
-func (l *Linked[T]) GetAsSlice() []T {
+// AsSlice returns the list as a slice.
+func (l *Linked[T]) AsSlice() []T {
 	var result []T
 	current := l.head
 	for current != nil {
@@ -299,7 +300,7 @@ func (l *Linked[T]) GetAsSlice() []T {
 
 // Insert creates a new slice with elements inserted at the given index.
 func (l *Linked[T]) Insert(index int, elements ...T) []T {
-	slice := l.GetAsSlice()
+	slice := l.AsSlice()
 	if index < 0 || index > len(slice) {
 		return slice
 	}
@@ -393,7 +394,7 @@ func (l *Linked[T]) insertAfter(current *node[T], elements []T) {
 
 // Sort returns a new sorted slice.
 func (l *Linked[T]) Sort(lessThan func(T, T) bool) []T {
-	slice := l.GetAsSlice()
+	slice := l.AsSlice()
 	// Simple bubble sort for demonstration
 	for i := 0; i < len(slice); i++ {
 		for j := 0; j < len(slice)-1-i; j++ {
@@ -422,7 +423,7 @@ func (l *Linked[T]) SortInPlace(lessThan func(T, T) bool) {
 
 // Push adds an element to the end and returns a new slice.
 func (l *Linked[T]) Push(element T) []T {
-	slice := l.GetAsSlice()
+	slice := l.AsSlice()
 	return append(slice, element)
 }
 
@@ -452,7 +453,7 @@ func (l *Linked[T]) PushInPlace(element T) {
 //	// element: 3, found: true, newSlice: [1, 2]
 //	// Original stack unchanged
 func (l *Linked[T]) Pop() (T, bool, []T) {
-	slice := l.GetAsSlice()
+	slice := l.AsSlice()
 	if len(slice) == 0 {
 		var zero T
 		return zero, false, slice
@@ -520,7 +521,7 @@ func (l *Linked[T]) EnqueueInPlace(element T) {
 
 // Dequeue removes and returns the first element.
 func (l *Linked[T]) Dequeue() (T, bool, []T) {
-	slice := l.GetAsSlice()
+	slice := l.AsSlice()
 	if len(slice) == 0 {
 		var zero T
 		return zero, false, slice

@@ -18,10 +18,10 @@ func TestDoublyLinkedCircular_DequeueInPlaceRemovesHead(t *testing.T) {
 	if dl.Length() != 2 {
 		t.Errorf("Length() = %d, want 2", dl.Length())
 	}
-	got := dl.GetAsSlice()
+	got := dl.AsSlice()
 	want := []int{2, 3}
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("GetAsSlice() = %v, want %v", got, want)
+		t.Errorf("AsSlice() = %v, want %v", got, want)
 	}
 }
 
@@ -36,10 +36,10 @@ func TestDoublyLinkedCircular_FilterInPlaceRemovesHeadAndTail(t *testing.T) {
 	if dl.Length() != 3 {
 		t.Errorf("Length() = %d, want 3", dl.Length())
 	}
-	got := dl.GetAsSlice()
+	got := dl.AsSlice()
 	want := []int{2, 3, 4}
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("GetAsSlice() = %v, want %v", got, want)
+		t.Errorf("AsSlice() = %v, want %v", got, want)
 	}
 }
 
@@ -57,7 +57,7 @@ func TestDoublyLinkedCircular_RemoveDownToEmpty(t *testing.T) {
 	if dl.Length() != 0 {
 		t.Errorf("Length() = %d, want 0", dl.Length())
 	}
-	if got := dl.GetAsSlice(); len(got) != 0 {
-		t.Errorf("GetAsSlice() = %v, want empty", got)
+	if got := dl.AsSlice(); len(got) != 0 {
+		t.Errorf("AsSlice() = %v, want empty", got)
 	}
 }

@@ -28,7 +28,7 @@ func TestLinked_InsertInPlace(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			l := lists.NewLinked(tt.initial...)
 			l.InsertInPlace(tt.index, tt.elements...)
-			got := l.GetAsSlice()
+			got := l.AsSlice()
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("InsertInPlace(%d, %v) = %v, want %v", tt.index, tt.elements, got, tt.want)
 			}
@@ -42,8 +42,8 @@ func TestLinked_Circular(t *testing.T) {
 	if l.Length() != 3 {
 		t.Errorf("Length() = %d, want 3", l.Length())
 	}
-	if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
-		t.Errorf("GetAsSlice() = %v, want [1 2 3]", got)
+	if got := l.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+		t.Errorf("AsSlice() = %v, want [1 2 3]", got)
 	}
 
 	var count int
@@ -83,8 +83,9 @@ func TestLinked_Circular(t *testing.T) {
 	if got := l.Filter(func(n int) bool { return n != 2 }); !reflect.DeepEqual(got, []int{1, 3}) {
 		t.Errorf("Filter(!=2) = %v, want [1 3]", got)
 	}
-	if l.Get(99, -1) != -1 {
-		t.Errorf("Get(99) = %d, want -1", l.Get(99, -1))
+	got, found := l.Get(99, -1)
+	if got != -1 || found {
+		t.Errorf("Get(99) = %d, %t, want -1, false", got, found)
 	}
 }
 
@@ -93,14 +94,14 @@ func TestLinked_CircularInsertInPlace(t *testing.T) {
 	// insertAfter and the tail-to-head re-link.
 	l := lists.NewLinkedCircular(1, 2, 3)
 	l.InsertInPlace(1, 9)
-	if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 9, 2, 3}) {
+	if got := l.AsSlice(); !reflect.DeepEqual(got, []int{1, 9, 2, 3}) {
 		t.Errorf("circular InsertInPlace(1,9) = %v, want [1 9 2 3]", got)
 	}
 
 	// Insert at head of a circular list.
 	l2 := lists.NewLinkedCircular(1, 2, 3)
 	l2.InsertInPlace(0, 0)
-	if got := l2.GetAsSlice(); !reflect.DeepEqual(got, []int{0, 1, 2, 3}) {
+	if got := l2.AsSlice(); !reflect.DeepEqual(got, []int{0, 1, 2, 3}) {
 		t.Errorf("circular InsertInPlace(0,0) = %v, want [0 1 2 3]", got)
 	}
 }
@@ -108,7 +109,7 @@ func TestLinked_CircularInsertInPlace(t *testing.T) {
 func TestLinked_CircularFilterInPlace(t *testing.T) {
 	l := lists.NewLinkedCircular(1, 2, 3, 4)
 	l.FilterInPlace(func(n int) bool { return n%2 == 0 })
-	if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{2, 4}) {
+	if got := l.AsSlice(); !reflect.DeepEqual(got, []int{2, 4}) {
 		t.Errorf("circular FilterInPlace(even) = %v, want [2 4]", got)
 	}
 
@@ -126,8 +127,8 @@ func TestLinked_CircularPopAndDequeue(t *testing.T) {
 	if !ok || val != 3 {
 		t.Errorf("PopInPlace() = (%d, %v), want (3, true)", val, ok)
 	}
-	if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 2}) {
-		t.Errorf("after PopInPlace GetAsSlice() = %v, want [1 2]", got)
+	if got := l.AsSlice(); !reflect.DeepEqual(got, []int{1, 2}) {
+		t.Errorf("after PopInPlace AsSlice() = %v, want [1 2]", got)
 	}
 
 	d := lists.NewLinkedCircular(1, 2, 3)
@@ -135,8 +136,8 @@ func TestLinked_CircularPopAndDequeue(t *testing.T) {
 	if !ok || val != 1 {
 		t.Errorf("DequeueInPlace() = (%d, %v), want (1, true)", val, ok)
 	}
-	if got := d.GetAsSlice(); !reflect.DeepEqual(got, []int{2, 3}) {
-		t.Errorf("after DequeueInPlace GetAsSlice() = %v, want [2 3]", got)
+	if got := d.AsSlice(); !reflect.DeepEqual(got, []int{2, 3}) {
+		t.Errorf("after DequeueInPlace AsSlice() = %v, want [2 3]", got)
 	}
 }
 
@@ -146,8 +147,8 @@ func TestLinked_Enqueue(t *testing.T) {
 		t.Errorf("Enqueue(3) = %v, want [1 2 3]", got)
 	}
 	l.EnqueueInPlace(3)
-	if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
-		t.Errorf("after EnqueueInPlace GetAsSlice() = %v, want [1 2 3]", got)
+	if got := l.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+		t.Errorf("after EnqueueInPlace AsSlice() = %v, want [1 2 3]", got)
 	}
 }
 
@@ -157,8 +158,8 @@ func TestDoublyLinked_Circular(t *testing.T) {
 	if dl.Length() != 4 {
 		t.Errorf("Length() = %d, want 4", dl.Length())
 	}
-	if got := dl.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3, 4}) {
-		t.Errorf("GetAsSlice() = %v, want [1 2 3 4]", got)
+	if got := dl.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3, 4}) {
+		t.Errorf("AsSlice() = %v, want [1 2 3 4]", got)
 	}
 
 	var count, idxSum int
@@ -218,7 +219,7 @@ func TestDoublyLinked_InsertInPlace(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dl := lists.NewDoublyLinked(tt.initial...)
 			dl.InsertInPlace(tt.index, tt.elements...)
-			got := dl.GetAsSlice()
+			got := dl.AsSlice()
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("InsertInPlace(%d, %v) = %v, want %v", tt.index, tt.elements, got, tt.want)
 			}
@@ -239,14 +240,17 @@ func TestDoublyLinked_Insert(t *testing.T) {
 func TestDoublyLinked_GetFromTailHalf(t *testing.T) {
 	// Index in the tail half forces the reverse-walk branch of Get.
 	dl := lists.NewDoublyLinked(0, 1, 2, 3, 4)
-	if got := dl.Get(4, -1); got != 4 {
-		t.Errorf("Get(4) = %d, want 4", got)
+	got, found := dl.Get(4, -1)
+	if got != 4 || !found {
+		t.Errorf("Get(4) = %d, %t, want 4, true", got, found)
 	}
-	if got := dl.Get(3, -1); got != 3 {
-		t.Errorf("Get(3) = %d, want 3", got)
+	got, found = dl.Get(3, -1)
+	if got != 3 || !found {
+		t.Errorf("Get(3) = %d, %t, want 3, true", got, found)
 	}
-	if got := dl.Get(-1, -1); got != -1 {
-		t.Errorf("Get(-1) = %d, want -1", got)
+	got, found = dl.Get(-1, -1)
+	if got != -1 || found {
+		t.Errorf("Get(-1) = %d, %t, want -1, false", got, found)
 	}
 }
 
@@ -273,8 +277,8 @@ func TestDoublyLinked_StackQueueAndSort(t *testing.T) {
 	}
 
 	dl.SortInPlace(func(a, b int) bool { return a < b })
-	if got := dl.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
-		t.Errorf("after SortInPlace GetAsSlice() = %v, want [1 2 3]", got)
+	if got := dl.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+		t.Errorf("after SortInPlace AsSlice() = %v, want [1 2 3]", got)
 	}
 
 	dl.EnqueueInPlace(4)

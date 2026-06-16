@@ -17,11 +17,11 @@ type concurrentList interface {
 	FindIndex(fn func(int) bool) int
 	Filter(fn func(int) bool) []int
 	FilterInPlace(fn func(int) bool)
-	Get(index int, defaultValue int) int
+	Get(index int, defaultValue int) (int, bool)
 	Length() int
 	ForEach(fn lists.EachFunc[int])
 	ForEachWithIndex(fn lists.IndexedEachFunc[int])
-	GetAsSlice() []int
+	AsSlice() []int
 	Insert(index int, elements ...int) []int
 	InsertInPlace(index int, elements ...int)
 	Sort(lessThan func(int, int) bool) []int
@@ -90,15 +90,17 @@ func TestConcurrentLists_ReadOperations(t *testing.T) {
 				t.Errorf("Filter(isEven) = %v, want [2 4]", got)
 			}
 
-			if cl.Get(0, -1) != 1 {
-				t.Errorf("Get(0) = %d, want 1", cl.Get(0, -1))
+			value, present := cl.Get(0, -1)
+			if value != 1 || !present {
+				t.Errorf("Get(0) = %d, %t, want 1, true", value, present)
 			}
-			if cl.Get(99, -1) != -1 {
-				t.Errorf("Get(99) = %d, want -1", cl.Get(99, -1))
+			value, present = cl.Get(99, -1)
+			if value != -1 || present {
+				t.Errorf("Get(99) = %d, %t, want -1, false", value, present)
 			}
 
-			if got := cl.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3, 4}) {
-				t.Errorf("GetAsSlice() = %v, want [1 2 3 4]", got)
+			if got := cl.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3, 4}) {
+				t.Errorf("AsSlice() = %v, want [1 2 3 4]", got)
 			}
 
 			front, ok := cl.PeekFront()
@@ -177,18 +179,18 @@ func TestConcurrentLists_MutableOperations(t *testing.T) {
 			cl.EnqueueInPlace(6)
 			cl.InsertInPlace(0, 0)
 			// list is now [0, 3, 1, 2, 5, 6]
-			if got := cl.GetAsSlice(); !reflect.DeepEqual(got, []int{0, 3, 1, 2, 5, 6}) {
-				t.Fatalf("after inserts GetAsSlice() = %v, want [0 3 1 2 5 6]", got)
+			if got := cl.AsSlice(); !reflect.DeepEqual(got, []int{0, 3, 1, 2, 5, 6}) {
+				t.Fatalf("after inserts AsSlice() = %v, want [0 3 1 2 5 6]", got)
 			}
 
 			cl.SortInPlace(func(a, b int) bool { return a < b })
-			if got := cl.GetAsSlice(); !reflect.DeepEqual(got, []int{0, 1, 2, 3, 5, 6}) {
-				t.Fatalf("after SortInPlace GetAsSlice() = %v, want [0 1 2 3 5 6]", got)
+			if got := cl.AsSlice(); !reflect.DeepEqual(got, []int{0, 1, 2, 3, 5, 6}) {
+				t.Fatalf("after SortInPlace AsSlice() = %v, want [0 1 2 3 5 6]", got)
 			}
 
 			cl.FilterInPlace(isEven)
-			if got := cl.GetAsSlice(); !reflect.DeepEqual(got, []int{0, 2, 6}) {
-				t.Fatalf("after FilterInPlace GetAsSlice() = %v, want [0 2 6]", got)
+			if got := cl.AsSlice(); !reflect.DeepEqual(got, []int{0, 2, 6}) {
+				t.Fatalf("after FilterInPlace AsSlice() = %v, want [0 2 6]", got)
 			}
 
 			val, ok := cl.PopInPlace()
@@ -199,8 +201,8 @@ func TestConcurrentLists_MutableOperations(t *testing.T) {
 			if !ok || val != 0 {
 				t.Errorf("DequeueInPlace() = (%d, %v), want (0, true)", val, ok)
 			}
-			if got := cl.GetAsSlice(); !reflect.DeepEqual(got, []int{2}) {
-				t.Errorf("final GetAsSlice() = %v, want [2]", got)
+			if got := cl.AsSlice(); !reflect.DeepEqual(got, []int{2}) {
+				t.Errorf("final AsSlice() = %v, want [2]", got)
 			}
 		})
 	}
@@ -247,7 +249,7 @@ func TestConcurrentLists_ConcurrentAccess(t *testing.T) {
 					for j := 0; j < perWriter; j++ {
 						cl.PushInPlace(j)
 						_ = cl.Length()
-						_ = cl.GetAsSlice()
+						_ = cl.AsSlice()
 					}
 				}()
 			}
@@ -278,8 +280,8 @@ func TestConcurrentLists_Circular(t *testing.T) {
 			if cl.Length() != 4 {
 				t.Errorf("Length() = %d, want 4", cl.Length())
 			}
-			if got := cl.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3, 4}) {
-				t.Errorf("GetAsSlice() = %v, want [1 2 3 4]", got)
+			if got := cl.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3, 4}) {
+				t.Errorf("AsSlice() = %v, want [1 2 3 4]", got)
 			}
 			var count int
 			cl.ForEach(func(int) { count++ })

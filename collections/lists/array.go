@@ -96,14 +96,17 @@ func (a *Array[T]) ForEachWithIndex(fn IndexedEachFunc[T]) {
 	}
 }
 
-// Get returns the element at index, or defaultValue if the index is out of
-// bounds.
-func (a *Array[T]) Get(index int, defaultValue T) T {
-	return slices.Get(a.elements, index, defaultValue)
+// Get returns the element at index and true, or defaultValue and false if the
+// index is out of bounds.
+func (a *Array[T]) Get(index int, defaultValue T) (T, bool) {
+	if index < 0 || index >= len(a.elements) {
+		return defaultValue, false
+	}
+	return a.elements[index], true
 }
 
-// GetAsSlice returns the underlying backing slice.
-func (a *Array[T]) GetAsSlice() []T {
+// AsSlice returns the underlying backing slice.
+func (a *Array[T]) AsSlice() []T {
 	return a.elements
 }
 
