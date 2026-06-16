@@ -28,10 +28,8 @@ func ExamplePair() {
 // Example showing how to work with the Dict interface
 func ExampleDict() {
 	// All implementations satisfy the Dict interface
-	var dict dicts.Dict[string, int]
-
 	// Can assign any implementation
-	dict = dicts.NewHash(
+	var dict dicts.Dict[string, int] = dicts.NewHash(
 		dicts.Pair[string, int]{Key: "red", Value: 1},
 		dicts.Pair[string, int]{Key: "green", Value: 2},
 	)
@@ -54,8 +52,7 @@ func ExampleDict() {
 // Example showing how to work with the MutableDict interface
 func ExampleMutableDict() {
 	// Create a mutable dictionary
-	var mutableDict dicts.MutableDict[string, int]
-	mutableDict = dicts.NewHash(
+	var mutableDict dicts.MutableDict[string, int] = dicts.NewHash(
 		dicts.Pair[string, int]{Key: "count", Value: 0},
 	)
 

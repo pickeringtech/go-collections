@@ -159,14 +159,14 @@ func (t *Tree[K, V]) ForEach(fn func(key K, value V)) {
 
 // ForEachKey executes the given function for each key in sorted order.
 func (t *Tree[K, V]) ForEachKey(fn func(key K)) {
-	t.inOrderTraversal(t.root, func(key K, value V) {
+	t.inOrderTraversal(t.root, func(key K, _ V) {
 		fn(key)
 	})
 }
 
 // ForEachValue executes the given function for each value in key-sorted order.
 func (t *Tree[K, V]) ForEachValue(fn func(value V)) {
-	t.inOrderTraversal(t.root, func(key K, value V) {
+	t.inOrderTraversal(t.root, func(_ K, value V) {
 		fn(value)
 	})
 }
@@ -235,7 +235,7 @@ func (t *Tree[K, V]) FindKey(fn func(key K) bool) (K, bool) {
 	var foundKey K
 	found := false
 
-	t.ForEach(func(key K, value V) {
+	t.ForEach(func(key K, _ V) {
 		if !found && fn(key) {
 			foundKey = key
 			found = true
@@ -255,7 +255,7 @@ func (t *Tree[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 	var foundValue V
 	found := false
 
-	t.ForEach(func(key K, value V) {
+	t.ForEach(func(_ K, value V) {
 		if !found && fn(value) {
 			foundValue = value
 			found = true
@@ -272,7 +272,7 @@ func (t *Tree[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 // ContainsValue checks if the given value exists in the dictionary.
 func (t *Tree[K, V]) ContainsValue(value V) bool {
 	found := false
-	t.ForEach(func(key K, v V) {
+	t.ForEach(func(_ K, v V) {
 		if !found && any(v) == any(value) {
 			found = true
 		}
@@ -283,7 +283,7 @@ func (t *Tree[K, V]) ContainsValue(value V) bool {
 // Keys returns a slice containing all keys in sorted order.
 func (t *Tree[K, V]) Keys() []K {
 	keys := make([]K, 0, t.size)
-	t.ForEach(func(key K, value V) {
+	t.ForEach(func(key K, _ V) {
 		keys = append(keys, key)
 	})
 	return keys
@@ -292,7 +292,7 @@ func (t *Tree[K, V]) Keys() []K {
 // Values returns a slice containing all values in key-sorted order.
 func (t *Tree[K, V]) Values() []V {
 	values := make([]V, 0, t.size)
-	t.ForEach(func(key K, value V) {
+	t.ForEach(func(_ K, value V) {
 		values = append(values, value)
 	})
 	return values

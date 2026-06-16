@@ -8,9 +8,10 @@ type BlockingWorkLimiter struct {
 	max int
 }
 
-func NewBlockingWorkLimiter(max int) *BlockingWorkLimiter {
+// NewBlockingWorkLimiter creates a BlockingWorkLimiter that runs at most limit work functions concurrently.
+func NewBlockingWorkLimiter(limit int) *BlockingWorkLimiter {
 	return &BlockingWorkLimiter{
-		max: max,
+		max: limit,
 	}
 }
 
@@ -19,6 +20,7 @@ func NewBlockingWorkLimiter(max int) *BlockingWorkLimiter {
 // The function will block until all work is done, and then return a list of the errors encountered.
 func (wl *BlockingWorkLimiter) Run(workToDo []WorkFunc) []error {
 	var errors []error
+	var errLock sync.Mutex
 
 	workLimiter := make(chan struct{}, wl.max)
 	var wg sync.WaitGroup
@@ -27,17 +29,22 @@ func (wl *BlockingWorkLimiter) Run(workToDo []WorkFunc) []error {
 
 	for _, work := range workToDo {
 		work := work
+		// Acquire a worker slot before launching; this blocks once max workers
+		// are in flight, which is what bounds the concurrency.
+		workLimiter <- struct{}{}
 		go func() {
-			// Release worker lock when work is done
-			defer func() { <-workLimiter }()
 			defer wg.Done()
+			// Release worker slot when work is done
+			defer func() { <-workLimiter }()
 
 			// Run the work
 			err := work()
 
 			// Collect errors
 			if err != nil {
+				errLock.Lock()
 				errors = append(errors, err)
+				errLock.Unlock()
 			}
 		}()
 	}

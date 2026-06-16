@@ -1,5 +1,6 @@
 package channels
 
+// MapFunc transforms a single input value of type I into an output value of type O.
 type MapFunc[I, O any] func(I) O
 
 // Map takes an input channel, transforms each of its entries using the MapFunc until the input channel is closed.

@@ -973,6 +973,28 @@ func TestInsert(t *testing.T) {
 	}
 }
 
+func TestInsert_DoesNotMutateInputs(t *testing.T) {
+	input := []int{1, 2, 3}
+
+	// elements has spare capacity, so a naive append into it would clobber the
+	// caller's backing array.
+	elements := make([]int, 2, 8)
+	elements[0], elements[1] = 10, 11
+
+	got := slices.Insert(input, 1, elements...)
+
+	want := []int{1, 10, 11, 2, 3}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Insert() = %v, want %v", got, want)
+	}
+	if !reflect.DeepEqual(input, []int{1, 2, 3}) {
+		t.Errorf("Insert() mutated input: got %v, want [1 2 3]", input)
+	}
+	if !reflect.DeepEqual(elements, []int{10, 11}) {
+		t.Errorf("Insert() mutated elements: got %v, want [10 11]", elements)
+	}
+}
+
 func BenchmarkInsert(b *testing.B) {
 	benchmarks := []struct {
 		name     string

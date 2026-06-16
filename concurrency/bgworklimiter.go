@@ -8,15 +8,20 @@ type BackgroundWorkLimiter struct {
 	workToDo    chan WorkFunc
 	workLimiter chan struct{}
 	waitGroup   *sync.WaitGroup
+
+	errLock sync.Mutex
+	errs    []error
 }
 
-func NewBackgroundWorkLimiter(max int) *BackgroundWorkLimiter {
+// NewBackgroundWorkLimiter creates a BackgroundWorkLimiter that runs at most limit work functions concurrently.
+func NewBackgroundWorkLimiter(limit int) *BackgroundWorkLimiter {
 	return &BackgroundWorkLimiter{
-		max:       max,
+		max:       limit,
 		waitGroup: &sync.WaitGroup{},
 	}
 }
 
+// Start opens the limiter for work and begins processing items added via Add in the background.
 func (wl *BackgroundWorkLimiter) Start() {
 	wl.workToDo = make(chan WorkFunc)
 	wl.workLimiter = make(chan struct{}, wl.max)
@@ -25,11 +30,8 @@ func (wl *BackgroundWorkLimiter) Start() {
 
 // run performs each of the functions in the workToDo channel, as and when they become available. Work is arranged with
 // the waitGroup to allow the User to await the completion of all work.
-func (wl *BackgroundWorkLimiter) run() []error {
-	var errors []error
-
+func (wl *BackgroundWorkLimiter) run() {
 	for work := range wl.workToDo {
-		wl.waitGroup.Add(1)
 		work := work
 		wl.workLimiter <- struct{}{}
 		go func() {
@@ -42,12 +44,12 @@ func (wl *BackgroundWorkLimiter) run() []error {
 
 			// Collect errors
 			if err != nil {
-				errors = append(errors, err)
+				wl.errLock.Lock()
+				wl.errs = append(wl.errs, err)
+				wl.errLock.Unlock()
 			}
 		}()
 	}
-
-	return errors
 }
 
 // Stop shuts down the workToDo channel, preventing any new work from being added - but does not stop existing work
@@ -62,7 +64,18 @@ func (wl *BackgroundWorkLimiter) Wait() {
 	wl.waitGroup.Wait()
 }
 
-// Add adds an item of work to be completed in the background.
+// Add adds an item of work to be completed in the background. The wait group is
+// incremented here, on the producer side, before the work is handed off, so that
+// a subsequent Stop followed by Wait cannot race ahead of run registering it.
 func (wl *BackgroundWorkLimiter) Add(work WorkFunc) {
+	wl.waitGroup.Add(1)
 	wl.workToDo <- work
+}
+
+// Errors returns a copy of the errors collected from completed work. Call it
+// after Wait so that every item of work has had a chance to finish.
+func (wl *BackgroundWorkLimiter) Errors() []error {
+	wl.errLock.Lock()
+	defer wl.errLock.Unlock()
+	return append([]error(nil), wl.errs...)
 }
