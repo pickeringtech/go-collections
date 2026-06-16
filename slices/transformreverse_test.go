@@ -40,18 +40,18 @@ func TestReverse(t *testing.T) {
 			want: []int{5, 4, 3, 2, 1},
 		},
 		{
-			name: "nil input results in nil output",
+			name: "nil input results in non-nil empty output",
 			args: args[int]{
 				input: nil,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "empty input results in empty output",
+			name: "empty input results in non-nil empty output",
 			args: args[int]{
 				input: []int{},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {

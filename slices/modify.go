@@ -10,9 +10,10 @@ func Concatenate[T any](inputA, inputB []T) []T {
 	return append(inputA, inputB...)
 }
 
-// Copy duplicates the entries within the input into a new slice which is returned.
+// Copy duplicates the entries within the input into a new slice which is returned. If the input is empty or nil, the
+// output is an initialised, non-nil empty slice.
 func Copy[T any](input []T) []T {
-	return append([]T(nil), input...)
+	return append([]T{}, input...)
 }
 
 // Delete removes the element at the given index from the provided input slice, returning the resulting slice.
@@ -41,10 +42,11 @@ func FillFrom[T any](input []T, value T, fromIndex int) []T {
 
 // FillFromTo sets every element in the input slice after the specified index and before an upper boundary index to the
 // specified value.  The upper boundary is exclusive (i.e. will not be set to the new value - every element before it
-// will).  The resulting slice is returned.
+// will).  The resulting slice is returned. If the input is empty or nil, the output is an initialised, non-nil empty
+// slice.
 func FillFromTo[T any](input []T, value T, fromIndex, toIndex int) []T {
 	if len(input) == 0 {
-		return nil
+		return []T{}
 	}
 	if fromIndex < 0 || toIndex > len(input) || fromIndex > toIndex {
 		return input

@@ -400,14 +400,14 @@ func TestArray_Filter(t *testing.T) {
 			want: []int{3, 4},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			a:    lists.NewArray[int](),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i > 2 && i < 5
 				},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -442,14 +442,14 @@ func TestArray_FilterInPlace(t *testing.T) {
 			want: []int{3, 4},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			a:    lists.NewArray[int](),
 			args: args[int]{
 				fn: func(i int) bool {
 					return i > 2 && i < 5
 				},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -1342,12 +1342,12 @@ func TestArray_Sort(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "sorting empty array results in nil",
+			name: "sorting empty array results in empty slice",
 			a:    lists.NewArray[int](),
 			args: args[int]{
 				fn: slices.AscendingSortFunc[int],
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {

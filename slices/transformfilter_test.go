@@ -38,24 +38,24 @@ func TestFilter_Strings(t *testing.T) {
 			want: []string{"abc", "abcd"},
 		},
 		{
-			name: "nil input results in nil output",
+			name: "nil input results in non-nil empty output",
 			args: args{
 				input: nil,
 				fun: func(element string) bool {
 					return len(element) > 2
 				},
 			},
-			want: nil,
+			want: []string{},
 		},
 		{
-			name: "empty input results in nil output",
+			name: "empty input results in non-nil empty output",
 			args: args{
 				input: []string{},
 				fun: func(element string) bool {
 					return len(element) > 2
 				},
 			},
-			want: nil,
+			want: []string{},
 		},
 	}
 	for _, tt := range tests {

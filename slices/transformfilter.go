@@ -5,9 +5,9 @@ package slices
 type FilterFunc[T any] func(T) bool
 
 // Filter returns a new slice containing only the elements of the input slice for which the provided function returns
-// true.
+// true. If the input is empty or nil, the output is an initialised, non-nil empty slice.
 func Filter[T any](input []T, fn FilterFunc[T]) []T {
-	var output []T
+	output := []T{}
 	for _, element := range input {
 		if fn(element) {
 			output = append(output, element)

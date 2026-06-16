@@ -174,7 +174,7 @@ func TestSort(t *testing.T) {
 				input: nil,
 				fun:   slices.DescendingSortFunc[int],
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
 			name: "handles empty input",
@@ -182,7 +182,7 @@ func TestSort(t *testing.T) {
 				input: []int{},
 				fun:   slices.DescendingSortFunc[int],
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -397,14 +397,14 @@ func TestSortOrderedAsc(t *testing.T) {
 			args: args[int]{
 				input: nil,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
 			name: "handles empty input",
 			args: args[int]{
 				input: []int{},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -590,14 +590,14 @@ func TestSortOrderedDesc(t *testing.T) {
 			args: args[int]{
 				input: nil,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
 			name: "handles empty input",
 			args: args[int]{
 				input: []int{},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -828,7 +828,7 @@ func TestSortByOrderedField(t *testing.T) {
 			},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[language, int]{
 				input: []language{},
 				fun:   slices.AscendingSortFunc[int],
@@ -836,7 +836,7 @@ func TestSortByOrderedField(t *testing.T) {
 					return l.yearOfRelease
 				},
 			},
-			want: nil,
+			want: []language{},
 		},
 	}
 	for _, tt := range tests {
