@@ -5,10 +5,17 @@ name: CI
 #
 # Gating policy:
 #   - Blocking:    build, module hygiene, zero-dependency guard, tests
-#                  (race + shuffle), coverage floor, gofmt, go vet, govulncheck,
-#                  golangci-lint (incl. cyclop/gocognit complexity) and gosec.
-#   - Report-only: fuzz, benchmarks. These print findings but do not fail the
-#                  build (per #7's gating policy).
+#                  (race + shuffle) across the OS × Go-version matrix below,
+#                  coverage floor, gofmt, go vet, govulncheck, golangci-lint
+#                  (incl. cyclop/gocognit complexity) and gosec.
+#   - Report-only: Go tip, cross-arch (386/arm64/s390x) build+test, fuzz and
+#                  benchmarks. These print findings/early warnings but do not
+#                  fail the build (per #7's gating policy).
+#
+# Test matrix (see #33): the `test` job gates Linux/macOS/Windows on the primary
+# (go.mod) Go version, plus the previous minor on Linux — 4 cells, kept small to
+# control runner-minutes. `test-tip` (Go tip) and `cross-arch` (386/arm64/s390x)
+# are report-only so exotic/experimental cells warn without blocking a merge.
 #
 # Coverage floor is 90% (current total is ~99%); the issue-#7 goal of 85% is met.
 # Raise COVERAGE_MIN as tests are added so coverage can only move upward.
@@ -23,6 +30,10 @@ permissions:
 
 env:
   COVERAGE_MIN: "90"   # floor (actual is ~99%); exceeds the 85 goal — ratchet upward only
+  # Primary (go.mod) Go version; the test matrix gates this on every OS and uses
+  # it to pick the single Codecov-uploading cell. Keep in sync with go.mod.
+  # (The matrix itself can't read env, so the version literals live there.)
+  GO_PRIMARY: "1.24"
   # Pin security-tool versions so CI is reproducible; bump deliberately.
   GOVULNCHECK_VERSION: "v1.3.0"
   GOSEC_VERSION: "v2.27.1"
@@ -64,13 +75,42 @@ jobs:
         run: go mod verify
 
   test:
-    name: Test (race + coverage)
-    runs-on: ubuntu-latest
+    # Gating matrix: catch platform- and version-specific breakage (concurrency
+    # / -race behaviour, map-iteration order, path/newline assumptions) that a
+    # single ubuntu+go.mod cell would miss. Kept deliberately small to control
+    # runner-minutes — every OS on the primary (go.mod) Go version, plus the
+    # previous minor on Linux only as a cheap backward-compat check.
+    #   Linux/macOS/Windows × Go 1.24  +  Linux × Go 1.23  = 4 cells.
+    # Wider/experimental coverage (Go tip, exotic arches) lives in the
+    # report-only `test-tip` and `cross-arch` jobs below.
+    name: Test (race + coverage) — ${{ matrix.os }} / Go ${{ matrix.go }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Don't cancel the other cells when one fails — we want every platform's
+      # pass/fail visible in one run, not a single early abort.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go: ["1.24"]
+        include:
+          # Previous minor on Linux only: backward-compat early warning without
+          # tripling the secondary-version cost across all three OSes.
+          - os: ubuntu-latest
+            go: "1.23"
+    defaults:
+      run:
+        # windows-latest defaults to PowerShell; force bash (Git Bash ships on
+        # the runner) so the awk/tr/tail coverage steps are portable across cells.
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: ${{ matrix.go }}
+          # Zero-dependency repo: no go.sum exists, so key the (per-OS, per-Go)
+          # build cache off go.mod. setup-go restores ~/.cache/go-build across
+          # runs, keeping the matrix affordable (see #25).
+          cache-dependency-path: go.mod
       - name: Run tests with race detector and shuffled order
         # -shuffle=on surfaces order-dependence; doc Example funcs with
         # // Output: are verified here as part of `go test`.
@@ -89,6 +129,9 @@ jobs:
             exit 1
           fi
       - name: Upload coverage to Codecov (non-gating)
+        # Upload from a single cell only (Linux + primary Go) so the matrix
+        # doesn't push N duplicate reports for the same source.
+        if: matrix.os == 'ubuntu-latest' && matrix.go == env.GO_PRIMARY
         # v5 uses the CLI uploader, which requires CODECOV_TOKEN even for
         # public repos (tokenless uploads were deprecated). Add the token as
         # a repo secret (Settings → Secrets → Actions → CODECOV_TOKEN).
@@ -100,6 +143,63 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
           fail_ci_if_error: false
+
+  test-tip:
+    name: Test on Go tip (report-only — early toolchain warning)
+    runs-on: ubuntu-latest
+    # Report-only: tip is a moving target, so a failure here is an early warning
+    # about an upcoming toolchain change, not a merge gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Stable toolchain only bootstraps the gotip installer below.
+          go-version: stable
+          cache-dependency-path: go.mod
+      - name: Install Go tip (gotip)
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download
+      - name: Run tests with race detector and shuffled order on tip
+        run: gotip test -race -shuffle=on ./...
+
+  cross-arch:
+    # Report-only build/test across non-amd64 arches to catch word-size and
+    # endianness assumptions. 386 binaries execute on the amd64 host (pure-Go,
+    # statically linked); arm64/s390x can't run here, so they are build+vet only.
+    # s390x is big-endian — the cheapest way to surface endianness bugs.
+    name: Cross-arch build/test (report-only) — GOARCH=${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goarch: "386"      # 32-bit word size; tests run on the amd64 host
+            run-tests: true
+          - goarch: arm64      # cross-compile + vet only (can't execute on amd64)
+            run-tests: false
+          - goarch: s390x      # big-endian — surfaces endianness assumptions
+            run-tests: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      - name: Target GOARCH=${{ matrix.goarch }}
+        # Set after setup-go so the toolchain install isn't affected; exported
+        # via $GITHUB_ENV so all later steps cross-compile for this arch.
+        run: echo "GOARCH=${{ matrix.goarch }}" >> "$GITHUB_ENV"
+      - name: Compile every package
+        run: go build ./...
+      - name: Vet for suspicious constructs
+        run: go vet ./...
+      - name: Run tests (no -race; unsupported on 386)
+        if: matrix.run-tests
+        # -race isn't supported on 386; -shuffle still surfaces order-dependence.
+        run: go test -shuffle=on ./...
 
   lint:
     name: Lint, format & complexity
