@@ -1,6 +1,6 @@
 # Collections - Core Data Structures
 
-The `collections` package provides the core of the Go Collections library with three data structures: **Dicts** (key-value mappings), **Sets** (unique collections), and **Lists** (ordered sequences).
+The `collections` package provides the core of the Go Collections library with four data structures: **Dicts** (key-value mappings), **Sets** (unique collections), **Lists** (ordered sequences), and **Heaps** (priority queues).
 
 ## Quick Start
 
@@ -96,6 +96,28 @@ longTasks := tasks.Filter(func(task string) bool {
 - `NewConcurrentDoublyLinkedList()` - Thread-safe bidirectional list
 - `NewConcurrentRWList()` - Read-optimized thread-safe list
 
+### Heaps - Priority Queues
+Use when you always need the most- (or least-) extreme item next. See the
+[`heaps` package](./heaps/README.md).
+
+```go
+import "github.com/pickeringtech/go-collections/collections/heaps"
+
+// Smallest-first by default
+pq := heaps.NewMin(5, 1, 3)
+pq.PushInPlace(0)
+next, _ := pq.PopInPlace() // 0
+
+// Or order by any comparator
+tasks := heaps.New(func(a, b Task) bool { return a.Priority > b.Priority })
+```
+
+**Available Implementations:**
+- `heaps.NewMin()` / `heaps.NewMax()` - Min / max binary heap
+- `heaps.New(less, ...)` - Comparator-driven binary heap
+- `heaps.NewConcurrentMin()` / `heaps.NewConcurrentMax()` - Thread-safe (mutex)
+- `heaps.NewConcurrentRWMin()` / `heaps.NewConcurrentRWMax()` - Read-optimized thread-safe
+
 ## Common Patterns
 
 ### Immutable vs Mutable Operations
@@ -181,6 +203,7 @@ Each data structure has comprehensive documentation:
 - **[Dicts Documentation](./dicts/README.md)** - Complete guide to key-value mappings
 - **[Sets Documentation](./sets/README.md)** - Complete guide to mathematical sets
 - **[Lists Documentation](./lists/README.md)** - Complete guide to ordered sequences
+- **[Heaps Documentation](./heaps/README.md)** - Complete guide to priority queues
 
 ## Real-World Examples
 
