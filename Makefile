@@ -31,19 +31,41 @@ BENCHREPORT_DIR := tools/benchreport
 BUILD_DIR       := build
 BENCH_DATA_DIR  := docs/bench
 
+# Nested Go modules (examples/, tools/benchreport/, …) are SEPARATE modules that
+# the root `go test ./...` never descends into — so a `make test` that only ran
+# the root module gave contributors false confidence while CI tested more (#79).
+# Discover them dynamically (any nested go.mod; `-not -path ./go.mod` drops the
+# root's own) so new modules are picked up automatically and this can't drift as
+# modules are added. Prune .git and the build dir so the walk doesn't descend
+# into large/irrelevant trees on every `make` invocation.
+NESTED_MODULES := $(shell find . \( -name .git -o -path ./$(BUILD_DIR) \) -prune \
+	-o -name go.mod -not -path ./go.mod -print | xargs -r -n1 dirname | sort)
+
 # Provenance, computed once so the generator stays a pure function of its inputs.
 GIT_SHA    := $(shell git rev-parse --short HEAD 2>/dev/null)
 GEN_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 GO_VERSION := $(shell go env GOVERSION)
 
-.PHONY: help test bench bench-report bench-render
+.PHONY: help test test-root test-nested bench bench-report bench-render
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
-test: ## Run the library test suite with race + shuffle
+test: test-root test-nested ## Run the full test suite — root module + every nested module
+
+test-root: ## Run the root library test suite with race + shuffle
 	go test -race -shuffle=on ./...
+
+# Run each discovered nested module in its own dir. -shuffle=on (no -race) mirrors
+# CI's examples job: those tests shell out via `go run`, so the race detector
+# can't see inside the child process anyway (see .github/workflows/ci.yml). A
+# failure in any module aborts the loop with a non-zero status.
+test-nested: ## Run the tests of every nested module (examples/, tools/benchreport, …)
+	@for dir in $(NESTED_MODULES); do \
+		echo ">> testing nested module $$dir"; \
+		(cd "$$dir" && go test -shuffle=on ./...) || exit 1; \
+	done
 
 bench: ## Run the collections benchmarks once (no report), printing results
 	go test -run='^$$' -bench=. -benchmem -benchtime=$(BENCH_TIME) -count=$(BENCH_COUNT) $(BENCH_PKGS)
