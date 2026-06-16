@@ -1,0 +1,46 @@
+# Gremlins mutation-testing configuration (see docs/mutation-testing.md and #32).
+#
+# This file pins *what* gremlins mutates so a run is reproducible even if a
+# future gremlins release changes its built-in defaults. The mutant set below
+# is the v0.6.0 default — listed explicitly so a default change can't silently
+# move the score.
+#
+# It deliberately does NOT set a score gate here. The mutation-score floors live
+# in the CI workflow (.github/workflows/mutation.yml) as env vars, mirroring how
+# COVERAGE_MIN is ratcheted in ci.yml — one place to find every quality floor.
+# These thresholds stay at 0 (gremlins's "not enforced" value).
+
+silent: false
+
+unleash:
+  dry-run: false
+  threshold:
+    efficacy: 0          # report-only; CI env MUTATION_EFFICACY_MIN is the ratchet knob
+    mutant-coverage: 0    # report-only; CI env MUTATION_MCOVER_MIN is the ratchet knob
+
+# Default-enabled mutant types (gremlins v0.6.0). The "invert-*" family beyond
+# invert-negatives, plus remove-self-assignments, are off by default upstream;
+# pinned here so enabling them is a deliberate, reviewed change.
+mutants:
+  arithmetic-base:
+    enabled: true
+  conditionals-boundary:
+    enabled: true
+  conditionals-negation:
+    enabled: true
+  increment-decrement:
+    enabled: true
+  invert-negatives:
+    enabled: true
+  invert-assignments:
+    enabled: false
+  invert-bitwise:
+    enabled: false
+  invert-bwassign:
+    enabled: false
+  invert-logical:
+    enabled: false
+  invert-loopctrl:
+    enabled: false
+  remove-self-assignments:
+    enabled: false

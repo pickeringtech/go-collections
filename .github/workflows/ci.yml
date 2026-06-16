@@ -5,13 +5,29 @@ name: CI
 #
 # Gating policy:
 #   - Blocking:    build, module hygiene, zero-dependency guard, tests
-#                  (race + shuffle), coverage floor, gofmt, go vet, govulncheck,
-#                  golangci-lint (incl. cyclop/gocognit complexity) and gosec.
-#   - Report-only: fuzz, benchmarks. These print findings but do not fail the
-#                  build (per #7's gating policy). On a PR the benchmark job
-#                  also A/B-compares against the base branch with benchstat and
-#                  posts the delta table — still advisory (see the job for the
+#                  (race + shuffle) across the OS × Go-version matrix below,
+#                  coverage floor, gofmt, go vet, govulncheck, golangci-lint
+#                  (incl. cyclop/gocognit complexity) and gosec.
+#   - Report-only: Go tip; cross-arch (386 build+vet+test, arm64/s390x
+#                  build+vet only); fuzz; benchmarks; API compatibility. These
+#                  print findings/early warnings but do not fail the build (per
+#                  #7's gating policy). On a PR the benchmark job also
+#                  A/B-compares against the base branch with benchstat and posts
+#                  the delta table — still advisory (see the job for the
 #                  documented path to a future regression gate).
+#
+# Test matrix (see #33): the `test` job gates Linux/macOS/Windows on the primary
+# (go.mod) Go version, plus the previous minor on Linux — 4 cells, kept small to
+# control runner-minutes. `test-tip` (Go tip) and `cross-arch` (386/arm64/s390x)
+# are report-only so exotic/experimental cells warn without blocking a merge.
+#
+# API-compatibility gating (#29): the api-compat job runs gorelease against the
+# last released tag and reports the implied semver bump + any breaking changes.
+# It is REPORT-ONLY pre-1.0, because breaking changes are permitted under semver
+# while the major version is 0 — the output exists to inform the CHANGELOG and
+# version-bump decision. Post-v1.0, flip it to blocking (drop continue-on-error
+# and fail when gorelease reports incompatible changes to the stable API), per
+# the project's "ratchet the gates" pattern.
 #
 # Coverage floor is 90% (current total is ~99%); the issue-#7 goal of 85% is met.
 # Raise COVERAGE_MIN as tests are added so coverage can only move upward.
@@ -26,9 +42,15 @@ permissions:
 
 env:
   COVERAGE_MIN: "90"   # floor (actual is ~99%); exceeds the 85 goal — ratchet upward only
+  # Primary (go.mod) Go version; the test matrix gates this on every OS and uses
+  # it to pick the single Codecov-uploading cell. Keep in sync with go.mod.
+  # (The matrix itself can't read env, so the version literals live there.)
+  GO_PRIMARY: "1.24"
   # Pin security-tool versions so CI is reproducible; bump deliberately.
   GOVULNCHECK_VERSION: "v1.3.0"
   GOSEC_VERSION: "v2.27.1"
+  # gorelease lives in x/exp, which has no per-command tags — pin the pseudo-version.
+  GORELEASE_VERSION: "v0.0.0-20260611194520-c48552f49976"
   # golang.org/x/perf ships only pseudo-versions (no semver tags); pin one.
   BENCHSTAT_VERSION: "v0.0.0-20260615155930-9e4b9ddef5b6"
   # Benchmark A/B knobs. Wall time ≈ (sub-benchmarks) × BENCH_TIME × BENCH_COUNT
@@ -76,13 +98,42 @@ jobs:
         run: go mod verify
 
   test:
-    name: Test (race + coverage)
-    runs-on: ubuntu-latest
+    # Gating matrix: catch platform- and version-specific breakage (concurrency
+    # / -race behaviour, map-iteration order, path/newline assumptions) that a
+    # single ubuntu+go.mod cell would miss. Kept deliberately small to control
+    # runner-minutes — every OS on the primary (go.mod) Go version, plus the
+    # previous minor on Linux only as a cheap backward-compat check.
+    #   Linux/macOS/Windows × Go 1.24  +  Linux × Go 1.23  = 4 cells.
+    # Wider/experimental coverage (Go tip, exotic arches) lives in the
+    # report-only `test-tip` and `cross-arch` jobs below.
+    name: Test (race + coverage) — ${{ matrix.os }} / Go ${{ matrix.go }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Don't cancel the other cells when one fails — we want every platform's
+      # pass/fail visible in one run, not a single early abort.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go: ["1.24"]
+        include:
+          # Previous minor on Linux only: backward-compat early warning without
+          # tripling the secondary-version cost across all three OSes.
+          - os: ubuntu-latest
+            go: "1.23"
+    defaults:
+      run:
+        # windows-latest defaults to PowerShell; force bash (Git Bash ships on
+        # the runner) so the awk/tr/tail coverage steps are portable across cells.
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: ${{ matrix.go }}
+          # Zero-dependency repo: no go.sum exists, so key the (per-OS, per-Go)
+          # build cache off go.mod. setup-go restores ~/.cache/go-build across
+          # runs, keeping the matrix affordable (see #25).
+          cache-dependency-path: go.mod
       - name: Run tests with race detector and shuffled order
         # -shuffle=on surfaces order-dependence; doc Example funcs with
         # // Output: are verified here as part of `go test`.
@@ -101,6 +152,9 @@ jobs:
             exit 1
           fi
       - name: Upload coverage to Codecov (non-gating)
+        # Upload from a single cell only (Linux + primary Go) so the matrix
+        # doesn't push N duplicate reports for the same source.
+        if: matrix.os == 'ubuntu-latest' && matrix.go == env.GO_PRIMARY
         # v5 uses the CLI uploader, which requires CODECOV_TOKEN even for
         # public repos (tokenless uploads were deprecated). Add the token as
         # a repo secret (Settings → Secrets → Actions → CODECOV_TOKEN).
@@ -112,6 +166,63 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
           fail_ci_if_error: false
+
+  test-tip:
+    name: Test on Go tip (report-only — early toolchain warning)
+    runs-on: ubuntu-latest
+    # Report-only: tip is a moving target, so a failure here is an early warning
+    # about an upcoming toolchain change, not a merge gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Stable toolchain only bootstraps the gotip installer below.
+          go-version: stable
+          cache-dependency-path: go.mod
+      - name: Install Go tip (gotip)
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download
+      - name: Run tests with race detector and shuffled order on tip
+        run: gotip test -race -shuffle=on ./...
+
+  cross-arch:
+    # Report-only build/test across non-amd64 arches to catch word-size and
+    # endianness assumptions. 386 binaries execute on the amd64 host (pure-Go,
+    # statically linked); arm64/s390x can't run here, so they are build+vet only.
+    # s390x is big-endian — the cheapest way to surface endianness bugs.
+    name: Cross-arch build/test (report-only) — GOARCH=${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goarch: "386"      # 32-bit word size; tests run on the amd64 host
+            run-tests: true
+          - goarch: arm64      # cross-compile + vet only (can't execute on amd64)
+            run-tests: false
+          - goarch: s390x      # big-endian — surfaces endianness assumptions
+            run-tests: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      - name: Target GOARCH=${{ matrix.goarch }}
+        # Set after setup-go so the toolchain install isn't affected; exported
+        # via $GITHUB_ENV so all later steps cross-compile for this arch.
+        run: echo "GOARCH=${{ matrix.goarch }}" >> "$GITHUB_ENV"
+      - name: Compile every package
+        run: go build ./...
+      - name: Vet for suspicious constructs
+        run: go vet ./...
+      - name: Run tests (no -race; unsupported on 386)
+        if: matrix.run-tests
+        # -race isn't supported on 386; -shuffle still surfaces order-dependence.
+        run: go test -shuffle=on ./...
 
   lint:
     name: Lint, format & complexity
@@ -157,6 +268,83 @@ jobs:
         run: |
           go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
           gosec ./...
+
+  api-compat:
+    name: API compatibility (gorelease vs last tag) — report-only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gorelease and the latest-tag lookup both need the full tag history,
+          # which the default shallow checkout omits.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Report API compatibility and implied semver bump
+        # Report-only pre-1.0 (see the gating-policy comment at the top): breaking
+        # changes are allowed while major version is 0, so this surfaces the verdict
+        # without gating. gorelease itself also exits 0 for a pre-1.0 base even when
+        # the API breaks (it just suggests a minor bump), so continue-on-error is a
+        # belt-and-braces guard, not the only thing keeping the job green.
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          go install "golang.org/x/exp/cmd/gorelease@${GORELEASE_VERSION}"
+
+          # Latest released semver tag (vMAJOR.MINOR.PATCH; skip pre-releases).
+          base=$(git tag --sort=-version:refname \
+                   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          if [ -z "$base" ]; then
+            echo "No released semver tag found — nothing to diff against yet."
+            echo "No released tag to compare against." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "Comparing the working tree's public API against $base ..."
+
+          # Write the report OUTSIDE the repo: gorelease treats any untracked file
+          # in the working tree as "uncommitted changes" and aborts, so a report.txt
+          # created in-place by the redirect would make it fail on itself.
+          report="$(mktemp)"
+          # gorelease exits non-zero only for a *failed* analysis (not for finding
+          # breaking changes pre-1.0), so capture the status to distinguish the two.
+          gorelease -base "$base" > "$report" 2>&1 && status=0 || status=$?
+          cat "$report"
+
+          suggested=$(grep -i 'Suggested version' "$report" | head -1 | sed 's/.*: //')
+          # Count change lines that fall under a "## incompatible changes" header.
+          incompat=$(awk '
+            /^## incompatible changes/ {f=1; next}
+            /^## compatible changes/   {f=0; next}
+            /^# /                      {f=0; next}   # new package section ("# path")
+            f && NF                    {c++}
+            END                        {print c+0}' "$report")
+
+          {
+            echo "## API compatibility vs ${base}"
+            echo
+            if [ -z "$suggested" ] && [ "$status" -ne 0 ]; then
+              # gorelease aborted (e.g. couldn't resolve the base) — don't imply a
+              # clean bill of health from an analysis that never produced a verdict.
+              echo "⚠️ gorelease could not complete the analysis (exit ${status}); see the job log."
+            else
+              [ -n "$suggested" ] && echo "**Suggested version:** ${suggested}"
+              echo
+              if [ "${incompat:-0}" -gt 0 ]; then
+                echo "⚠️ **${incompat} incompatible (breaking) change(s)** detected — report-only"
+                echo "pre-1.0. Flag these in the CHANGELOG and the version-bump decision."
+              else
+                echo "✅ No incompatible changes detected."
+              fi
+            fi
+            echo
+            echo "<details><summary>Full gorelease report</summary>"
+            echo
+            echo '```'
+            cat "$report"
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   fuzz:
     name: Fuzz (short run per target) — report-only
