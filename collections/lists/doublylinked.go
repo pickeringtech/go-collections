@@ -118,34 +118,48 @@ func (dl *DoublyLinked[T]) Filter(fn func(T) bool) []T {
 
 // FilterInPlace removes elements that don't satisfy the predicate.
 func (dl *DoublyLinked[T]) FilterInPlace(fn func(T) bool) {
+	// Iterate a fixed number of times (the original node count) so that removing
+	// the head — which reassigns dl.head — cannot terminate the walk early. Each
+	// node's own next pointer is preserved by removeNode, so the captured next
+	// always reaches the following original node, circular or not.
 	current := dl.head
-	for current != nil {
+	remaining := dl.size
+	for i := 0; i < remaining; i++ {
 		next := current.next
 		if !fn(current.value) {
 			dl.removeNode(current)
 		}
 		current = next
-		if dl.isCircular && current == dl.head {
-			break
-		}
 	}
 }
 
-// removeNode removes a specific node from the list.
+// removeNode removes a specific node from the list. Head and tail are detected
+// by node identity rather than by nil prev/next pointers, so the logic is
+// correct for circular lists too (where prev/next never become nil).
 func (dl *DoublyLinked[T]) removeNode(node *doublyNode[T]) {
 	if node == nil {
 		return
 	}
 
-	if node.prev != nil {
-		node.prev.next = node.next
-	} else {
-		dl.head = node.next
+	// Removing the only node empties the list.
+	if dl.head == dl.tail {
+		dl.head = nil
+		dl.tail = nil
+		dl.size--
+		return
 	}
 
+	if node.prev != nil {
+		node.prev.next = node.next
+	}
 	if node.next != nil {
 		node.next.prev = node.prev
-	} else {
+	}
+
+	if node == dl.head {
+		dl.head = node.next
+	}
+	if node == dl.tail {
 		dl.tail = node.prev
 	}
 

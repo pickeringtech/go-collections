@@ -71,7 +71,6 @@ func SortInPlace[T any](input []T, fun SortFunc[T]) {
 		a, b := input[i], input[j]
 		return fun(a, b)
 	})
-	return
 }
 
 // SortOrderedAsc orders the elements within the input slice in ascending order, using their relative values to determine

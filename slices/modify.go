@@ -69,9 +69,9 @@ func Insert[T any](input []T, startIdx int, elements ...T) []T {
 	if startIdx < 0 || startIdx >= len(input) {
 		return nil
 	}
+	// Operate on a copy so the input slice's backing array is never mutated.
 	output := Copy(input)
-	output = append(input[:startIdx], append(elements, input[startIdx:]...)...)
-	return output
+	return append(output[:startIdx], append(elements, output[startIdx:]...)...)
 }
 
 // JoinToString creates a new string by stringifying each of the elements within the input, and placing the separator

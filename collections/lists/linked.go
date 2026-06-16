@@ -60,6 +60,10 @@ func NewLinked[T any](values ...T) *Linked[T] {
 	return linked
 }
 
+// NewLinkedCircular creates a new circular singly linked list with the given
+// elements. In a circular list the tail's next pointer references the head, so
+// iteration wraps around; the list's own methods stop after a single pass.
+// Elements are added in the order provided.
 func NewLinkedCircular[T any](values ...T) *Linked[T] {
 	linked := &Linked[T]{
 		isCircular: true,
@@ -313,45 +317,63 @@ func (l *Linked[T]) InsertInPlace(index int, elements ...T) {
 		return
 	}
 
-	// Insert at beginning
 	if index == 0 {
-		for i := len(elements) - 1; i >= 0; i-- {
-			newNode := &node[T]{
-				value:  elements[i],
-				next:   l.head,
-				linked: l,
-			}
-			l.head = newNode
-			if l.tail == nil {
-				l.tail = newNode
-			}
-		}
-		if l.isCircular && l.tail != nil {
-			l.tail.next = l.head
-		}
+		l.insertAtHead(elements)
 		return
 	}
 
-	// Find insertion point
-	current := l.head
-	currentIndex := 0
-	for current != nil && currentIndex < index-1 {
-		current = current.next
-		currentIndex++
-		if l.isCircular && current == l.head {
-			return // Invalid index in circular list
-		}
+	// Walk to the node after which the elements should be spliced in.
+	current, ok := l.findNodeBefore(index)
+	if !ok {
+		return // Invalid index in circular list — leave the list untouched.
 	}
-
 	if current == nil {
-		// Index beyond list, append to end
+		// Index beyond list, append to end.
 		for _, element := range elements {
 			l.insertAtEnd(element)
 		}
 		return
 	}
 
-	// Insert elements
+	l.insertAfter(current, elements)
+}
+
+// insertAtHead prepends elements (preserving their order) to the front of the list.
+func (l *Linked[T]) insertAtHead(elements []T) {
+	for i := len(elements) - 1; i >= 0; i-- {
+		newNode := &node[T]{
+			value:  elements[i],
+			next:   l.head,
+			linked: l,
+		}
+		l.head = newNode
+		if l.tail == nil {
+			l.tail = newNode
+		}
+	}
+	if l.isCircular && l.tail != nil {
+		l.tail.next = l.head
+	}
+}
+
+// findNodeBefore walks to the node at index-1. It returns (nil, true) when the
+// index is beyond the list (caller should append) and (nil, false) when a
+// circular list wraps back to the head before reaching the index (invalid).
+func (l *Linked[T]) findNodeBefore(index int) (*node[T], bool) {
+	current := l.head
+	currentIndex := 0
+	for current != nil && currentIndex < index-1 {
+		current = current.next
+		currentIndex++
+		if l.isCircular && current == l.head {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+// insertAfter splices elements in immediately after the given node.
+func (l *Linked[T]) insertAfter(current *node[T], elements []T) {
 	for _, element := range elements {
 		newNode := &node[T]{
 			value:  element,
@@ -364,7 +386,6 @@ func (l *Linked[T]) InsertInPlace(index int, elements ...T) {
 		}
 		current = newNode
 	}
-
 	if l.isCircular && l.tail != nil {
 		l.tail.next = l.head
 	}

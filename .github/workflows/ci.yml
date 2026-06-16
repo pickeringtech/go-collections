@@ -3,14 +3,14 @@ name: CI
 # Every job and step is named for *what it verifies*, so the Actions summary
 # reads as a checklist a reviewer can scan at a glance.
 #
-# Gating policy (first pass):
+# Gating policy:
 #   - Blocking:    build, module hygiene, zero-dependency guard, tests
-#                  (race + shuffle), coverage floor, gofmt, go vet, govulncheck.
-#   - Report-only: golangci-lint (incl. cyclop/gocognit complexity), gosec,
-#                  fuzz, benchmarks. These print findings but do not fail the
-#                  build yet, so the gate can be ratcheted up deliberately.
+#                  (race + shuffle), coverage floor, gofmt, go vet, govulncheck,
+#                  golangci-lint (incl. cyclop/gocognit complexity) and gosec.
+#   - Report-only: fuzz, benchmarks. These print findings but do not fail the
+#                  build (per #7's gating policy).
 #
-# Coverage floor is 40% (current total is ~44%); the long-term goal is 85%.
+# Coverage floor is 90% (current total is ~99%); the issue-#7 goal of 85% is met.
 # Raise COVERAGE_MIN as tests are added so coverage can only move upward.
 
 on:
@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 env:
-  COVERAGE_MIN: "40"   # floor that the suite passes today; goal is 85 (ratchet upward)
+  COVERAGE_MIN: "90"   # floor (actual is ~99%); exceeds the 85 goal — ratchet upward only
   # Pin security-tool versions so CI is reproducible; bump deliberately.
   GOVULNCHECK_VERSION: "v1.3.0"
   GOSEC_VERSION: "v2.27.1"
@@ -114,11 +114,10 @@ jobs:
           echo "All files are gofmt-clean ✔"
       - name: Vet for suspicious constructs
         run: go vet ./...
-      - name: Static analysis, style & complexity (golangci-lint) — report-only
+      - name: Static analysis, style & complexity (golangci-lint)
         # Aggregates staticcheck, errcheck, ineffassign, unconvert, misspell,
-        # revive, cyclop (cyclomatic) and gocognit (cognitive). Reported but
-        # non-gating on this first pass; flip continue-on-error to false to gate.
-        continue-on-error: true
+        # revive, cyclop (cyclomatic) and gocognit (cognitive). Blocking: the
+        # debt it surfaced has been paid down (see #9), so it now gates.
         uses: golangci/golangci-lint-action@v7
         with:
           version: v2.1.6
@@ -135,8 +134,8 @@ jobs:
         run: |
           go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
           govulncheck ./...
-      - name: Security lint (gosec) — report-only
-        continue-on-error: true
+      - name: Security lint (gosec)
+        # Blocking: gosec reports no issues, so it now gates against regressions.
         run: |
           go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
           gosec ./...
