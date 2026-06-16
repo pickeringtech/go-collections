@@ -108,6 +108,13 @@ gh api "repos/$OWNER_REPO/pulls/$PR/reviews" \
   latest push" from a mere count of past reviews.
 - **Not applicable** if no automated reviewer is configured/requested at all —
   then there is nothing to wait for; don't block.
+- **Don't hang waiting for a re-review that won't come.** GitHub does **not**
+  always re-request Copilot after every push — depending on repo settings it may
+  review once (on open) and not re-review fix commits. So the optional
+  `commit_id == HEAD_SHA` check can stay false forever. Treat `reviewRequests`
+  (empty = not pending) as authoritative, **bound** the wait (a few poll cycles),
+  and once Copilot is not pending and there are no unhandled comments, consider
+  the review **settled** and finalize — even if its last review predates the head.
 - This is a **finalization gate**, not an OR-race signal: it only governs whether
   it's safe to arm auto-merge, never preempts handling CI/comments/conflicts.
 
