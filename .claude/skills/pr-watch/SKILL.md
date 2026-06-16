@@ -1,6 +1,6 @@
 ---
 name: pr-watch
-description: Autonomously drive an open PR to green by reacting to whichever fires first — a CI failure, a new review comment (Copilot/bot/human), or a base-branch merge conflict. Loops up to N iterations (default 15), dedups handled comments, detects stuck loops, and stops on success/cap/human-needed. Use when the user says "/pr-watch", "/pr-babysit", "babysit the PR", "watch the PR", or "get this PR to green".
+description: Autonomously drive an open PR to merge-ready by reacting to whichever fires first — a CI failure, a new review comment (Copilot/bot/human), or a base-branch merge conflict. On green it keeps the branch current with base and arms auto-merge so the PR lands before it can go stale. Loops up to N iterations (default 15), dedups handled comments, detects stuck loops, and stops on success/cap/human-needed. Use when the user says "/pr-watch", "/pr-babysit", "babysit the PR", "watch the PR", or "get this PR to green".
 ---
 
 # /pr-watch — drive a PR to green (OR-race responder)
@@ -88,8 +88,16 @@ elif merge conflict:    fetch base, merge, resolve, commit, push   → continue
 elif behind base:       update branch from base, push             → continue
 elif ci failed:         diagnose, fix, commit, push → iteration++ → continue
 elif ci still running:  ScheduleWakeup 30–60s, re-poll
-else:                   green + mergeable + no unhandled comments → DONE
+else:  # green + no unhandled comments
+        update branch from base (stay current) → if it conflicts, run the
+            conflict playbook and continue
+        enable auto-merge so the PR lands the moment it's ready → DONE(auto-merge armed)
 ```
+
+Reaching green is **not** where we stop and walk away — that's exactly when a PR
+starts silently going stale as other PRs merge into `main`. Instead, make the
+PR *land itself*: bring it up to date with base and arm auto-merge, so there is
+no idle window in which an unwatched conflict can accumulate.
 
 ## Remediation playbooks
 
@@ -140,6 +148,49 @@ git push
   is genuinely ambiguous or risks losing intent, **stop and escalate** — don't
   guess.
 
+### Green — keep current and auto-merge (close the staleness window)
+
+When CI is green and there are no unhandled comments, **don't just terminate** —
+a PR that merely *is* mergeable now will conflict later as other PRs land. Make
+it land itself:
+
+```bash
+# 1. Bring the branch up to date with base (GitHub-side merge of base → head).
+gh pr update-branch "$PR"          # no-op if already current
+# If update-branch reports a conflict, fall through to the merge-conflict
+# playbook above (resolve locally, push), then retry.
+#
+# GOTCHA: if the update would touch a workflow file (.github/workflows/*) and
+# the gh token lacks the `workflow` OAuth scope, this fails with
+# "refusing to allow an OAuth App to create or update workflow ... without
+# workflow scope". `git push` over SSH is NOT scope-gated, so fall back to a
+# local merge instead of giving up:
+#   git fetch origin "$BASE" && git merge "origin/$BASE" && git push
+# (resolve any conflicts on their merits, as in the conflict playbook).
+
+# 2. Arm auto-merge so the PR merges the instant it is green + up to date.
+gh pr merge "$PR" --auto --squash  # method per repo convention (--squash/--merge/--rebase)
+```
+
+- **Auto-merge is now in-scope** for this skill (the user opted into it): arming
+  it is allowed without a per-PR confirmation. It does **not** merge immediately
+  — GitHub merges only once required checks pass and the branch is mergeable.
+- **Preconditions:** auto-merge must be enabled in repo settings (and typically
+  a protected base with required checks). If `gh pr merge --auto` errors with
+  auto-merge-not-allowed, report it once and fall back to terminating on
+  green+mergeable (the old behaviour) rather than looping.
+- **Proactive update on every pass:** also run `gh pr update-branch` whenever the
+  PR is `BEHIND` (not only at green), so it never drifts far from base.
+- **`workflow`-scope fallback:** `gh pr update-branch` (and any `gh` write to a
+  `.github/workflows/*` file) needs the `workflow` OAuth scope; without it the
+  call is refused. Don't treat that as "can't update" — `git push` over SSH is
+  not scope-gated, so update via local `git merge origin/<base>` + push instead.
+- **Residual gap (be honest):** if the PR can't auto-complete (e.g. a required
+  human review is missing) it can still go stale after the watcher exits. For
+  full coverage of "conflicts that appear long after I've moved on," a scheduled
+  re-arm is the complete fix; auto-merge shrinks the window but doesn't remove it
+  entirely.
+
 ## State, dedup & loop detection
 
 - **Dedup comments by `id`** (stable), not body. Codecov-style bots **edit their
@@ -154,7 +205,10 @@ git push
 ## Termination
 
 Stop and report when any holds:
-- **Success** — CI green **and** mergeable **and** no unhandled comments.
+- **Success** — CI green, no unhandled comments, branch up to date with base, and
+  **auto-merge armed** (or the PR already merged). Do not exit on "green +
+  mergeable" *without* first updating the branch and arming auto-merge — that is
+  the gap that lets later conflicts go unhandled.
 - **Cap** — `iteration == max`.
 - **Stuck** — repeated identical failure with no progress.
 - **Human-needed** — ambiguous conflict, a change needing a product decision, or
@@ -166,7 +220,10 @@ exactly what (if anything) the human needs to decide.
 ## Guardrails
 
 - Autonomous in scope: code fixes, adding tests, threaded replies, push-safe
-  merges, normal pushes.
+  merges, normal pushes, **updating the branch from base (`gh pr update-branch`)
+  and arming auto-merge (`gh pr merge --auto`)**.
 - **Confirm-first** (do not do autonomously): force-push, rebasing pushed
-  history, resolving/closing conversations, closing or merging the PR.
+  history, resolving/closing conversations, an **immediate** `gh pr merge` (i.e.
+  merging *now* rather than arming auto-merge to land when ready), or closing the
+  PR.
 - Never weaken logic or assertions to pass a coverage gate — write tests.
