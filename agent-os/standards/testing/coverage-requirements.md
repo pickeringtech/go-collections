@@ -33,5 +33,41 @@ func BenchmarkFilter(b *testing.B) // performance
 
 Add a runnable `Example` that spawns goroutines with `sync.WaitGroup` to demonstrate thread safety. Run the suite with `-race`.
 
+## Collection types & transformation functions — add a fuzz target
+
+Beyond the trio, collection types and the slice/map/channel transformation
+functions ship with a Go native fuzz target (`FuzzXxx`, `go test -fuzz`). Real
+verification — not just hand-picked table cases — is core to the product
+mission. Fuzzing surfaces edge-case panics, invariant violations, and inputs
+the author never thought to test.
+
+Prefer **invariant / differential** assertions over exact outputs:
+
+- **Round-trip invariants** — `Push` then `Pop` returns the same element;
+  `FromSlice` then `CollectAsSlice` reproduces the slice; `Reverse(Reverse(x))`
+  equals `x`.
+- **Differential oracles** — compare behaviour against the native Go
+  equivalent (a `dicts.Hash` vs a built-in `map`, a set's membership vs a
+  `map[T]struct{}`).
+- **No-panic guarantees** — feed arbitrary operation sequences; assert the
+  structure never panics and its invariants hold (length consistent, no
+  duplicate set members, list ordering preserved).
+- **Concurrent safety** — fuzz operation sequences run under `-race` against
+  the `Concurrent*` variants.
+
+Conventions:
+
+- `FuzzXxx` functions live in `fuzz_test.go` alongside the existing
+  Example/Test/Benchmark trio.
+- Seed each corpus with `f.Add(...)` using the same edge cases the table tests
+  cover (empty, nil, single element, duplicates).
+- Keep targets deterministic and fast so CI can run them with a short
+  `-fuzztime`.
+- When an operation has a domain the implementation does not support (e.g. a
+  negative page size), return early from the fuzz body rather than asserting on
+  undefined behaviour.
+
+## General
+
 - Tests live in an external `_test` package (e.g. `package slices_test`) — black-box, public API only.
 - Use the standard library only: `reflect.DeepEqual` + `t.Errorf`. No testify or assertion libraries.
