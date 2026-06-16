@@ -164,6 +164,20 @@ Each package includes:
 - **Performance characteristics** and best practices
 - **Real-world use cases** and patterns
 
+### Runnable Examples
+
+The [`examples/`](./examples) directory holds small, focused, **runnable apps**
+that exercise the public API in realistic, cross-package flows — and are
+build-and-run E2E-tested against golden output in CI on every PR:
+
+- **[word-frequency](./examples/cmd/word-frequency)** — tokenise text, count words, print top-N (`slices` + `maps`)
+- **[set-algebra](./examples/cmd/set-algebra)** — union / intersection / difference / subset over `sets`
+- **[worker-pipeline](./examples/cmd/worker-pipeline)** — fan-out/fan-in a stream through a bounded worker pool (`channels` + `concurrency`)
+- **[ordered-processing](./examples/cmd/ordered-processing)** — reverse, replay and sort with `lists`
+
+They consume the library as a separate module, so they double as a
+downstream-consumer smoke test. See the [examples README](./examples/README.md).
+
 ### Package Documentation
 - **[Collections Overview](./collections/README.md)** - Start here for core data structures
 - **[Dicts Documentation](./collections/dicts/README.md)** - Key-value mappings

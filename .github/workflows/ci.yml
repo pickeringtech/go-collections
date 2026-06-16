@@ -7,7 +7,8 @@ name: CI
 #   - Blocking:    build, module hygiene, zero-dependency guard, tests
 #                  (race + shuffle) across the OS × Go-version matrix below,
 #                  coverage floor, gofmt, go vet, govulncheck, golangci-lint
-#                  (incl. cyclop/gocognit complexity) and gosec.
+#                  (incl. cyclop/gocognit complexity), gosec and the examples
+#                  golden-output E2E (build + run + assert stdout, see #30).
 #   - Report-only: Go tip; cross-arch (386 build+vet+test, arm64/s390x
 #                  build+vet only); fuzz; benchmarks; API compatibility. These
 #                  print findings/early warnings but do not fail the build (per
@@ -275,6 +276,31 @@ jobs:
         run: |
           go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
           gosec ./...
+
+  examples-e2e:
+    # Blocking: the examples/ module is a SEPARATE module that consumes the
+    # library as an outside package (its go.mod `replace`s the dependency with
+    # the local checkout, so this builds against the CURRENT tree — see #30).
+    # The root build/test/lint jobs run `./...` on the root module only and never
+    # descend into examples/, so this dedicated job is what compiles and exercises
+    # them. Each test `go run`s a real binary and diffs stdout against a checked-in
+    # golden file, so a non-compiling, panicking, or output-drifting example fails
+    # the build — catching public-API breakage the library's own tests can miss.
+    name: Examples E2E (golden output, separate module)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Drive the toolchain from the examples module's own go.mod.
+          go-version-file: examples/go.mod
+          cache-dependency-path: examples/go.mod
+      - name: Build & golden-output E2E test the example apps
+        # -shuffle=on surfaces order-dependence; the tests `go run` each app and
+        # assert its stdout against testdata/*.golden. (No -race: the suite shells
+        # out via `go run`, so the detector wouldn't see inside the child anyway.)
+        working-directory: examples
+        run: go test -shuffle=on ./...
 
   api-compat:
     name: API compatibility (gorelease vs last tag) — report-only
