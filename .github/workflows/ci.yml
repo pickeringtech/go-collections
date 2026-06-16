@@ -13,6 +13,13 @@ name: CI
 #                  print findings/early warnings but do not fail the build (per
 #                  #7's gating policy).
 #
+# Branch protection (#41): the ONLY required check is the `CI Gate` job, which
+# `needs:` every blocking job and fails unless they all succeed. Requiring a
+# single stable context — rather than the individual (and matrix-suffixed) job
+# names — means adding/renaming jobs or matrix cells never silently wedges PRs
+# with a required check that never reports. To change what gates, edit `CI Gate`'s
+# `needs:` list, not the GitHub branch-protection rule.
+#
 # Test matrix (see #33): the `test` job gates Linux/macOS/Windows on the primary
 # (go.mod) Go version, plus the previous minor on Linux — 4 cells, kept small to
 # control runner-minutes. `test-tip` (Go tip) and `cross-arch` (386/arm64/s390x)
@@ -417,3 +424,29 @@ jobs:
       - name: Run benchmarks briefly to ensure they compile and run
         continue-on-error: true
         run: go test -run='^$' -bench=. -benchtime=10x ./...
+
+  ci-gate:
+    # Single stable required check for branch protection (see #41). Branch
+    # protection requires ONLY this context — never the individual job names.
+    # Because the test job is a matrix, its check-run names carry an
+    # `— <os> / Go <ver>` suffix; requiring those bare names directly leaves a
+    # required check that never reports ("Expected — Waiting for status to be
+    # reported") and wedges PRs unmergeable. This aggregator absorbs matrix
+    # dimensions, OS additions, and job renames so branch protection never breaks
+    # when CI changes — update the `needs:` list here instead of the GitHub rule.
+    name: CI Gate
+    if: always()                       # run even if a dependency failed, so the gate can report
+    needs: [build, test, lint, security]   # the blocking jobs only; report-only jobs stay out
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all blocking jobs to have succeeded
+        run: |
+          results='${{ join(needs.*.result, ",") }}'
+          echo "Blocking-job results: $results"
+          case "$results" in
+            *failure*|*cancelled*|*skipped*)
+              echo "::error::A required job did not succeed — see the failed job above."
+              exit 1 ;;
+            *)
+              echo "All blocking jobs succeeded ✔" ;;
+          esac
