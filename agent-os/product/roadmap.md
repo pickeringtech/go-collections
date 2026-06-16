@@ -38,16 +38,24 @@ The "real verification" mission pillar is largely delivered. **Blocking** via th
 `CI Gate` aggregator ([#41](https://github.com/pickeringtech/go-collections/issues/41),
 its `needs:` list): build, race+coverage tests across an OS × Go-version matrix
 ([#33](https://github.com/pickeringtech/go-collections/issues/33)), lint/complexity,
-security (govulncheck + gosec), and the examples golden-output E2E
-([#30](https://github.com/pickeringtech/go-collections/issues/30)).
-**Report-only** (not in the gate; `continue-on-error`): fuzz
-([#10](https://github.com/pickeringtech/go-collections/issues/10), fast count-based
-run [#25](https://github.com/pickeringtech/go-collections/issues/25)), API
-compatibility ([#29](https://github.com/pickeringtech/go-collections/issues/29)),
-benchmark regression ([#31](https://github.com/pickeringtech/go-collections/issues/31)),
-mutation testing ([#32](https://github.com/pickeringtech/go-collections/issues/32)),
-and Codecov ([#14](https://github.com/pickeringtech/go-collections/issues/14)). The
-last four ratchet toward blocking as they prove out.
+security (govulncheck + gosec), the examples golden-output E2E
+([#30](https://github.com/pickeringtech/go-collections/issues/30)), cross-arch
+(386/arm64/s390x, [#33](https://github.com/pickeringtech/go-collections/issues/33)),
+and the fuzz smoke run ([#10](https://github.com/pickeringtech/go-collections/issues/10),
+fast count-based run [#25](https://github.com/pickeringtech/go-collections/issues/25)).
+Cross-arch and fuzz were promoted from report-only to gates
+([#72](https://github.com/pickeringtech/go-collections/issues/72)) — both are
+deterministic, so a failure is a real signal rather than runner noise.
+**Report-only** (not in the gate; `continue-on-error`, with a documented reason each):
+Go tip (intentionally unstable toolchain,
+[#33](https://github.com/pickeringtech/go-collections/issues/33)), API compatibility
+([#29](https://github.com/pickeringtech/go-collections/issues/29), pre-1.0), benchmark
+regression ([#31](https://github.com/pickeringtech/go-collections/issues/31), noisy
+shared runners), mutation testing
+([#32](https://github.com/pickeringtech/go-collections/issues/32), threshold being
+triaged), and Codecov ([#14](https://github.com/pickeringtech/go-collections/issues/14),
+needs `CODECOV_TOKEN`). These ratchet toward blocking as they prove out
+([#72](https://github.com/pickeringtech/go-collections/issues/72)).
 
 ## Phase 2: Post-Launch
 
