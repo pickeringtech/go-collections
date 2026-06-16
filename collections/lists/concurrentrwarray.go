@@ -90,14 +90,18 @@ func (a *ConcurrentRWArray[T]) Dequeue() (T, bool, []T) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	return slices.PopFront(a.elements)
+	// Operate on a copy so the returned slice is independent of the receiver's
+	// backing array (PopFront returns a sub-slice of its input).
+	return slices.PopFront(slices.Copy(a.elements))
 }
 
 func (a *ConcurrentRWArray[T]) Enqueue(element T) []T {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	return slices.Push(a.elements, element)
+	// Operate on a copy so the returned slice is independent of the receiver's
+	// backing array (Push may append into shared capacity).
+	return slices.Push(slices.Copy(a.elements), element)
 }
 
 func (a *ConcurrentRWArray[T]) Filter(fun func(T) bool) []T {
@@ -157,7 +161,9 @@ func (a *ConcurrentRWArray[T]) Insert(index int, element ...T) []T {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	return slices.Insert(a.elements, index, element...)
+	// Operate on a copy so the returned slice is independent of the receiver and
+	// the receiver's backing array is never mutated by the insert.
+	return slices.Insert(slices.Copy(a.elements), index, element...)
 }
 
 func (a *ConcurrentRWArray[T]) Length() int {
@@ -185,14 +191,18 @@ func (a *ConcurrentRWArray[T]) Pop() (T, bool, []T) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	return slices.Pop(a.elements)
+	// Operate on a copy so the returned slice is independent of the receiver's
+	// backing array (Pop returns a sub-slice of its input).
+	return slices.Pop(slices.Copy(a.elements))
 }
 
 func (a *ConcurrentRWArray[T]) Push(element T) []T {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	return slices.Push(a.elements, element)
+	// Operate on a copy so the returned slice is independent of the receiver's
+	// backing array (Push may append into shared capacity).
+	return slices.Push(slices.Copy(a.elements), element)
 }
 
 func (a *ConcurrentRWArray[T]) Sort(lessThan func(T, T) bool) []T {

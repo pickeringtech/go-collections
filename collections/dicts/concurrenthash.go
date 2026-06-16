@@ -93,15 +93,16 @@ func (ch *ConcurrentHash[K, V]) ForEachValue(fn func(value V)) {
 }
 
 // Filter returns a new dictionary containing only the key-value pairs
-// that satisfy the given predicate function.
+// that satisfy the given predicate function. The returned dictionary is a new
+// thread-safe ConcurrentHash, independent of the receiver.
 func (ch *ConcurrentHash[K, V]) Filter(fn func(key K, value V) bool) Dict[K, V] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
-	result := make(Hash[K, V])
+	result := NewConcurrentHash[K, V]()
 	for key, value := range ch.data {
 		if fn(key, value) {
-			result[key] = value
+			result.data[key] = value
 		}
 	}
 	return result
@@ -228,31 +229,31 @@ func (ch *ConcurrentHash[K, V]) AsMap() map[K]V {
 }
 
 // Put creates a new dictionary with the given key-value pair added or updated.
-// Returns the new dictionary without modifying the original.
+// Returns a new thread-safe ConcurrentHash without modifying the original.
 func (ch *ConcurrentHash[K, V]) Put(key K, value V) Dict[K, V] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
-	result := make(Hash[K, V], len(ch.data)+1)
+	result := NewConcurrentHash[K, V]()
 	for k, v := range ch.data {
-		result[k] = v
+		result.data[k] = v
 	}
-	result[key] = value
+	result.data[key] = value
 	return result
 }
 
 // PutMany creates a new dictionary with all given key-value pairs added or updated.
-// Returns the new dictionary without modifying the original.
+// Returns a new thread-safe ConcurrentHash without modifying the original.
 func (ch *ConcurrentHash[K, V]) PutMany(pairs ...Pair[K, V]) Dict[K, V] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
-	result := make(Hash[K, V], len(ch.data)+len(pairs))
+	result := NewConcurrentHash[K, V]()
 	for k, v := range ch.data {
-		result[k] = v
+		result.data[k] = v
 	}
 	for _, pair := range pairs {
-		result[pair.Key] = pair.Value
+		result.data[pair.Key] = pair.Value
 	}
 	return result
 }
@@ -276,22 +277,22 @@ func (ch *ConcurrentHash[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 }
 
 // Remove creates a new dictionary with the given key removed.
-// Returns the new dictionary without modifying the original.
+// Returns a new thread-safe ConcurrentHash without modifying the original.
 func (ch *ConcurrentHash[K, V]) Remove(key K) Dict[K, V] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
-	result := make(Hash[K, V], len(ch.data))
+	result := NewConcurrentHash[K, V]()
 	for k, v := range ch.data {
 		if k != key {
-			result[k] = v
+			result.data[k] = v
 		}
 	}
 	return result
 }
 
 // RemoveMany creates a new dictionary with all given keys removed.
-// Returns the new dictionary without modifying the original.
+// Returns a new thread-safe ConcurrentHash without modifying the original.
 func (ch *ConcurrentHash[K, V]) RemoveMany(keys ...K) Dict[K, V] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
@@ -302,10 +303,10 @@ func (ch *ConcurrentHash[K, V]) RemoveMany(keys ...K) Dict[K, V] {
 		toRemove[key] = struct{}{}
 	}
 
-	result := make(Hash[K, V], len(ch.data))
+	result := NewConcurrentHash[K, V]()
 	for k, v := range ch.data {
 		if _, shouldRemove := toRemove[k]; !shouldRemove {
-			result[k] = v
+			result.data[k] = v
 		}
 	}
 	return result
