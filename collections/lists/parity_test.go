@@ -189,6 +189,73 @@ func TestMutableList_RemoveInPlace(t *testing.T) {
 	}
 }
 
+// TestMutableList_InsertParity pins down the shared Insert/InsertInPlace
+// contract (issue #78): every implementation accepts 0 <= index <= Length(),
+// treats index == Length() as an append (so inserting into an empty list yields
+// just the elements), and leaves the list unchanged for an out-of-range index.
+func TestMutableList_InsertParity(t *testing.T) {
+	for _, ctor := range allMutableListConstructors() {
+		t.Run(ctor.name, func(t *testing.T) {
+			// Insert is immutable: it returns the resulting slice without
+			// mutating the receiver. InsertInPlace performs the same logical
+			// edit on the receiver. Both must agree for every index below.
+			type insertCase struct {
+				name  string
+				seed  []int
+				index int
+				elems []int
+				want  []int
+			}
+			cases := []insertCase{
+				{"at head", []int{1, 2, 3}, 0, []int{8, 9}, []int{8, 9, 1, 2, 3}},
+				{"in middle", []int{1, 2, 3}, 1, []int{8, 9}, []int{1, 8, 9, 2, 3}},
+				{"index equal to length appends", []int{1, 2, 3}, 3, []int{8, 9}, []int{1, 2, 3, 8, 9}},
+				{"into empty list appends", nil, 0, []int{8, 9}, []int{8, 9}},
+				{"index beyond length unchanged", []int{1, 2, 3}, 99, []int{8, 9}, []int{1, 2, 3}},
+				{"negative index unchanged", []int{1, 2, 3}, -1, []int{8, 9}, []int{1, 2, 3}},
+			}
+
+			for _, tc := range cases {
+				t.Run("Insert/"+tc.name, func(t *testing.T) {
+					l := ctor.make(tc.seed...)
+					got := l.Insert(tc.index, tc.elems...)
+					if !equalInts(got, tc.want) {
+						t.Errorf("Insert(%d, %v) = %v, want %v", tc.index, tc.elems, got, tc.want)
+					}
+					// Immutable: the receiver must be untouched.
+					if rcv := l.AsSlice(); !equalInts(rcv, tc.seed) {
+						t.Errorf("Insert mutated receiver: got %v, want %v", rcv, tc.seed)
+					}
+				})
+
+				t.Run("InsertInPlace/"+tc.name, func(t *testing.T) {
+					l := ctor.make(tc.seed...)
+					l.InsertInPlace(tc.index, tc.elems...)
+					if got := l.AsSlice(); !equalInts(got, tc.want) {
+						t.Errorf("InsertInPlace(%d, %v) = %v, want %v", tc.index, tc.elems, got, tc.want)
+					}
+				})
+			}
+		})
+	}
+}
+
+// equalInts compares two int slices by content, treating nil and empty as
+// equal. The list implementations legitimately differ on whether an unchanged
+// result is returned as nil or a non-nil empty slice, so the parity tests
+// compare contents rather than exact slice identity.
+func equalInts(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // circularConstructor builds a circular linked list seeded with the given
 // elements. Removal must preserve the circular invariant.
 type circularConstructor struct {
