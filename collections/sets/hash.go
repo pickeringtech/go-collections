@@ -140,6 +140,11 @@ func (h Hash[T]) AnyMatch(fn func(element T) bool) bool {
 	return false
 }
 
+// NoneMatch returns true if no element satisfies the given predicate.
+func (h Hash[T]) NoneMatch(fn func(element T) bool) bool {
+	return !h.AnyMatch(fn)
+}
+
 // AsSlice returns the set as a slice.
 func (h Hash[T]) AsSlice() []T {
 	result := make([]T, 0, len(h))

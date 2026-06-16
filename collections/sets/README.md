@@ -182,7 +182,14 @@ allMatch := set.AllMatch(func(e T) bool {
 anyMatch := set.AnyMatch(func(e T) bool {
     return someCondition(e)
 })
+
+noneMatch := set.NoneMatch(func(e T) bool {
+    return someCondition(e)
+})
 ```
+
+`Find`, `AllMatch`, `AnyMatch` and `NoneMatch` form the search core shared
+across the `lists`, `dicts` and `sets` families.
 
 ### Conversion Operations
 

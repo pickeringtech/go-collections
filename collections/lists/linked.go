@@ -130,6 +130,11 @@ func (l *Linked[T]) AnyMatch(fn func(T) bool) bool {
 	return false
 }
 
+// NoneMatch returns true if no element satisfies the given predicate.
+func (l *Linked[T]) NoneMatch(fn func(T) bool) bool {
+	return !l.AnyMatch(fn)
+}
+
 // Find returns the first element that satisfies the given predicate.
 func (l *Linked[T]) Find(fn func(T) bool) (T, bool) {
 	current := l.head

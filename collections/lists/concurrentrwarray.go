@@ -109,6 +109,15 @@ func (a *ConcurrentRWArray[T]) AnyMatch(fun func(T) bool) bool {
 	return slices.AnyMatch(a.elements, fun)
 }
 
+// NoneMatch returns true if no element satisfies the predicate fun (vacuously
+// true for an empty list). It takes a read lock and is safe for concurrent use.
+func (a *ConcurrentRWArray[T]) NoneMatch(fun func(T) bool) bool {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+
+	return !slices.AnyMatch(a.elements, fun)
+}
+
 // Dequeue returns the first element, whether one was present, and a new slice
 // (independent of the receiver's backing array) with that element removed,
 // without modifying the receiver. It takes a read lock and is safe for

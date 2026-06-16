@@ -32,6 +32,12 @@ func (a *Array[T]) AnyMatch(fn func(T) bool) bool {
 	return slices.AnyMatch(a.elements, fn)
 }
 
+// NoneMatch returns true if no element satisfies the predicate fn (vacuously
+// true for an empty list).
+func (a *Array[T]) NoneMatch(fn func(T) bool) bool {
+	return !slices.AnyMatch(a.elements, fn)
+}
+
 // Dequeue returns the first element, whether one was present, and a new slice
 // with that element removed, without modifying the receiver.
 func (a *Array[T]) Dequeue() (T, bool, []T) {

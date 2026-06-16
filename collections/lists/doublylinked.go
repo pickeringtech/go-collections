@@ -67,6 +67,11 @@ func (dl *DoublyLinked[T]) AnyMatch(fn func(T) bool) bool {
 	return false
 }
 
+// NoneMatch returns true if no element satisfies the given predicate.
+func (dl *DoublyLinked[T]) NoneMatch(fn func(T) bool) bool {
+	return !dl.AnyMatch(fn)
+}
+
 // Find returns the first element that satisfies the given predicate.
 func (dl *DoublyLinked[T]) Find(fn func(T) bool) (T, bool) {
 	current := dl.head
