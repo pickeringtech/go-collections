@@ -102,6 +102,54 @@ func assertListMatches(t *testing.T, name string, l lists.MutableList[uint8], or
 			t.Fatalf("%s: Get(%d) = (%d, %t), want (%d, true)", name, i, v, ok, oracle[i])
 		}
 	}
+	assertListIterators(t, name, l, oracle)
+}
+
+// assertListIterators checks that All, Values and Backward agree with the oracle
+// slice, and that FromSeq(Values) round-trips back to the same contents.
+func assertListIterators(t *testing.T, name string, l lists.MutableList[uint8], oracle []uint8) {
+	t.Helper()
+
+	var allIdx []int
+	var allVal []uint8
+	for i, v := range l.All() {
+		allIdx = append(allIdx, i)
+		allVal = append(allVal, v)
+	}
+	for i := range oracle {
+		if allIdx[i] != i || allVal[i] != oracle[i] {
+			t.Fatalf("%s: All[%d] = (%d, %d), want (%d, %d)", name, i, allIdx[i], allVal[i], i, oracle[i])
+		}
+	}
+
+	var values []uint8
+	for v := range l.Values() {
+		values = append(values, v)
+	}
+	if len(values) != len(oracle) {
+		t.Fatalf("%s: Values length = %d, want %d", name, len(values), len(oracle))
+	}
+	for i := range oracle {
+		if values[i] != oracle[i] {
+			t.Fatalf("%s: Values[%d] = %d, want %d", name, i, values[i], oracle[i])
+		}
+	}
+
+	for i, v := range l.Backward() {
+		if v != oracle[i] {
+			t.Fatalf("%s: Backward index %d = %d, want %d", name, i, v, oracle[i])
+		}
+	}
+
+	roundTrip := lists.FromSeq(l.Values()).AsSlice()
+	if len(roundTrip) != len(oracle) {
+		t.Fatalf("%s: FromSeq round-trip length = %d, want %d", name, len(roundTrip), len(oracle))
+	}
+	for i := range oracle {
+		if roundTrip[i] != oracle[i] {
+			t.Fatalf("%s: FromSeq round-trip[%d] = %d, want %d", name, i, roundTrip[i], oracle[i])
+		}
+	}
 }
 
 // FuzzListOracle replays the same operation sequence against every list

@@ -1,6 +1,7 @@
 package dicts_test
 
 import (
+	"reflect"
 	"sync"
 	"testing"
 
@@ -76,6 +77,50 @@ func runDictOracle(t *testing.T, d dicts.MutableDict[uint8, uint8], program []by
 		if _, ok := oracle[k]; !ok {
 			t.Fatalf("Keys contains %d not in oracle", k)
 		}
+	}
+
+	assertDictIterators(t, d, oracle)
+}
+
+// assertDictIterators checks that All, KeysSeq and ValuesSeq agree with the
+// oracle map, and that FromSeq2(All) round-trips back to the same contents.
+func assertDictIterators(t *testing.T, d dicts.MutableDict[uint8, uint8], oracle map[uint8]uint8) {
+	t.Helper()
+
+	// All must enumerate exactly the oracle's entries, without duplicate keys.
+	allSeen := map[uint8]uint8{}
+	for k, v := range d.All() {
+		if _, dup := allSeen[k]; dup {
+			t.Fatalf("All yielded duplicate key %d", k)
+		}
+		allSeen[k] = v
+	}
+	if !reflect.DeepEqual(allSeen, oracle) {
+		t.Fatalf("All entries = %v, want %v", allSeen, oracle)
+	}
+
+	keyCount := 0
+	for k := range d.KeysSeq() {
+		if _, ok := oracle[k]; !ok {
+			t.Fatalf("KeysSeq yielded %d not in oracle", k)
+		}
+		keyCount++
+	}
+	if keyCount != len(oracle) {
+		t.Fatalf("KeysSeq count = %d, want %d", keyCount, len(oracle))
+	}
+
+	valCount := 0
+	for range d.ValuesSeq() {
+		valCount++
+	}
+	if valCount != len(oracle) {
+		t.Fatalf("ValuesSeq count = %d, want %d", valCount, len(oracle))
+	}
+
+	roundTrip := dicts.FromSeq2(d.All())
+	if !reflect.DeepEqual(roundTrip.AsMap(), oracle) {
+		t.Fatalf("FromSeq2 round-trip = %v, want %v", roundTrip.AsMap(), oracle)
 	}
 }
 

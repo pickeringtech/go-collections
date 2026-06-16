@@ -28,6 +28,36 @@ func assertMatchesOracle(t *testing.T, name string, s sets.Set[uint8], oracle ma
 			t.Fatalf("%s: Contains(%d) = %v, want %v", name, x, got, want)
 		}
 	}
+	assertSetIterator(t, name, s, oracle)
+}
+
+// assertSetIterator checks that All enumerates exactly the oracle's elements
+// without duplicates, and that FromSeq(All) round-trips back to the same set.
+func assertSetIterator(t *testing.T, name string, s sets.Set[uint8], oracle map[uint8]struct{}) {
+	t.Helper()
+	seen := map[uint8]struct{}{}
+	for v := range s.All() {
+		if _, dup := seen[v]; dup {
+			t.Fatalf("%s: All yielded duplicate %d", name, v)
+		}
+		if _, ok := oracle[v]; !ok {
+			t.Fatalf("%s: All yielded %d not in oracle", name, v)
+		}
+		seen[v] = struct{}{}
+	}
+	if len(seen) != len(oracle) {
+		t.Fatalf("%s: All count = %d, want %d", name, len(seen), len(oracle))
+	}
+
+	roundTrip := sets.FromSeq(s.All())
+	if roundTrip.Length() != len(oracle) {
+		t.Fatalf("%s: FromSeq round-trip length = %d, want %d", name, roundTrip.Length(), len(oracle))
+	}
+	for v := range oracle {
+		if !roundTrip.Contains(v) {
+			t.Fatalf("%s: FromSeq round-trip missing %d", name, v)
+		}
+	}
 }
 
 // FuzzSetOracle is a differential fuzz test: it builds two sets and compares

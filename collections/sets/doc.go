@@ -62,6 +62,17 @@
 //	set.FilterInPlace(predicate)             // Modifies original
 //	set.UnionInPlace(otherSet)               // Modifies original
 //
+// # Iterators (range-over-func)
+//
+// Sets are iterator-native, integrating with Go 1.23+ range-over-func and the
+// wider iter ecosystem. All yields the elements in unspecified order:
+//
+//	for v := range set.All() { ... }
+//
+// FromSeq builds a set from any iter.Seq, collapsing duplicates:
+//
+//	set := sets.FromSeq(other.All())
+//
 // # Thread Safety
 //
 // Choose the right concurrent implementation:

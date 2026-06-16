@@ -1,8 +1,11 @@
 package collections
 
 import (
+	"iter"
+
 	"github.com/pickeringtech/go-collections/collections/deques"
 	"github.com/pickeringtech/go-collections/collections/dicts"
+	"github.com/pickeringtech/go-collections/collections/heaps"
 	"github.com/pickeringtech/go-collections/collections/lists"
 	"github.com/pickeringtech/go-collections/collections/multimaps"
 	"github.com/pickeringtech/go-collections/collections/sets"
@@ -168,4 +171,46 @@ func NewConcurrentDoublyLinkedList[T any](elements ...T) lists.List[T] {
 // NewConcurrentRWDoublyLinkedList creates a thread-safe List backed by a doubly linked list, optimised for concurrent reads, with the given elements.
 func NewConcurrentRWDoublyLinkedList[T any](elements ...T) lists.List[T] {
 	return lists.NewConcurrentRWDoublyLinked[T](elements...)
+}
+
+// ListFromSeq creates a List backed by an array from the values produced by seq,
+// preserving their order. It is the inbound counterpart to the List.Values iterator.
+func ListFromSeq[T any](seq iter.Seq[T]) lists.List[T] {
+	return lists.FromSeq(seq)
+}
+
+// DictFromSeq2 creates a Dict backed by a hash map from the key/value pairs produced
+// by seq. When seq yields the same key more than once, the last value wins.
+func DictFromSeq2[K comparable, V any](seq iter.Seq2[K, V]) dicts.Dict[K, V] {
+	return dicts.FromSeq2(seq)
+}
+
+// SetFromSeq creates a Set backed by a hash map from the elements produced by seq,
+// collapsing duplicates as any set does.
+func SetFromSeq[T comparable](seq iter.Seq[T]) sets.Set[T] {
+	return sets.FromSeq(seq)
+}
+
+// DequeFromSeq creates an unbounded Deque backed by a ring buffer from the values
+// produced by seq (the first value becomes the front).
+func DequeFromSeq[T any](seq iter.Seq[T]) deques.Deque[T] {
+	return deques.FromSeq(seq)
+}
+
+// HeapFromSeq creates a Heap (priority queue) ordered by less from the values
+// produced by seq.
+func HeapFromSeq[T any](less heaps.LessFunc[T], seq iter.Seq[T]) heaps.Heap[T] {
+	return heaps.FromSeq(less, seq)
+}
+
+// ListMultimapFromSeq2 creates a list-backed Multimap from the key/value pairs
+// produced by seq, preserving order and keeping duplicate values. V may be any type.
+func ListMultimapFromSeq2[K comparable, V any](seq iter.Seq2[K, V]) multimaps.Multimap[K, V] {
+	return multimaps.ListMultimapFromSeq2(seq)
+}
+
+// SetMultimapFromSeq2 creates a set-backed Multimap from the key/value pairs produced
+// by seq, collapsing duplicate values bound to the same key.
+func SetMultimapFromSeq2[K comparable, V comparable](seq iter.Seq2[K, V]) multimaps.Multimap[K, V] {
+	return multimaps.SetMultimapFromSeq2(seq)
 }

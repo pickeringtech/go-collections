@@ -202,6 +202,17 @@ func assertListMatchesModel(t *testing.T, m multimaps.Multimap[string, int], mod
 			t.Fatalf("Get(%q) = %v, model = %v", key, got, want)
 		}
 	}
+
+	// ListMultimapFromSeq2(All) round-trips back to the same entries.
+	rt := multimaps.ListMultimapFromSeq2(m.All())
+	if rt.Length() != m.Length() {
+		t.Fatalf("FromSeq2 round-trip Length() = %d, want %d", rt.Length(), m.Length())
+	}
+	for key, values := range model {
+		if got, want := sortedInts(rt.Get(key)), sortedInts(values); !reflect.DeepEqual(got, want) {
+			t.Fatalf("FromSeq2 round-trip Get(%q) = %v, model = %v", key, got, want)
+		}
+	}
 }
 
 func assertSetMatchesModel(t *testing.T, m multimaps.Multimap[string, int], model map[string]map[int]struct{}) {
@@ -225,6 +236,17 @@ func assertSetMatchesModel(t *testing.T, m multimaps.Multimap[string, int], mode
 		got := sortedInts(m.Get(key))
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("Get(%q) = %v, model = %v", key, got, want)
+		}
+	}
+
+	// SetMultimapFromSeq2(All) round-trips back to the same entries.
+	rt := multimaps.SetMultimapFromSeq2(m.All())
+	if rt.Length() != m.Length() {
+		t.Fatalf("FromSeq2 round-trip Length() = %d, want %d", rt.Length(), m.Length())
+	}
+	for key := range model {
+		if got, want := sortedInts(rt.Get(key)), sortedInts(m.Get(key)); !reflect.DeepEqual(got, want) {
+			t.Fatalf("FromSeq2 round-trip Get(%q) = %v, want %v", key, got, want)
 		}
 	}
 }
