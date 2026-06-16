@@ -14,7 +14,12 @@ type BackgroundWorkLimiter struct {
 }
 
 // NewBackgroundWorkLimiter creates a BackgroundWorkLimiter that runs at most limit work functions concurrently.
+// A limit below 1 is clamped to 1: an unbuffered semaphore (limit == 0) would deadlock on the first send,
+// and a negative size would panic at channel creation.
 func NewBackgroundWorkLimiter(limit int) *BackgroundWorkLimiter {
+	if limit < 1 {
+		limit = 1
+	}
 	return &BackgroundWorkLimiter{
 		max:       limit,
 		waitGroup: &sync.WaitGroup{},
