@@ -19,8 +19,9 @@ type Indexable[T any] interface {
 	Length() int
 }
 
-// Convertible is implemented by collections that can be converted into a slice
-// without modifying the receiver.
+// Convertible is implemented by collections that can be converted into a slice.
+// Whether the returned slice aliases the collection's backing storage or is an
+// independent copy is implementation-defined.
 type Convertible[T any] interface {
 	AsSlice() []T
 }

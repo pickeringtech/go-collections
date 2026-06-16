@@ -97,9 +97,9 @@ func assertListMatches(t *testing.T, name string, l lists.MutableList[uint8], or
 		if got[i] != oracle[i] {
 			t.Fatalf("%s: element[%d] = %d, want %d (full: %v want %v)", name, i, got[i], oracle[i], got, oracle)
 		}
-		v, _ := l.Get(i, 0)
-		if v != oracle[i] {
-			t.Fatalf("%s: Get(%d) = %d, want %d", name, i, v, oracle[i])
+		v, ok := l.Get(i, 0)
+		if v != oracle[i] || !ok {
+			t.Fatalf("%s: Get(%d) = (%d, %t), want (%d, true)", name, i, v, ok, oracle[i])
 		}
 	}
 }
