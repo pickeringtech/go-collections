@@ -81,6 +81,34 @@ func TestBlockingWorkLimiter_NeverExceedsLimit(t *testing.T) {
 	}
 }
 
+func TestBlockingWorkLimiter_InvalidLimitIsClamped(t *testing.T) {
+	// limit == 0 once produced an unbuffered semaphore that deadlocked on the first
+	// send; limit < 0 panicked at channel creation. Both must now run to completion.
+	for _, limit := range []int{0, -1, -5} {
+		limit := limit
+		t.Run("", func(t *testing.T) {
+			var counter int64
+			work := make([]WorkFunc, 10)
+			for i := range work {
+				work[i] = func() error {
+					atomic.AddInt64(&counter, 1)
+					return nil
+				}
+			}
+
+			limiter := NewBlockingWorkLimiter(limit)
+			errs := limiter.Run(work)
+
+			if len(errs) != 0 {
+				t.Errorf("Run() returned %d errors, want 0", len(errs))
+			}
+			if got := atomic.LoadInt64(&counter); got != 10 {
+				t.Errorf("ran %d work items, want 10", got)
+			}
+		})
+	}
+}
+
 func TestBlockingWorkLimiter_EmptyWork(t *testing.T) {
 	limiter := NewBlockingWorkLimiter(2)
 	errs := limiter.Run(nil)
