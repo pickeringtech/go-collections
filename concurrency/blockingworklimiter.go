@@ -9,7 +9,12 @@ type BlockingWorkLimiter struct {
 }
 
 // NewBlockingWorkLimiter creates a BlockingWorkLimiter that runs at most limit work functions concurrently.
+// A limit below 1 is clamped to 1: an unbuffered semaphore (limit == 0) would deadlock on the first send,
+// and a negative size would panic at channel creation.
 func NewBlockingWorkLimiter(limit int) *BlockingWorkLimiter {
+	if limit < 1 {
+		limit = 1
+	}
 	return &BlockingWorkLimiter{
 		max: limit,
 	}
