@@ -89,9 +89,15 @@ jobs:
             exit 1
           fi
       - name: Upload coverage to Codecov (non-gating)
-        uses: codecov/codecov-action@v4
+        # v5 uses the CLI uploader, which requires CODECOV_TOKEN even for
+        # public repos (tokenless uploads were deprecated). Add the token as
+        # a repo secret (Settings → Secrets → Actions → CODECOV_TOKEN).
+        # Kept non-gating: the coverage floor above is the authoritative gate,
+        # so a flaky upload must not block a merge.
+        uses: codecov/codecov-action@v5
         continue-on-error: true
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
           fail_ci_if_error: false
 
