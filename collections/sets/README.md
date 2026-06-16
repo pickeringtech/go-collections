@@ -201,6 +201,28 @@ slice := set.AsSlice()
 nativeMap := set.AsMap()
 ```
 
+### Transforming to a New Type: Map / Reduce
+
+`Filter` is a method because it keeps the same element type. A general `Map` is
+`T -> U` with a **different** element type, which Go methods cannot express
+([golang/go#49085](https://github.com/golang/go/issues/49085)), so `Map` and
+`Reduce` are **free functions** over the `Set` interface. `Map` returns the
+`Set` interface (backed by `NewHash`) so results chain on.
+
+```go
+words := sets.NewHash("a", "bb", "cc")
+
+// Map: T -> U. Because a Set deduplicates, distinct inputs that map to the
+// same value collapse — here "bb" and "cc" both -> 2, so the result is {1, 2}.
+lengths := sets.Map(words, func(s string) int { return len(s) })
+
+// Reduce: fold every element into a single value
+total := sets.Reduce(words, 0, func(acc int, s string) int { return acc + len(s) })
+```
+
+Iteration order over a `Set` is unspecified, so a reduction should be
+order-independent.
+
 ## Performance Characteristics
 
 | Implementation | Contains | Add | Remove | Memory | Thread-Safe |

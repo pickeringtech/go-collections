@@ -27,6 +27,7 @@ concern, covered by the gorelease gate.)
 | [`set-algebra`](./cmd/set-algebra)             | Union / intersection / difference / subset of two sets  | `collections`, `sets`, `slices`|
 | [`worker-pipeline`](./cmd/worker-pipeline)     | Fan-out/fan-in a stream through a bounded worker pool   | `channels`, `concurrency`      |
 | [`ordered-processing`](./cmd/ordered-processing)| Reverse (stack), replay (queue) and sort a list         | `lists`, `slices`              |
+| [`collection-transform`](./cmd/collection-transform)| Map / FlatMap / Reduce over the list, dict and set interfaces | `lists`, `dicts`, `sets`|
 
 ## Running an app
 
@@ -37,6 +38,7 @@ echo "the quick brown fox the lazy dog the fox" | go run ./cmd/word-frequency -n
 go run ./cmd/set-algebra -a apple,banana,cherry -b banana,cherry,fig
 go run ./cmd/worker-pipeline -n 8 -workers 3
 go run ./cmd/ordered-processing -nums 5,3,8,1,9,2
+go run ./cmd/collection-transform -words the,quick,brown,fox,the,lazy,dog
 ```
 
 ## Running the E2E tests

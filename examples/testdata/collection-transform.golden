@@ -1,0 +1,6 @@
+input:       [the quick brown fox the lazy dog]
+lengths:     [3 5 5 3 3 4 3]
+runes:       [t h e q u i c k b r o w n f o x t h e l a z y d o g]
+total:       26
+distinct:    [3 4 5]
+dict total:  23 (over 6 distinct words)

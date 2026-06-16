@@ -221,6 +221,33 @@ noneNegative := numbers.NoneMatch(func(n int) bool { return n < 0 })
 numbers.InsertInPlace(2, 99)                  // Insert 99 at index 2
 ```
 
+### Transforming to a New Type: Map / FlatMap / Reduce
+`Filter` is a method because it keeps the same element type (`T -> []T`). A
+general `Map` is `T -> U` with a **different** element type, and Go methods
+cannot take type parameters ([golang/go#49085](https://github.com/golang/go/issues/49085)),
+so `Map`, `FlatMap` and `Reduce` are **free functions** over the `List`
+interface. They return the `List` interface (backed by `NewArray`) rather than a
+plain slice, so results chain on into other collection helpers.
+
+```go
+words := lists.NewArray("a", "ab", "abc")
+
+// Map: T -> U (a new element type)
+lengths := lists.Map(words, func(s string) int { return len(s) })   // List[int]{1, 2, 3}
+
+// FlatMap: each element expands into a List, all concatenated
+runes := lists.FlatMap(words, func(s string) lists.List[string] {
+    return lists.NewArray(strings.Split(s, "")...)
+})                                                                  // [a a b a b c]
+
+// Reduce: fold into a single accumulated value
+total := lists.Reduce(words, 0, func(acc int, s string) int { return acc + len(s) }) // 6
+```
+
+These work over any `List` implementation (`Array`, `Linked`, the concurrent
+types, …) because they take the interface. Empty or nil input yields an
+initialised, non-nil empty `List`.
+
 ### Removal, Emptiness, and Clearing
 ```go
 numbers := lists.NewArray(10, 20, 20, 30)
