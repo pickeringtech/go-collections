@@ -32,7 +32,6 @@ func (wl *BackgroundWorkLimiter) Start() {
 // the waitGroup to allow the User to await the completion of all work.
 func (wl *BackgroundWorkLimiter) run() {
 	for work := range wl.workToDo {
-		wl.waitGroup.Add(1)
 		work := work
 		wl.workLimiter <- struct{}{}
 		go func() {
@@ -65,8 +64,11 @@ func (wl *BackgroundWorkLimiter) Wait() {
 	wl.waitGroup.Wait()
 }
 
-// Add adds an item of work to be completed in the background.
+// Add adds an item of work to be completed in the background. The wait group is
+// incremented here, on the producer side, before the work is handed off, so that
+// a subsequent Stop followed by Wait cannot race ahead of run registering it.
 func (wl *BackgroundWorkLimiter) Add(work WorkFunc) {
+	wl.waitGroup.Add(1)
 	wl.workToDo <- work
 }
 
