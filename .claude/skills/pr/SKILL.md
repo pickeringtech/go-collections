@@ -22,11 +22,13 @@ git rev-parse --abbrev-ref HEAD
 ```
 
 If the current branch is `main` (or `master`), create a topic branch first.
-Derive a short kebab-case name from the change (the diff/intended work), e.g.
-`rpickz/<summary>`:
+Derive a short kebab-case `<summary>` from the change (the diff/intended work),
+and prefix it with the current contributor's handle so branches stay namespaced
+per author rather than hard-coding any one person's prefix:
 
 ```bash
-git switch -c rpickz/<summary>
+PREFIX=$(gh api user -q .login 2>/dev/null || git config user.name | tr 'A-Z ' 'a-z-')
+git switch -c "${PREFIX}/<summary>"
 ```
 
 If already on a topic branch, stay on it.

@@ -14,14 +14,20 @@ occurs first, then loop:
 3. **Merge conflict / behind base** — the branch conflicts with or has fallen
    behind `main`.
 
-**First-to-fire wins.** Do not wait for CI to finish before handling a comment,
-and do not ignore a CI failure while waiting on comments.
+**First-to-fire wins.** Across iterations, act on whichever signal *appears
+first in time* — do not wait for CI to finish before handling a comment, and do
+not ignore a CI failure while waiting on comments. **Tie-break:** if more than
+one signal is already present in the *same* poll, handle them in the priority
+order below (new comments → conflict → behind base → CI failure). That ordering
+is only a deterministic tie-break for a single poll; it never overrides
+first-to-fire across polls.
 
 ## Arguments & pacing
 
 - Optional integer = max iterations (e.g. `/pr-watch 25`). **Default 15.**
 - Optional PR number; otherwise use the PR for the current branch.
-- This skill **composes [`/loop`](.)'s dynamic (self-paced) pacing** — drive the
+- This skill **composes the built-in `/loop` skill's dynamic (self-paced)
+  pacing** (`/loop` ships with Claude Code; it is not defined in this repo) — drive the
   cadence with `ScheduleWakeup` rather than a blocking sleep. Use a short delay
   (**30–60s**) while CI is in progress so comments are picked up quickly; stop
   scheduling once a terminal condition is reached.
