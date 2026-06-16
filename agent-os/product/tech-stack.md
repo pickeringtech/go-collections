@@ -38,8 +38,8 @@ These are development/CI dependencies only — they do not affect the zero **run
 GitHub Actions on push/PR, fronted by a single stable `CI Gate` aggregator that is
 the only required branch-protection check (#41), so matrix/job changes never wedge PRs:
 
-- **Blocking** (in `CI Gate`'s `needs:`): **build & module hygiene**, **race + coverage tests** across an OS × Go-version matrix (#33), **lint/complexity** (`golangci-lint`, committed `.golangci.yml`), **security** (`govulncheck` + `gosec`), and **examples E2E** (separate-module apps with golden-output assertions, #30).
-- **Report-only** (not in the gate; `continue-on-error`): **fuzzing** (`testing.F` targets, fast count-based smoke run, #10/#25), **API compatibility** via `gorelease` (#29), **benchmark-regression** via `benchstat` (#31), **mutation testing** via `gremlins` (#32), and **Codecov** upload (#14). The latter four ratchet toward blocking as they prove out.
+- **Blocking** (in `CI Gate`'s `needs:`): **build & module hygiene**, **race + coverage tests** across an OS × Go-version matrix (#33), **lint/complexity** (`golangci-lint`, committed `.golangci.yml`), **security** (`govulncheck` + `gosec`), **examples E2E** (separate-module apps with golden-output assertions, #30), **cross-arch** (386 build+vet+test, arm64/s390x build+vet, #33), and **fuzzing** (`testing.F` targets, deterministic count-based smoke run, #10/#25). Cross-arch and fuzz were promoted from report-only to gates (#72) — both are deterministic, so a failure is a real signal, not runner noise.
+- **Report-only** (not in the gate; `continue-on-error`, each with a documented reason): **Go tip** (intentionally unstable toolchain, #33), **API compatibility** via `gorelease` (pre-1.0, #29), **benchmark-regression** via `benchstat` (noisy shared runners, #31), **mutation testing** via `gremlins` (threshold being triaged, #32), and **Codecov** upload (needs `CODECOV_TOKEN`, #14). These ratchet toward blocking as they prove out (#72).
 
 ## Planned (not yet in repo)
 
