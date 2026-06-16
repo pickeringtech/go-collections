@@ -1,6 +1,7 @@
 package dicts_test
 
 import (
+	"sort"
 	"sync"
 	"testing"
 
@@ -182,5 +183,168 @@ func FuzzConcurrentHashRace(f *testing.F) {
 				t.Fatalf("dict contains key %d that was never written", k)
 			}
 		}
+	})
+}
+
+// FuzzConcurrentTreeOracle fuzzes the mutex-guarded ConcurrentTree against a native map.
+func FuzzConcurrentTreeOracle(f *testing.F) {
+	seedDict(f)
+	f.Fuzz(func(t *testing.T, program []byte) {
+		runDictOracle(t, dicts.NewConcurrentTree[uint8, uint8](), program)
+	})
+}
+
+// FuzzConcurrentTreeRWOracle fuzzes the RWMutex-guarded ConcurrentTreeRW against a native map.
+func FuzzConcurrentTreeRWOracle(f *testing.F) {
+	seedDict(f)
+	f.Fuzz(func(t *testing.T, program []byte) {
+		runDictOracle(t, dicts.NewConcurrentTreeRW[uint8, uint8](), program)
+	})
+}
+
+// runOrderedOracle replays a Put/Remove program against a SortedDict and a
+// native map, then checks every ordered query (Min/Max/Floor/Ceiling/Range and
+// the ascending/descending iterators) against a sorted slice oracle built from
+// the map. This catches ordering bugs the membership-only oracle cannot see.
+func runOrderedOracle(t *testing.T, d dicts.MutableSortedDict[uint8, uint8], program []byte) {
+	t.Helper()
+	oracle := map[uint8]uint8{}
+	for i := 0; i+2 < len(program); i += 3 {
+		op, key, value := program[i], program[i+1], program[i+2]
+		switch op % 3 {
+		case 0, 1:
+			d.PutInPlace(key, value)
+			oracle[key] = value
+		case 2:
+			d.RemoveInPlace(key)
+			delete(oracle, key)
+		}
+	}
+
+	sortedKeys := make([]uint8, 0, len(oracle))
+	for k := range oracle {
+		sortedKeys = append(sortedKeys, k)
+	}
+	sort.Slice(sortedKeys, func(i, j int) bool { return sortedKeys[i] < sortedKeys[j] })
+
+	// Min / Max.
+	if len(sortedKeys) == 0 {
+		if _, _, ok := d.Min(); ok {
+			t.Fatalf("Min() ok = true on empty dict")
+		}
+		if _, _, ok := d.Max(); ok {
+			t.Fatalf("Max() ok = true on empty dict")
+		}
+	} else {
+		if k, _, ok := d.Min(); !ok || k != sortedKeys[0] {
+			t.Fatalf("Min() key = %d (ok=%v), want %d", k, ok, sortedKeys[0])
+		}
+		if k, _, ok := d.Max(); !ok || k != sortedKeys[len(sortedKeys)-1] {
+			t.Fatalf("Max() key = %d (ok=%v), want %d", k, ok, sortedKeys[len(sortedKeys)-1])
+		}
+	}
+
+	// Ascending iteration must reproduce the sorted keys with their values.
+	ascKeys := []uint8{}
+	for k, v := range d.All() {
+		ascKeys = append(ascKeys, k)
+		if v != oracle[k] {
+			t.Fatalf("All() value for %d = %d, want %d", k, v, oracle[k])
+		}
+	}
+	if !equalU8(ascKeys, sortedKeys) {
+		t.Fatalf("All() keys = %v, want %v", ascKeys, sortedKeys)
+	}
+
+	// Descending iteration must be the reverse.
+	descKeys := []uint8{}
+	for k := range d.Backward() {
+		descKeys = append(descKeys, k)
+	}
+	reversed := reverseU8(sortedKeys)
+	if !equalU8(descKeys, reversed) {
+		t.Fatalf("Backward() keys = %v, want %v", descKeys, reversed)
+	}
+
+	// Floor / Ceiling against a linear scan of the sorted keys, probing every byte.
+	for x := 0; x < 256; x++ {
+		q := uint8(x)
+		wantFloor, wantFloorOK := scanFloor(sortedKeys, q)
+		if k, _, ok := d.Floor(q); ok != wantFloorOK || (ok && k != wantFloor) {
+			t.Fatalf("Floor(%d) = (%d, %v), want (%d, %v)", q, k, ok, wantFloor, wantFloorOK)
+		}
+		wantCeil, wantCeilOK := scanCeiling(sortedKeys, q)
+		if k, _, ok := d.Ceiling(q); ok != wantCeilOK || (ok && k != wantCeil) {
+			t.Fatalf("Ceiling(%d) = (%d, %v), want (%d, %v)", q, k, ok, wantCeil, wantCeilOK)
+		}
+	}
+
+	// Range over the full domain must equal every in-range key.
+	rangePairs := d.Range(0, 255)
+	if len(rangePairs) != len(sortedKeys) {
+		t.Fatalf("Range(0,255) length = %d, want %d", len(rangePairs), len(sortedKeys))
+	}
+	for i, p := range rangePairs {
+		if p.Key != sortedKeys[i] {
+			t.Fatalf("Range(0,255)[%d] = %d, want %d", i, p.Key, sortedKeys[i])
+		}
+	}
+}
+
+func equalU8(a, b []uint8) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func reverseU8(in []uint8) []uint8 {
+	out := make([]uint8, len(in))
+	for i, v := range in {
+		out[len(in)-1-i] = v
+	}
+	return out
+}
+
+func scanFloor(sorted []uint8, q uint8) (uint8, bool) {
+	found := false
+	var best uint8
+	for _, k := range sorted {
+		if k <= q {
+			best = k
+			found = true
+		}
+	}
+	return best, found
+}
+
+func scanCeiling(sorted []uint8, q uint8) (uint8, bool) {
+	for _, k := range sorted {
+		if k >= q {
+			return k, true
+		}
+	}
+	return 0, false
+}
+
+// FuzzTreeOrdered fuzzes the Tree's ordered queries against a sorted-slice oracle.
+func FuzzTreeOrdered(f *testing.F) {
+	seedDict(f)
+	f.Fuzz(func(t *testing.T, program []byte) {
+		runOrderedOracle(t, dicts.NewTree[uint8, uint8](), program)
+	})
+}
+
+// FuzzConcurrentTreeOrdered fuzzes the concurrent trees' ordered queries.
+func FuzzConcurrentTreeOrdered(f *testing.F) {
+	seedDict(f)
+	f.Fuzz(func(t *testing.T, program []byte) {
+		runOrderedOracle(t, dicts.NewConcurrentTree[uint8, uint8](), program)
+		runOrderedOracle(t, dicts.NewConcurrentTreeRW[uint8, uint8](), program)
 	})
 }
