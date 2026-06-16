@@ -611,3 +611,153 @@ func sortedKeys(tree *dicts.Tree[int, string]) bool {
 	}
 	return true
 }
+
+// TestContainsValue_NonComparable verifies that ContainsValue handles
+// non-comparable value types (slices, maps) without panicking, across every
+// Dict implementation. See issue #74.
+func TestContainsValue_NonComparable(t *testing.T) {
+	t.Run("Hash with slice values", func(t *testing.T) {
+		h := dicts.NewHash(
+			dicts.Pair[string, []int]{Key: "a", Value: []int{1, 2}},
+			dicts.Pair[string, []int]{Key: "b", Value: []int{3, 4}},
+		)
+		if !h.ContainsValue([]int{1, 2}) {
+			t.Error("ContainsValue([]int{1, 2}) = false, want true")
+		}
+		if h.ContainsValue([]int{9, 9}) {
+			t.Error("ContainsValue([]int{9, 9}) = true, want false")
+		}
+	})
+
+	t.Run("Hash with map values", func(t *testing.T) {
+		h := dicts.NewHash(
+			dicts.Pair[string, map[string]int]{Key: "a", Value: map[string]int{"x": 1}},
+		)
+		if !h.ContainsValue(map[string]int{"x": 1}) {
+			t.Error("ContainsValue(map{x:1}) = false, want true")
+		}
+		if h.ContainsValue(map[string]int{"x": 2}) {
+			t.Error("ContainsValue(map{x:2}) = true, want false")
+		}
+	})
+
+	t.Run("ConcurrentHash with slice values", func(t *testing.T) {
+		ch := dicts.NewConcurrentHash(
+			dicts.Pair[string, []int]{Key: "a", Value: []int{1, 2}},
+		)
+		if !ch.ContainsValue([]int{1, 2}) {
+			t.Error("ContainsValue([]int{1, 2}) = false, want true")
+		}
+		if ch.ContainsValue([]int{9, 9}) {
+			t.Error("ContainsValue([]int{9, 9}) = true, want false")
+		}
+	})
+
+	t.Run("ConcurrentHash with map values", func(t *testing.T) {
+		ch := dicts.NewConcurrentHash(
+			dicts.Pair[string, map[string]int]{Key: "a", Value: map[string]int{"x": 1}},
+		)
+		if !ch.ContainsValue(map[string]int{"x": 1}) {
+			t.Error("ContainsValue(map{x:1}) = false, want true")
+		}
+		if ch.ContainsValue(map[string]int{"x": 2}) {
+			t.Error("ContainsValue(map{x:2}) = true, want false")
+		}
+	})
+
+	t.Run("ConcurrentHashRW with slice values", func(t *testing.T) {
+		ch := dicts.NewConcurrentHashRW(
+			dicts.Pair[string, []int]{Key: "a", Value: []int{1, 2}},
+		)
+		if !ch.ContainsValue([]int{1, 2}) {
+			t.Error("ContainsValue([]int{1, 2}) = false, want true")
+		}
+		if ch.ContainsValue([]int{9, 9}) {
+			t.Error("ContainsValue([]int{9, 9}) = true, want false")
+		}
+	})
+
+	t.Run("ConcurrentHashRW with map values", func(t *testing.T) {
+		ch := dicts.NewConcurrentHashRW(
+			dicts.Pair[string, map[string]int]{Key: "a", Value: map[string]int{"x": 1}},
+		)
+		if !ch.ContainsValue(map[string]int{"x": 1}) {
+			t.Error("ContainsValue(map{x:1}) = false, want true")
+		}
+		if ch.ContainsValue(map[string]int{"x": 2}) {
+			t.Error("ContainsValue(map{x:2}) = true, want false")
+		}
+	})
+
+	t.Run("Tree with slice values", func(t *testing.T) {
+		tree := dicts.NewTree(
+			dicts.Pair[int, []int]{Key: 1, Value: []int{1, 2}},
+		)
+		if !tree.ContainsValue([]int{1, 2}) {
+			t.Error("ContainsValue([]int{1, 2}) = false, want true")
+		}
+		if tree.ContainsValue([]int{9, 9}) {
+			t.Error("ContainsValue([]int{9, 9}) = true, want false")
+		}
+	})
+
+	t.Run("Tree with map values", func(t *testing.T) {
+		tree := dicts.NewTree(
+			dicts.Pair[int, map[string]int]{Key: 1, Value: map[string]int{"x": 1}},
+		)
+		if !tree.ContainsValue(map[string]int{"x": 1}) {
+			t.Error("ContainsValue(map{x:1}) = false, want true")
+		}
+		if tree.ContainsValue(map[string]int{"x": 2}) {
+			t.Error("ContainsValue(map{x:2}) = true, want false")
+		}
+	})
+
+	t.Run("ConcurrentTree with slice values", func(t *testing.T) {
+		tree := dicts.NewConcurrentTree(
+			dicts.Pair[int, []int]{Key: 1, Value: []int{1, 2}},
+		)
+		if !tree.ContainsValue([]int{1, 2}) {
+			t.Error("ContainsValue([]int{1, 2}) = false, want true")
+		}
+		if tree.ContainsValue([]int{9, 9}) {
+			t.Error("ContainsValue([]int{9, 9}) = true, want false")
+		}
+	})
+
+	t.Run("ConcurrentTree with map values", func(t *testing.T) {
+		tree := dicts.NewConcurrentTree(
+			dicts.Pair[int, map[string]int]{Key: 1, Value: map[string]int{"x": 1}},
+		)
+		if !tree.ContainsValue(map[string]int{"x": 1}) {
+			t.Error("ContainsValue(map{x:1}) = false, want true")
+		}
+		if tree.ContainsValue(map[string]int{"x": 2}) {
+			t.Error("ContainsValue(map{x:2}) = true, want false")
+		}
+	})
+
+	t.Run("ConcurrentTreeRW with slice values", func(t *testing.T) {
+		tree := dicts.NewConcurrentTreeRW(
+			dicts.Pair[int, []int]{Key: 1, Value: []int{1, 2}},
+		)
+		if !tree.ContainsValue([]int{1, 2}) {
+			t.Error("ContainsValue([]int{1, 2}) = false, want true")
+		}
+		if tree.ContainsValue([]int{9, 9}) {
+			t.Error("ContainsValue([]int{9, 9}) = true, want false")
+		}
+	})
+
+	t.Run("ConcurrentTreeRW with map values", func(t *testing.T) {
+		tree := dicts.NewConcurrentTreeRW(
+			dicts.Pair[int, map[string]int]{Key: 1, Value: map[string]int{"x": 1}},
+		)
+		if !tree.ContainsValue(map[string]int{"x": 1}) {
+			t.Error("ContainsValue(map{x:1}) = false, want true")
+		}
+		if tree.ContainsValue(map[string]int{"x": 2}) {
+			t.Error("ContainsValue(map{x:2}) = true, want false")
+		}
+	})
+}
