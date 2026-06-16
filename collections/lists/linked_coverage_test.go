@@ -87,6 +87,10 @@ func TestLinked_Circular(t *testing.T) {
 	if got != -1 || found {
 		t.Errorf("Get(99) = %d, %t, want -1, false", got, found)
 	}
+	got, found = l.Get(-1, -1)
+	if got != -1 || found {
+		t.Errorf("Get(-1) = %d, %t, want -1, false", got, found)
+	}
 }
 
 func TestLinked_CircularInsertInPlace(t *testing.T) {
@@ -251,6 +255,15 @@ func TestDoublyLinked_GetFromTailHalf(t *testing.T) {
 	got, found = dl.Get(-1, -1)
 	if got != -1 || found {
 		t.Errorf("Get(-1) = %d, %t, want -1, false", got, found)
+	}
+}
+
+func TestDoublyLinked_GetFromHeadHalf(t *testing.T) {
+	// Index in the head half forces the forward-walk branch of Get.
+	dl := lists.NewDoublyLinked(0, 1, 2, 3, 4)
+	got, found := dl.Get(1, -1)
+	if got != 1 || !found {
+		t.Errorf("Get(1) = %d, %t, want 1, true", got, found)
 	}
 }
 
