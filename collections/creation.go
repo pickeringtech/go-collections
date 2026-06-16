@@ -3,6 +3,7 @@ package collections
 import (
 	"github.com/pickeringtech/go-collections/collections/dicts"
 	"github.com/pickeringtech/go-collections/collections/lists"
+	"github.com/pickeringtech/go-collections/collections/multimaps"
 	"github.com/pickeringtech/go-collections/collections/sets"
 )
 
@@ -91,6 +92,36 @@ func NewConcurrentLinkedList[T any](elements ...T) lists.List[T] {
 // NewConcurrentRWLinkedList creates a thread-safe List backed by a singly linked list, optimised for concurrent reads, with the given elements.
 func NewConcurrentRWLinkedList[T any](elements ...T) lists.List[T] {
 	return lists.NewConcurrentRWLinked[T](elements...)
+}
+
+// NewListMultimap creates a list-backed Multimap (one key to many ordered, possibly-duplicate values) with the given entries.
+func NewListMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+	return multimaps.NewListMultimap(entries...)
+}
+
+// NewConcurrentListMultimap creates a thread-safe list-backed Multimap (mutex-guarded) with the given entries.
+func NewConcurrentListMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+	return multimaps.NewConcurrentListMultimap(entries...)
+}
+
+// NewConcurrentRWListMultimap creates a thread-safe list-backed Multimap optimised for concurrent reads (RWMutex-guarded) with the given entries.
+func NewConcurrentRWListMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+	return multimaps.NewConcurrentRWListMultimap(entries...)
+}
+
+// NewSetMultimap creates a set-backed Multimap (one key to many distinct values) with the given entries.
+func NewSetMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+	return multimaps.NewSetMultimap(entries...)
+}
+
+// NewConcurrentSetMultimap creates a thread-safe set-backed Multimap (mutex-guarded) with the given entries.
+func NewConcurrentSetMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+	return multimaps.NewConcurrentSetMultimap(entries...)
+}
+
+// NewConcurrentRWSetMultimap creates a thread-safe set-backed Multimap optimised for concurrent reads (RWMutex-guarded) with the given entries.
+func NewConcurrentRWSetMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+	return multimaps.NewConcurrentRWSetMultimap(entries...)
 }
 
 // NewDoublyLinkedList creates a List backed by a doubly linked list with the given elements.
