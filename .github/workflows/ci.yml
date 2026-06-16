@@ -462,7 +462,7 @@ jobs:
     # when CI changes — update the `needs:` list here instead of the GitHub rule.
     name: CI Gate
     if: always()                       # run even if a dependency failed, so the gate can report
-    needs: [build, test, lint, security]   # the blocking jobs only; report-only jobs stay out
+    needs: [build, test, lint, security, examples-e2e]   # the blocking jobs only; report-only jobs stay out
     runs-on: ubuntu-latest
     steps:
       - name: Require all blocking jobs to have succeeded
