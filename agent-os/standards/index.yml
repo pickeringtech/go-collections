@@ -35,6 +35,8 @@ functional:
     description: nil/empty input returns an initialized non-nil empty result, never nil
 
 global:
+  no-if-init-statement:
+    description: Never use the if init; cond form; declare the variable on its own line then a plain if
   readability-and-performance:
     description: Readable-default production code; add a Fast suffix variant only when a benchmark proves it
 
