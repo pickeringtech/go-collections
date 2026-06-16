@@ -62,15 +62,16 @@ func (ch *ConcurrentHashRW[T]) ForEach(fn func(element T)) {
 }
 
 // Filter returns a new set containing only the elements
-// that satisfy the given predicate function.
+// that satisfy the given predicate function. The returned set is a new
+// thread-safe ConcurrentHashRW, independent of the receiver.
 func (ch *ConcurrentHashRW[T]) Filter(fn func(element T) bool) Set[T] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
 
-	result := make(Hash[T])
+	result := NewConcurrentHashRW[T]()
 	for element := range ch.data {
 		if fn(element) {
-			result[element] = struct{}{}
+			result.data[element] = struct{}{}
 		}
 	}
 	return result
@@ -155,46 +156,47 @@ func (ch *ConcurrentHashRW[T]) AsMap() map[T]struct{} {
 }
 
 // Add creates a new set with the given element added.
-// Returns the new set without modifying the original.
+// Returns a new thread-safe ConcurrentHashRW without modifying the original.
 func (ch *ConcurrentHashRW[T]) Add(element T) Set[T] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
 
-	result := make(Hash[T], len(ch.data)+1)
+	result := NewConcurrentHashRW[T]()
 	for e := range ch.data {
-		result[e] = struct{}{}
+		result.data[e] = struct{}{}
 	}
-	result[element] = struct{}{}
+	result.data[element] = struct{}{}
 	return result
 }
 
 // AddMany creates a new set with all given elements added.
-// Returns the new set without modifying the original.
+// Returns a new thread-safe ConcurrentHashRW without modifying the original.
 func (ch *ConcurrentHashRW[T]) AddMany(elements ...T) Set[T] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
 
-	result := make(Hash[T], len(ch.data)+len(elements))
+	result := NewConcurrentHashRW[T]()
 	for e := range ch.data {
-		result[e] = struct{}{}
+		result.data[e] = struct{}{}
 	}
 	for _, element := range elements {
-		result[element] = struct{}{}
+		result.data[element] = struct{}{}
 	}
 	return result
 }
 
 // Union creates a new set containing all elements from this set and the other set.
+// Returns a new thread-safe ConcurrentHashRW without modifying the original.
 func (ch *ConcurrentHashRW[T]) Union(other Set[T]) Set[T] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
 
-	result := make(Hash[T], ch.Length()+other.Length())
+	result := NewConcurrentHashRW[T]()
 	for e := range ch.data {
-		result[e] = struct{}{}
+		result.data[e] = struct{}{}
 	}
 	other.ForEach(func(element T) {
-		result[element] = struct{}{}
+		result.data[element] = struct{}{}
 	})
 	return result
 }
@@ -228,22 +230,22 @@ func (ch *ConcurrentHashRW[T]) UnionInPlace(other Set[T]) {
 }
 
 // Remove creates a new set with the given element removed.
-// Returns the new set without modifying the original.
+// Returns a new thread-safe ConcurrentHashRW without modifying the original.
 func (ch *ConcurrentHashRW[T]) Remove(element T) Set[T] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
 
-	result := make(Hash[T], len(ch.data))
+	result := NewConcurrentHashRW[T]()
 	for e := range ch.data {
 		if e != element {
-			result[e] = struct{}{}
+			result.data[e] = struct{}{}
 		}
 	}
 	return result
 }
 
 // RemoveMany creates a new set with all given elements removed.
-// Returns the new set without modifying the original.
+// Returns a new thread-safe ConcurrentHashRW without modifying the original.
 func (ch *ConcurrentHashRW[T]) RemoveMany(elements ...T) Set[T] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
@@ -254,24 +256,25 @@ func (ch *ConcurrentHashRW[T]) RemoveMany(elements ...T) Set[T] {
 		toRemove[element] = struct{}{}
 	}
 
-	result := make(Hash[T], len(ch.data))
+	result := NewConcurrentHashRW[T]()
 	for e := range ch.data {
 		if _, shouldRemove := toRemove[e]; !shouldRemove {
-			result[e] = struct{}{}
+			result.data[e] = struct{}{}
 		}
 	}
 	return result
 }
 
 // Difference creates a new set containing elements in this set but not in the other set.
+// Returns a new thread-safe ConcurrentHashRW without modifying the original.
 func (ch *ConcurrentHashRW[T]) Difference(other Set[T]) Set[T] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
 
-	result := make(Hash[T])
+	result := NewConcurrentHashRW[T]()
 	for element := range ch.data {
 		if !other.Contains(element) {
-			result[element] = struct{}{}
+			result.data[element] = struct{}{}
 		}
 	}
 	return result
@@ -321,14 +324,15 @@ func (ch *ConcurrentHashRW[T]) Clear() {
 }
 
 // Intersection creates a new set containing elements present in both sets.
+// Returns a new thread-safe ConcurrentHashRW without modifying the original.
 func (ch *ConcurrentHashRW[T]) Intersection(other Set[T]) Set[T] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
 
-	result := make(Hash[T])
+	result := NewConcurrentHashRW[T]()
 	for element := range ch.data {
 		if other.Contains(element) {
-			result[element] = struct{}{}
+			result.data[element] = struct{}{}
 		}
 	}
 	return result

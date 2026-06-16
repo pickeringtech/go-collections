@@ -39,7 +39,9 @@ func (a *ConcurrentArray[T]) Dequeue() (T, bool, []T) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	return slices.PopFront(a.elements)
+	// Operate on a copy so the returned slice is independent of the receiver's
+	// backing array (PopFront returns a sub-slice of its input).
+	return slices.PopFront(slices.Copy(a.elements))
 }
 
 func (a *ConcurrentArray[T]) DequeueInPlace() (T, bool) {
@@ -55,7 +57,9 @@ func (a *ConcurrentArray[T]) Enqueue(element T) []T {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	return slices.Push(a.elements, element)
+	// Operate on a copy so the returned slice is independent of the receiver's
+	// backing array (Push may append into shared capacity).
+	return slices.Push(slices.Copy(a.elements), element)
 }
 
 func (a *ConcurrentArray[T]) EnqueueInPlace(element T) {
@@ -129,7 +133,9 @@ func (a *ConcurrentArray[T]) Insert(index int, element ...T) []T {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	return slices.Insert(a.elements, index, element...)
+	// Operate on a copy so the returned slice is independent of the receiver and
+	// the receiver's backing array is never mutated by the insert.
+	return slices.Insert(slices.Copy(a.elements), index, element...)
 }
 
 func (a *ConcurrentArray[T]) InsertInPlace(index int, element ...T) {
@@ -164,7 +170,9 @@ func (a *ConcurrentArray[T]) Pop() (T, bool, []T) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	return slices.Pop(a.elements)
+	// Operate on a copy so the returned slice is independent of the receiver's
+	// backing array (Pop returns a sub-slice of its input).
+	return slices.Pop(slices.Copy(a.elements))
 }
 
 func (a *ConcurrentArray[T]) PopInPlace() (T, bool) {
@@ -180,7 +188,9 @@ func (a *ConcurrentArray[T]) Push(element T) []T {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	return slices.Push(a.elements, element)
+	// Operate on a copy so the returned slice is independent of the receiver's
+	// backing array (Push may append into shared capacity).
+	return slices.Push(slices.Copy(a.elements), element)
 }
 
 func (a *ConcurrentArray[T]) PushInPlace(element T) {
