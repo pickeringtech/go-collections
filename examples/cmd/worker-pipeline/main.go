@@ -14,6 +14,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/pickeringtech/go-collections/channels"
@@ -25,6 +26,17 @@ func main() {
 	n := flag.Int("n", 12, "process the integers 1..n")
 	workers := flag.Int("workers", 4, "maximum number of concurrent workers")
 	flag.Parse()
+
+	// Guard the inputs: a negative -n panics slices.Generate, and a -workers of
+	// zero or less deadlocks (unbuffered) or panics (negative buffer) the limiter.
+	if *n < 0 {
+		fmt.Fprintln(os.Stderr, "worker-pipeline: -n must be zero or greater")
+		os.Exit(1)
+	}
+	if *workers < 1 {
+		fmt.Fprintln(os.Stderr, "worker-pipeline: -workers must be at least 1")
+		os.Exit(1)
+	}
 
 	// slices: generate the inputs 1..n.
 	inputs := slices.Generate(*n, func(i int) int { return i + 1 })

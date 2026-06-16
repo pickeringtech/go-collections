@@ -26,6 +26,17 @@ func main() {
 	minLen := flag.Int("min", 1, "ignore words shorter than this many runes")
 	flag.Parse()
 
+	// Guard the inputs: a negative -n would panic rank's make(..., end) with a
+	// negative length, and a negative -min is meaningless.
+	if *topN < 0 {
+		fmt.Fprintln(os.Stderr, "word-frequency: -n must be zero or greater")
+		os.Exit(1)
+	}
+	if *minLen < 0 {
+		fmt.Fprintln(os.Stderr, "word-frequency: -min must be zero or greater")
+		os.Exit(1)
+	}
+
 	text, err := readInput(flag.Args())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "word-frequency:", err)
