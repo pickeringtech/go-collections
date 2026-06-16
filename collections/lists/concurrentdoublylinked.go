@@ -85,6 +85,52 @@ func (cl *ConcurrentDoublyLinked[T]) Length() int {
 	return cl.data.Length()
 }
 
+// IsEmpty returns true if the list contains no elements.
+func (cl *ConcurrentDoublyLinked[T]) IsEmpty() bool {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	return cl.data.IsEmpty()
+}
+
+// RemoveAt returns a new slice with the element at index removed, without
+// modifying the receiver.
+func (cl *ConcurrentDoublyLinked[T]) RemoveAt(index int) []T {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	return cl.data.RemoveAt(index)
+}
+
+// Remove returns a new slice with the first element deeply equal to element
+// removed, without modifying the receiver.
+func (cl *ConcurrentDoublyLinked[T]) Remove(element T) []T {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	return cl.data.Remove(element)
+}
+
+// RemoveAtInPlace removes the element at index, returning it and whether the
+// index was in bounds.
+func (cl *ConcurrentDoublyLinked[T]) RemoveAtInPlace(index int) (T, bool) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	return cl.data.RemoveAtInPlace(index)
+}
+
+// RemoveInPlace removes the first element deeply equal to element, reporting
+// whether an element was removed.
+func (cl *ConcurrentDoublyLinked[T]) RemoveInPlace(element T) bool {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	return cl.data.RemoveInPlace(element)
+}
+
+// Clear removes all elements from the list.
+func (cl *ConcurrentDoublyLinked[T]) Clear() {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	cl.data.Clear()
+}
+
 // ForEach executes the given function for each element.
 func (cl *ConcurrentDoublyLinked[T]) ForEach(fn EachFunc[T]) {
 	cl.lock.Lock()

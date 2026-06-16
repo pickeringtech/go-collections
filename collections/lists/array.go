@@ -123,6 +123,57 @@ func (a *Array[T]) Length() int {
 	return slices.Length(a.elements)
 }
 
+// IsEmpty returns true if the list contains no elements.
+func (a *Array[T]) IsEmpty() bool {
+	return a.Length() == 0
+}
+
+// RemoveAt returns a new slice with the element at index removed, without
+// modifying the receiver. If index is out of bounds the elements are returned
+// unchanged.
+func (a *Array[T]) RemoveAt(index int) []T {
+	return slices.Delete(a.elements, index)
+}
+
+// Remove returns a new slice with the first element deeply equal to element
+// removed, without modifying the receiver. If no element matches, the elements
+// are returned unchanged.
+func (a *Array[T]) Remove(element T) []T {
+	index := indexOfDeepEqual(a.elements, element)
+	if index < 0 {
+		return slices.Copy(a.elements)
+	}
+	return slices.Delete(a.elements, index)
+}
+
+// RemoveAtInPlace removes the element at index, returning it and whether the
+// index was in bounds, modifying the receiver.
+func (a *Array[T]) RemoveAtInPlace(index int) (T, bool) {
+	if index < 0 || index >= len(a.elements) {
+		var zero T
+		return zero, false
+	}
+	removed := a.elements[index]
+	a.elements = slices.Delete(a.elements, index)
+	return removed, true
+}
+
+// RemoveInPlace removes the first element deeply equal to element, reporting
+// whether an element was removed, modifying the receiver.
+func (a *Array[T]) RemoveInPlace(element T) bool {
+	index := indexOfDeepEqual(a.elements, element)
+	if index < 0 {
+		return false
+	}
+	a.elements = slices.Delete(a.elements, index)
+	return true
+}
+
+// Clear removes all elements from the list.
+func (a *Array[T]) Clear() {
+	a.elements = nil
+}
+
 // PeekEnd returns the last element without removing it, and whether one was
 // present.
 func (a *Array[T]) PeekEnd() (T, bool) {

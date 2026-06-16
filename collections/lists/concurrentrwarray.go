@@ -225,6 +225,82 @@ func (a *ConcurrentRWArray[T]) Length() int {
 	return slices.Length(a.elements)
 }
 
+// IsEmpty returns true if the list contains no elements. It takes a read lock
+// and is safe for concurrent use.
+func (a *ConcurrentRWArray[T]) IsEmpty() bool {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+
+	return slices.Length(a.elements) == 0
+}
+
+// RemoveAt returns a new slice (independent of the receiver's backing array)
+// with the element at index removed, without modifying the receiver. If index
+// is out of bounds the elements are returned unchanged. It takes a read lock and
+// is safe for concurrent use.
+func (a *ConcurrentRWArray[T]) RemoveAt(index int) []T {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+
+	return slices.Delete(slices.Copy(a.elements), index)
+}
+
+// Remove returns a new slice (independent of the receiver's backing array) with
+// the first element deeply equal to element removed, without modifying the
+// receiver. If no element matches, the elements are returned unchanged. It takes
+// a read lock and is safe for concurrent use.
+func (a *ConcurrentRWArray[T]) Remove(element T) []T {
+	a.lock.RLock()
+	defer a.lock.RUnlock()
+
+	elements := slices.Copy(a.elements)
+	index := indexOfDeepEqual(elements, element)
+	if index < 0 {
+		return elements
+	}
+	return slices.Delete(elements, index)
+}
+
+// RemoveAtInPlace removes the element at index, returning it and whether the
+// index was in bounds, modifying the receiver under an exclusive lock. It is
+// safe for concurrent use.
+func (a *ConcurrentRWArray[T]) RemoveAtInPlace(index int) (T, bool) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
+	if index < 0 || index >= len(a.elements) {
+		var zero T
+		return zero, false
+	}
+	removed := a.elements[index]
+	a.elements = slices.Delete(a.elements, index)
+	return removed, true
+}
+
+// RemoveInPlace removes the first element deeply equal to element, reporting
+// whether an element was removed, modifying the receiver under an exclusive
+// lock. It is safe for concurrent use.
+func (a *ConcurrentRWArray[T]) RemoveInPlace(element T) bool {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
+	index := indexOfDeepEqual(a.elements, element)
+	if index < 0 {
+		return false
+	}
+	a.elements = slices.Delete(a.elements, index)
+	return true
+}
+
+// Clear removes all elements from the list under an exclusive lock. It is safe
+// for concurrent use.
+func (a *ConcurrentRWArray[T]) Clear() {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
+	a.elements = nil
+}
+
 // PeekEnd returns the last element without removing it, and whether one was
 // present. It takes a read lock and is safe for concurrent use.
 func (a *ConcurrentRWArray[T]) PeekEnd() (T, bool) {

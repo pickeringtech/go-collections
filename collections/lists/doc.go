@@ -156,6 +156,37 @@
 //		}
 //	}
 //
+// # Removal and Membership
+//
+// Lists support both index-based and value-based removal, returning a new slice
+// (immutable) or mutating the receiver (InPlace):
+//
+//	rest := list.RemoveAt(2)                 // Returns []T without index 2
+//	rest = list.Remove(element)              // Returns []T without first match
+//	value, ok := list.RemoveAtInPlace(2)     // Removes index 2 in place
+//	ok = list.RemoveInPlace(element)         // Removes first match in place
+//	list.Clear()                             // Removes everything
+//
+// Lists are parameterized [T any], so — unlike sets and dicts, whose keys are
+// comparable — they cannot use the == operator. Value-based Remove/RemoveInPlace
+// therefore compare elements with reflect.DeepEqual, matching the equality
+// semantics dicts uses for ContainsValue. This works for any element type,
+// including slices and structs containing slices.
+//
+// When the element type is comparable and you want native == semantics (for
+// example, membership testing), wrap the list in a ComparableList:
+//
+//	l := lists.NewComparable(1, 2, 3)
+//	l.Contains(2)                            // true, using ==
+//	l.IndexOf(3)                             // 2
+//
+//	// Any existing list (including concurrent ones) can be wrapped:
+//	l = lists.NewComparableFrom(lists.NewConcurrentArray(1, 2, 3))
+//
+// Membership by == is intentionally absent from the base [T any] list
+// interfaces and lives only on ComparableList. For one-off predicate-based
+// membership on an [T any] list, use AnyMatch or FindIndex.
+//
 // # Performance
 //
 //	BenchmarkList_Push/Linked-16            150M    8.456 ns/op

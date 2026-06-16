@@ -219,5 +219,50 @@ allPositive := numbers.AllMatch(func(n int) bool { return n > 0 })
 numbers.InsertInPlace(2, 99)                  // Insert 99 at index 2
 ```
 
+### Removal, Emptiness, and Clearing
+```go
+numbers := lists.NewArray(10, 20, 20, 30)
 
+// Emptiness
+numbers.IsEmpty()                             // false
+
+// Immutable removal - returns a new slice, original unchanged
+rest := numbers.RemoveAt(1)                   // [10 20 30]
+rest = numbers.Remove(20)                     // [10 20 30] (first match)
+
+// Mutable removal - modifies the list
+value, ok := numbers.RemoveAtInPlace(0)       // value=10, ok=true
+ok = numbers.RemoveInPlace(30)                // ok=true
+
+// Remove everything
+numbers.Clear()                               // now empty
+```
+
+## 🔍 Membership and Value Equality
+
+Lists are parameterized `[T any]`, so — unlike `sets` and `dicts`, whose keys are
+`comparable` — they cannot use the `==` operator. Value-based `Remove` /
+`RemoveInPlace` therefore compare with `reflect.DeepEqual` (matching the equality
+semantics `dicts` uses for `ContainsValue`), which works for any element type:
+
+```go
+matrix := lists.NewArray([]int{1, 2}, []int{3, 4})
+matrix.RemoveInPlace([]int{3, 4})             // works via reflect.DeepEqual
+```
+
+When the element type is `comparable` and you want native `==` semantics (such as
+membership testing), wrap the list in a `ComparableList`:
+
+```go
+l := lists.NewComparable(1, 2, 3)
+l.Contains(2)                                 // true, using ==
+l.IndexOf(3)                                  // 2
+
+// Wrap any existing list, including concurrent ones:
+l = lists.NewComparableFrom(lists.NewConcurrentArray(1, 2, 3))
+```
+
+Membership by `==` is intentionally absent from the base `[T any]` list
+interfaces and lives only on `ComparableList`. For one-off predicate-based
+membership on an `[T any]` list, use `AnyMatch` or `FindIndex`.
 

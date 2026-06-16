@@ -17,6 +17,8 @@ type MutableFilterable[T any] interface {
 type Indexable[T any] interface {
 	Get(index int, defaultValue T) T
 	Length() int
+	// IsEmpty returns true if the list contains no elements.
+	IsEmpty() bool
 }
 
 // Insertable is implemented by collections that can produce a new slice with
@@ -38,14 +40,50 @@ type Iterable[T any] interface {
 	ForEachWithIndex(fn IndexedEachFunc[T])
 }
 
+// Removable is implemented by collections that can produce a new slice with an
+// element removed, without modifying the receiver.
+//
+// Index-based removal is unambiguous and needs no constraint on T. Value-based
+// removal requires equality; because lists are parameterized [T any] (and so
+// cannot use ==), Remove compares with reflect.DeepEqual, consistent with
+// dicts.ContainsValue. Callers that want native == semantics for a comparable
+// element type should use a ComparableList.
+type Removable[T any] interface {
+	// RemoveAt returns a new slice with the element at index removed. If index
+	// is out of bounds, the returned slice holds the list's elements unchanged.
+	RemoveAt(index int) []T
+
+	// Remove returns a new slice with the first element deeply equal (per
+	// reflect.DeepEqual) to element removed. If no element matches, the returned
+	// slice holds the list's elements unchanged.
+	Remove(element T) []T
+}
+
+// MutableRemovable is implemented by collections that can remove elements in
+// place, modifying the receiver. See Removable for the equality semantics of
+// value-based removal.
+type MutableRemovable[T any] interface {
+	// RemoveAtInPlace removes the element at index, returning it and true if the
+	// index was in bounds; the zero value and false otherwise.
+	RemoveAtInPlace(index int) (T, bool)
+
+	// RemoveInPlace removes the first element deeply equal (per
+	// reflect.DeepEqual) to element, reporting whether an element was removed.
+	RemoveInPlace(element T) bool
+
+	// Clear removes all elements from the list.
+	Clear()
+}
+
 // List is the read-oriented collection interface, combining filtering,
-// indexing, insertion, iteration, searching, sorting, stack and queue
+// indexing, insertion, iteration, removal, searching, sorting, stack and queue
 // behaviours along with conversion to a slice.
 type List[T any] interface {
 	Filterable[T]
 	Indexable[T]
 	Insertable[T]
 	Iterable[T]
+	Removable[T]
 	Searchable[T]
 	Sortable[T]
 	Stack[T]
@@ -54,11 +92,12 @@ type List[T any] interface {
 }
 
 // MutableList extends List with the in-place mutation operations for filtering,
-// insertion, sorting, stack and queue behaviours.
+// insertion, removal, sorting, stack and queue behaviours.
 type MutableList[T any] interface {
 	List[T]
 	MutableFilterable[T]
 	MutableInsertable[T]
+	MutableRemovable[T]
 	MutableSortable[T]
 	MutableStack[T]
 	MutableQueue[T]
