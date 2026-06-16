@@ -70,6 +70,9 @@ func main() {
 | **[Dicts](./collections/dicts/)** | Key-value mappings with rich operations | Mutex & RWMutex |
 | **[Sets](./collections/sets/)** | Mathematical sets with union, intersection | Mutex & RWMutex |
 | **[Lists](./collections/lists/)** | Flexible sequences with stack/queue operations | Mutex & RWMutex |
+| **[Multimaps](./collections/multimaps/)** | One key to many values (list- or set-backed) | Mutex & RWMutex |
+| **[Deques](./collections/deques/)** | Double-ended queue / bounded ring buffer | Mutex & RWMutex |
+| **[Heaps](./collections/heaps/)** | Binary heap / priority queue (min, max, comparator) | Mutex & RWMutex |
 
 ### Utilities
 
@@ -126,6 +129,22 @@ task, found := queue.DequeueInPlace()
 ```
 
 **Use when**: You need ordered data, stacks, queues, or sequential processing.
+
+### When to Use Heaps (Priority Queues)
+```go
+import "github.com/pickeringtech/go-collections/collections/heaps"
+
+// Smallest-first scheduling
+pq := heaps.NewMin(5, 1, 3)
+pq.PushInPlace(0)
+next, _ := pq.PopInPlace() // 0
+
+// Or order by any comparator (e.g. a struct field)
+tasks := heaps.New(func(a, b Task) bool { return a.Priority > b.Priority })
+```
+
+**Use when**: You always need the most- (or least-) extreme item next —
+scheduling, Dijkstra / A* frontiers, streaming top-k, or merging sorted streams.
 
 ## Thread Safety
 
@@ -201,6 +220,7 @@ downstream-consumer smoke test. See the [examples README](./examples/README.md).
 - **[Dicts Documentation](./collections/dicts/README.md)** - Key-value mappings
 - **[Sets Documentation](./collections/sets/README.md)** - Mathematical sets
 - **[Lists Documentation](./collections/lists/README.md)** - Ordered sequences
+- **[Multimaps Documentation](./collections/multimaps/README.md)** - One key, many values
 - **[Slices Utilities](./slices/README.md)** - Enhanced slice operations
 - **[Maps Utilities](./maps/README.md)** - Native map helpers
 - **[Channels Utilities](./channels/README.md)** - Pipeline processing
