@@ -1,8 +1,8 @@
 # Dicts - Key-Value Mappings Made Simple
 
-The `dicts` package provides powerful, type-safe dictionaries (maps) that go far beyond Go's built-in maps. Whether you need thread-safe access, rich operations like filtering and searching, or sorted iteration, dicts has you covered.
+The `dicts` package provides type-safe dictionaries (maps) that extend Go's built-in maps. It adds thread-safe access, operations like filtering and searching, and sorted iteration.
 
-## 🚀 Quick Start
+## Quick Start
 
 ```go
 import "github.com/pickeringtech/go-collections/collections/dicts"
@@ -22,7 +22,7 @@ lowStock := inventory.Filter(func(item string, count int) bool {
 fmt.Printf("Low stock items: %v\n", lowStock.Keys()) // [oranges bananas]
 ```
 
-## ✨ Why Use Dicts?
+## Why Use Dicts?
 
 **Native Go maps are limited:**
 ```go
@@ -42,16 +42,16 @@ d := dicts.NewHash(
 // Rich operations
 filtered := d.Filter(func(k string, v int) bool { return v > 1 })
 key, value, found := d.Find(func(k string, v int) bool { return v == 2 })
-concurrent := dicts.NewConcurrentHash(d.Items()...) // Thread-safe!
+concurrent := dicts.NewConcurrentHash(d.Items()...) // Thread-safe
 ```
 
-## 📦 Available Implementations
+## Available Implementations
 
-### 🏃‍♂️ Hash Dictionary - Fast & Simple
+### Hash Dictionary - Fast and Simple
 **Perfect for**: Most use cases, fast lookups, general-purpose key-value storage
 
 ```go
-// Lightning-fast hash-based dictionary
+// Hash-based dictionary
 users := dicts.NewHash(
     dicts.Pair[int, string]{Key: 1, Value: "Alice"},
     dicts.Pair[int, string]{Key: 2, Value: "Bob"},
@@ -65,7 +65,7 @@ exists := users.Contains(2)             // Fast membership test
 
 **Performance**: O(1) average case for all operations
 
-### 🔒 Concurrent Hash Dictionary - Thread-Safe
+### Concurrent Hash Dictionary - Thread-Safe
 **Perfect for**: Multi-threaded applications, shared state, balanced read/write workloads
 
 ```go
@@ -89,7 +89,7 @@ wg.Wait()
 
 **Performance**: O(1) with mutex overhead (~2x slower than Hash)
 
-### 📖 Concurrent RW Hash Dictionary - Read-Optimized
+### Concurrent RW Hash Dictionary - Read-Optimized
 **Perfect for**: Read-heavy workloads, caching, configuration data
 
 ```go
@@ -113,7 +113,7 @@ wg.Wait()
 
 **Performance**: O(1) with read-write mutex (concurrent reads, exclusive writes)
 
-### 🌳 Tree Dictionary - Sorted Keys
+### Tree Dictionary - Sorted Keys
 **Perfect for**: Sorted iteration, range queries, ordered data
 
 ```go
@@ -141,19 +141,19 @@ names := scores.Keys() // ["alice", "bob", "charlie"]
 **Performance**: O(log n) operations, sorted iteration
 **Constraint**: Keys must be comparable (strings, numbers)
 
-## 🎯 Choose Your Implementation
+## Choose Your Implementation
 
 | Implementation | Use When | Performance | Thread-Safe |
 |---------------|----------|-------------|-------------|
-| `NewHash()` | Single-threaded, general use | Fastest | ❌ |
-| `NewConcurrentHash()` | Multi-threaded, balanced R/W | Fast | ✅ |
-| `NewConcurrentHashRW()` | Multi-threaded, read-heavy | Fast reads | ✅ |
-| `NewTree()` | Need sorted keys/iteration | Slower | ❌ |
+| `NewHash()` | Single-threaded, general use | Fastest | No |
+| `NewConcurrentHash()` | Multi-threaded, balanced R/W | Fast | Yes |
+| `NewConcurrentHashRW()` | Multi-threaded, read-heavy | Fast reads | Yes |
+| `NewTree()` | Need sorted keys/iteration | Slower | No |
 
-## 🔄 Two Ways to Work: Immutable vs Mutable
+## Two Ways to Work: Immutable vs Mutable
 
-### 🧊 Immutable Style (Functional Programming)
-Returns new dictionaries, original unchanged - perfect for functional programming:
+### Immutable Style (Functional Programming)
+Returns new dictionaries and leaves the original unchanged:
 
 ```go
 dict := dicts.NewHash(
@@ -170,8 +170,8 @@ fmt.Printf("Original count: %d\n", dict.Get("count", 0))    // Original: 1
 fmt.Printf("Result count: %d\n", result.Get("count", 0))    // Result: 2
 ```
 
-### ⚡ Mutable Style (Performance-Focused)
-Modifies the dictionary in place - perfect for performance-critical code:
+### Mutable Style (Performance-Focused)
+Modifies the dictionary in place, which is faster for performance-critical code:
 
 ```go
 dict := dicts.NewHash[string, int]()
@@ -184,7 +184,7 @@ removed, found := dict.RemoveInPlace("total")      // Fast removal
 fmt.Printf("Count: %d, Removed: %d\n", dict.Get("count", 0), removed)
 ```
 
-## 🛠️ Essential Operations
+## Essential Operations
 
 ### Basic Access - The Building Blocks
 ```go
@@ -213,7 +213,7 @@ if inventory.IsEmpty() {
 }
 ```
 
-### 🔍 Smart Filtering - Find What You Need
+### Filtering - Find What You Need
 ```go
 products := dicts.NewHash(
     dicts.Pair[string, float64]{Key: "laptop", Value: 999.99},
@@ -234,7 +234,7 @@ products.FilterInPlace(func(name string, price float64) bool {
 fmt.Printf("Expensive products: %v\n", expensive.Keys())
 ```
 
-### 🎯 Advanced Search - Find Exactly What You Want
+### Advanced Search - Find Exactly What You Want
 ```go
 inventory := dicts.NewHash(
     dicts.Pair[string, int]{Key: "apples", Value: 50},
@@ -270,7 +270,7 @@ across the `lists`, `dicts` and `sets` families. `FindKey`, `FindValue` and
 `ContainsValue` are deliberate dict-specific extensions that reflect a
 dictionary's key-value shape.
 
-### 📊 Data Extraction - Get What You Need
+### Data Extraction - Get What You Need
 ```go
 scores := dicts.NewHash(
     dicts.Pair[string, int]{Key: "alice", Value: 95},
@@ -288,7 +288,7 @@ nativeMap := scores.AsMap()                  // map[string]int
 fmt.Printf("Native map: %v\n", nativeMap)
 ```
 
-## 🌟 Real-World Examples
+## Real-World Examples
 
 ### Web Application Cache
 ```go
@@ -369,7 +369,7 @@ func cleanupSessions() {
 }
 ```
 
-## 📊 Performance Guide
+## Performance Guide
 
 ### Benchmark Results
 ```
@@ -384,10 +384,10 @@ BenchmarkComparison_Get/NativeMap-16           233M    5.203 ns/op    0 B/op    
 
 | Implementation | Get | Put | Remove | Memory | Thread-Safe | Best For |
 |---------------|-----|-----|--------|---------|-------------|----------|
-| Hash | O(1) | O(1) | O(1) | Low | ❌ | Single-threaded, high performance |
-| ConcurrentHash | O(1) | O(1) | O(1) | Low | ✅ | Balanced read/write workloads |
-| ConcurrentHashRW | O(1) | O(1) | O(1) | Low | ✅ | Read-heavy workloads |
-| Tree | O(log n) | O(log n) | O(log n) | Medium | ❌ | Sorted iteration needed |
+| Hash | O(1) | O(1) | O(1) | Low | No | Single-threaded, high performance |
+| ConcurrentHash | O(1) | O(1) | O(1) | Low | Yes | Balanced read/write workloads |
+| ConcurrentHashRW | O(1) | O(1) | O(1) | Low | Yes | Read-heavy workloads |
+| Tree | O(log n) | O(log n) | O(log n) | Medium | No | Sorted iteration needed |
 
 ## Usage Examples
 
@@ -448,9 +448,9 @@ func main() {
 }
 ```
 
-## 🎯 Best Practices & Quick Reference
+## Best Practices and Quick Reference
 
-### 🏆 Choose the Right Implementation
+### Choose the Right Implementation
 
 | Scenario | Use | Why |
 |----------|-----|-----|
@@ -459,27 +459,27 @@ func main() {
 | Multi-threaded, read-heavy | `NewConcurrentHashRW()` | Concurrent reads |
 | Need sorted iteration | `NewTree()` | Maintains key order |
 
-### ⚡ Performance Tips
+### Performance Tips
 
 ```go
-// ✅ Use defaults with Get() for safety
+// Use defaults with Get() for safety
 value, found := dict.Get(key, defaultValue)
 
-// ✅ Batch operations for better performance
+// Batch operations for better performance
 for key, value := range updates {
     dict.PutInPlace(key, value)
 }
 
-// ✅ Use Contains() for existence checks
+// Use Contains() for existence checks
 if dict.Contains(key) {
     // Process existing key
 }
 
-// ✅ Choose mutable operations for performance-critical code
+// Choose mutable operations for performance-critical code
 dict.FilterInPlace(predicate)  // Faster than Filter()
 ```
 
-### 🔄 Immutable vs Mutable Strategy
+### Immutable vs Mutable Strategy
 
 ```go
 // Functional style - use immutable operations
@@ -494,7 +494,7 @@ dict.FilterInPlace(predicate)
 dict.RemoveInPlace("old")
 ```
 
-### 🚀 Quick Reference
+### Quick Reference
 
 | Operation | Immutable | Mutable | Use Case |
 |-----------|-----------|---------|----------|

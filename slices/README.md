@@ -1,8 +1,8 @@
 # Slices - Functional Programming Made Simple
 
-The `slices` package brings the power of functional programming to Go slices, enabling elegant data transformation without verbose loops. Transform, filter, and process data with clean, composable operations.
+The `slices` package provides functional operations for Go slices, letting you transform, filter, and process data without writing manual loops.
 
-## 🚀 Quick Start
+## Quick Start
 
 ```go
 import "github.com/pickeringtech/go-collections/slices"
@@ -18,7 +18,7 @@ sum := slices.Reduce(squares, 0, func(acc, n int) int { return acc + n })
 fmt.Printf("Sum of squares of evens: %d\n", sum) // 220
 ```
 
-## ✨ Why Use Functional Programming?
+## Why Use Functional Programming?
 
 **Native Go requires verbose loops:**
 ```go
@@ -49,9 +49,9 @@ sum := slices.Filter(numbers, isEven).
     Reduce(0, add)
 ```
 
-## 🛠️ Core Operations
+## Core Operations
 
-### 🔍 Transform Operations
+### Transform Operations
 
 #### Map - Transform Each Element
 ```go
@@ -114,7 +114,7 @@ lengths := slices.Reduce(words, make(map[string]int), func(acc map[string]int, w
 // Result: {"apple": 5, "banana": 6, "cherry": 6}
 ```
 
-### 🔎 Search Operations
+### Search Operations
 
 #### Find - Get First Match
 ```go
@@ -156,7 +156,7 @@ allAdmins := slices.All(users, func(u User) bool { return u.Role == "admin" }) /
 hasAdmin := slices.Any(users, func(u User) bool { return u.Role == "admin" })  // true
 ```
 
-### 🔧 Utility Operations
+### Utility Operations
 
 #### Unique - Remove Duplicates
 ```go
@@ -197,7 +197,7 @@ for _, batch := range batches {
 }
 ```
 
-## 🌟 Real-World Examples
+## Real-World Examples
 
 ### Data Processing Pipeline
 ```go
@@ -271,7 +271,7 @@ fmt.Printf("Config: %v\n", config)
 // Result: {"database.host": "localhost", "database.port": "5432", ...}
 ```
 
-## 📊 Performance Guide
+## Performance Guide
 
 ### When to Use Functional vs Manual
 
@@ -305,25 +305,25 @@ BenchmarkReduce/Functional-16    150M    11.4 ns/op     0 B/op    0 allocs/op
 ### Optimization Tips
 
 ```go
-// ✅ Good: Chain operations to minimize intermediate allocations
+// Good: Chain operations to minimize intermediate allocations
 result := slices.Filter(data, condition1).
     Filter(condition2).
     Map(transform)
 
-// ❌ Avoid: Multiple separate operations
+// Avoid: Multiple separate operations
 filtered1 := slices.Filter(data, condition1)
 filtered2 := slices.Filter(filtered1, condition2)
 result := slices.Map(filtered2, transform)
 
-// ✅ Good: Use Reduce for aggregations
+// Good: Use Reduce for aggregations
 sum := slices.Reduce(numbers, 0, add)
 
-// ❌ Avoid: Map then reduce when you can reduce directly
+// Avoid: Map then reduce when you can reduce directly
 squares := slices.Map(numbers, square)
 sum := slices.Reduce(squares, 0, add)
 ```
 
-## 🔗 Integration with Collections
+## Integration with Collections
 
 Slices package works seamlessly with the collections package:
 
@@ -349,29 +349,29 @@ allUsers := userDict.Values()
 adminUsers := slices.Filter(allUsers, func(u User) bool { return u.Role == "admin" })
 ```
 
-## 🎯 Best Practices
+## Best Practices
 
-### 1. 🎨 Prefer Readability
+### 1. Prefer Readability
 ```go
-// ✅ Clear and expressive
+// Clear and expressive
 activeAdultEmails := slices.Filter(users, isActive).
     Filter(isAdult).
     Map(getEmail)
 
-// ❌ Overly complex single operation
+// Overly complex single operation
 activeAdultEmails := slices.Filter(users, func(u User) bool {
     return u.Active && u.Age >= 18
 }).Map(func(u User) string { return u.Email })
 ```
 
-### 2. ⚡ Consider Performance
+### 2. Consider Performance
 ```go
-// ✅ For business logic - prioritize clarity
+// For business logic - prioritize clarity
 processedData := slices.Filter(data, isValid).
     Map(transform).
     Filter(isRelevant)
 
-// ✅ For hot paths - use manual loops
+// For hot paths - use manual loops
 func processHotPath(data []Item) []Result {
     results := make([]Result, 0, len(data))
     for _, item := range data {
@@ -386,26 +386,26 @@ func processHotPath(data []Item) []Result {
 }
 ```
 
-### 3. 🔧 Use Appropriate Operations
+### 3. Use Appropriate Operations
 ```go
-// ✅ Use Find for first match
+// Use Find for first match
 user, found := slices.Find(users, func(u User) bool { return u.ID == targetID })
 
-// ❌ Don't use Filter for single item
+// Don't use Filter for single item
 matches := slices.Filter(users, func(u User) bool { return u.ID == targetID })
 if len(matches) > 0 { user = matches[0] }
 
-// ✅ Use Contains for existence checks
+// Use Contains for existence checks
 hasAdmin := slices.Any(users, func(u User) bool { return u.Role == "admin" })
 
-// ❌ Don't use Filter for existence
+// Don't use Filter for existence
 admins := slices.Filter(users, func(u User) bool { return u.Role == "admin" })
 hasAdmin := len(admins) > 0
 ```
 
-### 4. 🧹 Handle Edge Cases
+### 4. Handle Edge Cases
 ```go
-// ✅ Safe operations
+// Safe operations
 func safeProcess(data []int) int {
     if len(data) == 0 {
         return 0
@@ -413,7 +413,7 @@ func safeProcess(data []int) int {
     return slices.Reduce(data, data[0], max)
 }
 
-// ✅ Validate inputs
+// Validate inputs
 func processUsers(users []User) []string {
     if len(users) == 0 {
         return []string{}
@@ -422,7 +422,7 @@ func processUsers(users []User) []string {
 }
 ```
 
-## 🚀 Quick Reference
+## Quick Reference
 
 ### Essential Operations
 ```go
