@@ -1,2 +1,47 @@
 # Agent OS Standards Index
 
+collections:
+  inplace-suffix:
+    description: InPlace suffix marks mutating methods; unsuffixed methods return a new collection
+  interface-composition:
+    description: Small role interfaces (Indexable, Iterable, Filterable...) composed into aggregate Dict/Set/List
+  interface-guards:
+    description: Compile-time var _ Iface = &Type{} conformance assertions in each implementation file
+  mutable-immutable-hierarchy:
+    description: Immutable base interface returns new collections; Mutable* embeds it and adds InPlace forms
+
+concurrency:
+  immutable-return-contract:
+    description: Immutable ops on a concurrent type return the same concurrent type; InPlace stays void
+  lock-discipline:
+    description: Acquire lock + defer unlock as first lines of every method; mutex by pointer; RLock for reads
+  safe-variants:
+    description: Concurrent* (sync.Mutex) and ConcurrentRW* (sync.RWMutex) variants per collection
+  worker-pool-limiter:
+    description: Bound concurrency with a buffered chan struct{} semaphore plus sync.WaitGroup
+
+documentation:
+  package-doc:
+    description: Every package has a doc.go with summary, Quick Start, native-vs-this Why/When, standard section vocabulary
+
+functional:
+  func-type-aliases:
+    description: Higher-order params use named XxxFunc type aliases (FilterFunc, MapFunc...) defined in-file
+  non-mutating:
+    description: Package-level funcs never modify input; they build and return a new slice/map/channel
+  parameter-ordering:
+    description: Collection (named input) first, transforming fn last; scalars in between
+  zero-value-output:
+    description: nil/empty input returns an initialized non-nil empty result, never nil
+
+global:
+  readability-and-performance:
+    description: Readable-default production code; add a Fast suffix variant only when a benchmark proves it
+
+testing:
+  benchmark-scaling:
+    description: Benchmark ladder across 3 to 1,000,000 elements via b.Run sub-benchmarks
+  coverage-requirements:
+    description: Test trio for public funcs (Example+Test+Benchmark), Test-only for private, edge/concurrency cases
+  table-driven-tests:
+    description: Table-driven test structure using args struct, t.Run, reflect.DeepEqual, stdlib only
