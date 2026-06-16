@@ -2,3 +2,4 @@
 
 # CI / test artifacts
 /coverage.out
+/mutation-report.json
