@@ -37,8 +37,8 @@ func NewBoundedConcurrentRingBuffer[T any](capacity int, policy OverflowPolicy, 
 var _ Deque[int] = &ConcurrentRingBuffer[int]{}
 var _ MutableDeque[int] = &ConcurrentRingBuffer[int]{}
 
-// wrap builds a new ConcurrentRingBuffer around an inner buffer with a fresh
-// lock, so the result is independent of the receiver's lock.
+// wrapConcurrent builds a new ConcurrentRingBuffer around an inner buffer with a
+// fresh lock, so the result is independent of the receiver's lock.
 func wrapConcurrent[T any](inner *RingBuffer[T]) *ConcurrentRingBuffer[T] {
 	return &ConcurrentRingBuffer[T]{inner: inner, lock: &sync.Mutex{}}
 }

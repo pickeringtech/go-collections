@@ -33,8 +33,10 @@ win.PushBackInPlace(4)          // [2 3 4] — front evicted, returns true
 
 // Reject-when-full — a push when full is a no-op that reports false.
 buf := deques.NewBoundedRingBuffer[int](3, deques.RejectWhenFull)
-buf.PushBackInPlace(1, /* ... */) // fill to [1 2 3]
-ok := buf.PushBackInPlace(4)      // unchanged [1 2 3], ok == false
+buf.PushBackInPlace(1)       // [1]
+buf.PushBackInPlace(2)      // [1 2]
+buf.PushBackInPlace(3)      // [1 2 3] (full)
+ok := buf.PushBackInPlace(4) // unchanged [1 2 3], ok == false
 ```
 
 `Capacity()` returns the bound (or `deques.Unbounded` / `-1` for unbounded
