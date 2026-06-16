@@ -101,7 +101,7 @@
 //
 //	// Numeric operations on collections
 //	numbers := collections.NewList(1, 2, 3, 4, 5)
-//	sum := Sum(numbers.GetAsSlice())
+//	sum := Sum(numbers.AsSlice())
 //
 //	// Ordered operations on sets
 //	scores := collections.NewSet(95, 87, 92, 78, 88)

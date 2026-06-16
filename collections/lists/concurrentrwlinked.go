@@ -79,8 +79,9 @@ func (cl *ConcurrentRWLinked[T]) FilterInPlace(fn func(T) bool) {
 	cl.data.FilterInPlace(fn)
 }
 
-// Get returns the element at the given index, or defaultValue if out of bounds.
-func (cl *ConcurrentRWLinked[T]) Get(index int, defaultValue T) T {
+// Get returns the element at the given index and true, or defaultValue and
+// false if the index is out of bounds.
+func (cl *ConcurrentRWLinked[T]) Get(index int, defaultValue T) (T, bool) {
 	cl.lock.RLock()
 	defer cl.lock.RUnlock()
 	return cl.data.Get(index, defaultValue)
@@ -153,11 +154,11 @@ func (cl *ConcurrentRWLinked[T]) ForEachWithIndex(fn IndexedEachFunc[T]) {
 	cl.data.ForEachWithIndex(fn)
 }
 
-// GetAsSlice returns the list as a slice.
-func (cl *ConcurrentRWLinked[T]) GetAsSlice() []T {
+// AsSlice returns the list as a slice.
+func (cl *ConcurrentRWLinked[T]) AsSlice() []T {
 	cl.lock.RLock()
 	defer cl.lock.RUnlock()
-	return cl.data.GetAsSlice()
+	return cl.data.AsSlice()
 }
 
 // Insert creates a new slice with elements inserted at the given index.

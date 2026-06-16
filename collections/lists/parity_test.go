@@ -56,7 +56,7 @@ func TestMutableList_Clear(t *testing.T) {
 			}
 			// The list remains usable after clearing.
 			l.PushInPlace(9)
-			if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{9}) {
+			if got := l.AsSlice(); !reflect.DeepEqual(got, []int{9}) {
 				t.Errorf("expected [9] after push following Clear, got %v", got)
 			}
 		})
@@ -128,7 +128,7 @@ func TestMutableList_RemoveAtInPlace(t *testing.T) {
 			if !ok || value != 20 {
 				t.Errorf("RemoveAtInPlace(1) = (%d, %v), want (20, true)", value, ok)
 			}
-			if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{10, 30}) {
+			if got := l.AsSlice(); !reflect.DeepEqual(got, []int{10, 30}) {
 				t.Errorf("after RemoveAtInPlace(1) = %v, want [10 30]", got)
 			}
 
@@ -140,7 +140,7 @@ func TestMutableList_RemoveAtInPlace(t *testing.T) {
 			if v, ok := l.RemoveAtInPlace(l.Length() - 1); !ok || v != 30 {
 				t.Errorf("RemoveAtInPlace(last) = (%d, %v), want (30, true)", v, ok)
 			}
-			if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{20}) {
+			if got := l.AsSlice(); !reflect.DeepEqual(got, []int{20}) {
 				t.Errorf("after head+tail removal = %v, want [20]", got)
 			}
 
@@ -166,14 +166,14 @@ func TestMutableList_RemoveInPlace(t *testing.T) {
 			if !l.RemoveInPlace(20) {
 				t.Errorf("RemoveInPlace(20) = false, want true")
 			}
-			if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{10, 20, 30}) {
+			if got := l.AsSlice(); !reflect.DeepEqual(got, []int{10, 20, 30}) {
 				t.Errorf("after RemoveInPlace(20) = %v, want [10 20 30]", got)
 			}
 
 			if l.RemoveInPlace(99) {
 				t.Errorf("RemoveInPlace(99) = true, want false")
 			}
-			if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{10, 20, 30}) {
+			if got := l.AsSlice(); !reflect.DeepEqual(got, []int{10, 20, 30}) {
 				t.Errorf("after absent RemoveInPlace = %v, want [10 20 30]", got)
 			}
 
@@ -215,7 +215,7 @@ func TestCircularList_RemovePreservesIntegrity(t *testing.T) {
 			if _, ok := l.RemoveAtInPlace(0); !ok {
 				t.Fatalf("RemoveAtInPlace(0) failed")
 			}
-			if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{2, 3}) {
+			if got := l.AsSlice(); !reflect.DeepEqual(got, []int{2, 3}) {
 				t.Errorf("after head removal = %v, want [2 3]", got)
 			}
 
@@ -224,7 +224,7 @@ func TestCircularList_RemovePreservesIntegrity(t *testing.T) {
 			if _, ok := l.RemoveAtInPlace(2); !ok {
 				t.Fatalf("RemoveAtInPlace(2) failed")
 			}
-			if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 2}) {
+			if got := l.AsSlice(); !reflect.DeepEqual(got, []int{1, 2}) {
 				t.Errorf("after tail removal = %v, want [1 2]", got)
 			}
 
@@ -233,7 +233,7 @@ func TestCircularList_RemovePreservesIntegrity(t *testing.T) {
 			if !l.RemoveInPlace(2) {
 				t.Fatalf("RemoveInPlace(2) failed")
 			}
-			if got := l.GetAsSlice(); !reflect.DeepEqual(got, []int{1, 3}) {
+			if got := l.AsSlice(); !reflect.DeepEqual(got, []int{1, 3}) {
 				t.Errorf("after middle removal = %v, want [1 3]", got)
 			}
 		})
@@ -248,7 +248,7 @@ func TestRemove_DeepEqualSemantics(t *testing.T) {
 	if !l.RemoveInPlace([]int{3, 4}) {
 		t.Errorf("RemoveInPlace([3 4]) = false, want true")
 	}
-	got := l.GetAsSlice()
+	got := l.AsSlice()
 	want := [][]int{{1, 2}, {5, 6}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("after RemoveInPlace = %v, want %v", got, want)

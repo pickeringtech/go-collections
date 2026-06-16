@@ -194,19 +194,22 @@ func (a *ConcurrentRWArray[T]) ForEachWithIndex(fun IndexedEachFunc[T]) {
 	}
 }
 
-// Get returns the element at index, or defaultValue if the index is out of
-// bounds. It takes a read lock and is safe for concurrent use.
-func (a *ConcurrentRWArray[T]) Get(index int, defaultValue T) T {
+// Get returns the element at index and true, or defaultValue and false if the
+// index is out of bounds. It takes a read lock and is safe for concurrent use.
+func (a *ConcurrentRWArray[T]) Get(index int, defaultValue T) (T, bool) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	return slices.Get(a.elements, index, defaultValue)
+	if index < 0 || index >= len(a.elements) {
+		return defaultValue, false
+	}
+	return a.elements[index], true
 }
 
-// GetAsSlice returns a copy of the elements as a new slice, independent of the
+// AsSlice returns a copy of the elements as a new slice, independent of the
 // receiver's backing array. It takes a read lock and is safe for concurrent
 // use.
-func (a *ConcurrentRWArray[T]) GetAsSlice() []T {
+func (a *ConcurrentRWArray[T]) AsSlice() []T {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 

@@ -89,16 +89,17 @@ func assertListMatches(t *testing.T, name string, l lists.MutableList[uint8], or
 	if l.Length() != len(oracle) {
 		t.Fatalf("%s: Length = %d, want %d", name, l.Length(), len(oracle))
 	}
-	got := l.GetAsSlice()
+	got := l.AsSlice()
 	if len(got) != len(oracle) {
-		t.Fatalf("%s: GetAsSlice length = %d, want %d", name, len(got), len(oracle))
+		t.Fatalf("%s: AsSlice length = %d, want %d", name, len(got), len(oracle))
 	}
 	for i := range oracle {
 		if got[i] != oracle[i] {
 			t.Fatalf("%s: element[%d] = %d, want %d (full: %v want %v)", name, i, got[i], oracle[i], got, oracle)
 		}
-		if v := l.Get(i, 0); v != oracle[i] {
-			t.Fatalf("%s: Get(%d) = %d, want %d", name, i, v, oracle[i])
+		v, ok := l.Get(i, 0)
+		if v != oracle[i] || !ok {
+			t.Fatalf("%s: Get(%d) = (%d, %t), want (%d, true)", name, i, v, ok, oracle[i])
 		}
 	}
 }

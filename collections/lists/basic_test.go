@@ -12,9 +12,12 @@ func TestLinked_Basic(t *testing.T) {
 		t.Errorf("Expected length 3, got %d", l.Length())
 	}
 
-	value := l.Get(1, -1)
+	value, found := l.Get(1, -1)
 	if value != 2 {
 		t.Errorf("Expected value 2 at index 1, got %d", value)
+	}
+	if !found {
+		t.Error("Expected found true at index 1")
 	}
 }
 
@@ -25,9 +28,12 @@ func TestDoublyLinked_Basic(t *testing.T) {
 		t.Errorf("Expected length 3, got %d", dl.Length())
 	}
 
-	value := dl.Get(1, -1)
+	value, found := dl.Get(1, -1)
 	if value != 2 {
 		t.Errorf("Expected value 2 at index 1, got %d", value)
+	}
+	if !found {
+		t.Error("Expected found true at index 1")
 	}
 }
 
@@ -38,9 +44,12 @@ func TestConcurrentLinked_Basic(t *testing.T) {
 		t.Errorf("Expected length 3, got %d", cl.Length())
 	}
 
-	value := cl.Get(1, -1)
+	value, found := cl.Get(1, -1)
 	if value != 2 {
 		t.Errorf("Expected value 2 at index 1, got %d", value)
+	}
+	if !found {
+		t.Error("Expected found true at index 1")
 	}
 }
 
@@ -51,9 +60,12 @@ func TestConcurrentDoublyLinked_Basic(t *testing.T) {
 		t.Errorf("Expected length 3, got %d", cdl.Length())
 	}
 
-	value := cdl.Get(1, -1)
+	value, found := cdl.Get(1, -1)
 	if value != 2 {
 		t.Errorf("Expected value 2 at index 1, got %d", value)
+	}
+	if !found {
+		t.Error("Expected found true at index 1")
 	}
 }
 
@@ -64,9 +76,12 @@ func TestConcurrentRWLinked_Basic(t *testing.T) {
 		t.Errorf("Expected length 3, got %d", crwl.Length())
 	}
 
-	value := crwl.Get(1, -1)
+	value, found := crwl.Get(1, -1)
 	if value != 2 {
 		t.Errorf("Expected value 2 at index 1, got %d", value)
+	}
+	if !found {
+		t.Error("Expected found true at index 1")
 	}
 }
 
@@ -77,8 +92,11 @@ func TestConcurrentRWDoublyLinked_Basic(t *testing.T) {
 		t.Errorf("Expected length 3, got %d", crwdl.Length())
 	}
 
-	value := crwdl.Get(1, -1)
+	value, found := crwdl.Get(1, -1)
 	if value != 2 {
 		t.Errorf("Expected value 2 at index 1, got %d", value)
+	}
+	if !found {
+		t.Error("Expected found true at index 1")
 	}
 }

@@ -10,6 +10,6 @@ func ExampleListBuilder_Build() {
 		Add(4, 5, 6).
 		Build()
 
-	fmt.Printf("list: %v\n", list.GetAsSlice())
+	fmt.Printf("list: %v\n", list.AsSlice())
 	// Output: list: [1 2 3 4 5 6]
 }

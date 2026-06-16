@@ -12,7 +12,7 @@ func ExampleNewConcurrentLinked() {
 
 	fmt.Printf("Length: %d\n", cl.Length())
 
-	value := cl.Get(1, -1)
+	value, _ := cl.Get(1, -1)
 	fmt.Printf("Element at index 1: %d\n", value)
 
 	// Output:
@@ -45,7 +45,7 @@ func ExampleNewConcurrentDoublyLinked() {
 
 	fmt.Printf("Length: %d\n", cdl.Length())
 
-	value := cdl.Get(0, "default")
+	value, _ := cdl.Get(0, "default")
 	fmt.Printf("First element: %s\n", value)
 
 	// Output:
@@ -79,7 +79,7 @@ func ExampleNewConcurrentRWLinked() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			value := crwl.Get(1, -1)
+			value, _ := crwl.Get(1, -1)
 			fmt.Printf("Read value: %d\n", value)
 		}()
 	}
@@ -129,7 +129,7 @@ func TestConcurrentLinked_ThreadSafety(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < numOperations; j++ {
 				_ = cl.Length()
-				_ = cl.Get(0, -1)
+				_, _ = cl.Get(0, -1)
 			}
 		}()
 	}
@@ -167,7 +167,7 @@ func TestConcurrentDoublyLinked_ThreadSafety(t *testing.T) {
 			for j := 0; j < numOperations; j++ {
 				_ = cdl.Length()
 				if cdl.Length() > 0 {
-					_ = cdl.Get(0, -1)
+					_, _ = cdl.Get(0, -1)
 				}
 			}
 		}()
@@ -189,7 +189,7 @@ func TestConcurrentRWLinked_ReadWriteOperations(t *testing.T) {
 		t.Errorf("Expected length 5, got %d", crwl.Length())
 	}
 
-	value := crwl.Get(2, -1)
+	value, _ := crwl.Get(2, -1)
 	if value != 3 {
 		t.Errorf("Expected value 3 at index 2, got %d", value)
 	}
@@ -214,7 +214,7 @@ func TestConcurrentRWDoublyLinked_ReadWriteOperations(t *testing.T) {
 		t.Errorf("Expected length 5, got %d", crwdl.Length())
 	}
 
-	value := crwdl.Get(2, -1)
+	value, _ := crwdl.Get(2, -1)
 	if value != 3 {
 		t.Errorf("Expected value 3 at index 2, got %d", value)
 	}
@@ -311,7 +311,7 @@ func BenchmarkConcurrentDoublyLinked_Get(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		index := i % 1000
-		_ = cdl.Get(index, -1)
+		_, _ = cdl.Get(index, -1)
 	}
 }
 
@@ -328,6 +328,6 @@ func BenchmarkConcurrentRWLinked_Get(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		index := i % 1000
-		_ = crwl.Get(index, -1)
+		_, _ = crwl.Get(index, -1)
 	}
 }

@@ -21,7 +21,7 @@ func indexOfDeepEqual[T any](elements []T, target T) int {
 // deleteOwned removes the element at index from a slice the caller already owns,
 // mutating it in place to avoid a defensive copy. The slice is returned
 // unchanged when index is out of bounds. Callers must pass a slice they own
-// (for example one from slices.Copy or GetAsSlice), never a shared backing
+// (for example one from slices.Copy or AsSlice), never a shared backing
 // array, since the returned slice must be independent of any receiver.
 func deleteOwned[T any](owned []T, index int) []T {
 	if index < 0 || index >= len(owned) {

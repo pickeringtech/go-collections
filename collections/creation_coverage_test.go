@@ -11,7 +11,7 @@ import (
 type listConstructor struct {
 	name string
 	make func(...int) interface {
-		GetAsSlice() []int
+		AsSlice() []int
 		Length() int
 	}
 }
@@ -19,49 +19,49 @@ type listConstructor struct {
 func TestListConstructors(t *testing.T) {
 	constructors := []listConstructor{
 		{"NewList", func(v ...int) interface {
-			GetAsSlice() []int
+			AsSlice() []int
 			Length() int
 		} {
 			return NewList(v...)
 		}},
 		{"NewConcurrentList", func(v ...int) interface {
-			GetAsSlice() []int
+			AsSlice() []int
 			Length() int
 		} {
 			return NewConcurrentList(v...)
 		}},
 		{"NewLinkedList", func(v ...int) interface {
-			GetAsSlice() []int
+			AsSlice() []int
 			Length() int
 		} {
 			return NewLinkedList(v...)
 		}},
 		{"NewConcurrentLinkedList", func(v ...int) interface {
-			GetAsSlice() []int
+			AsSlice() []int
 			Length() int
 		} {
 			return NewConcurrentLinkedList(v...)
 		}},
 		{"NewConcurrentRWLinkedList", func(v ...int) interface {
-			GetAsSlice() []int
+			AsSlice() []int
 			Length() int
 		} {
 			return NewConcurrentRWLinkedList(v...)
 		}},
 		{"NewDoublyLinkedList", func(v ...int) interface {
-			GetAsSlice() []int
+			AsSlice() []int
 			Length() int
 		} {
 			return NewDoublyLinkedList(v...)
 		}},
 		{"NewConcurrentDoublyLinkedList", func(v ...int) interface {
-			GetAsSlice() []int
+			AsSlice() []int
 			Length() int
 		} {
 			return NewConcurrentDoublyLinkedList(v...)
 		}},
 		{"NewConcurrentRWDoublyLinkedList", func(v ...int) interface {
-			GetAsSlice() []int
+			AsSlice() []int
 			Length() int
 		} {
 			return NewConcurrentRWDoublyLinkedList(v...)
@@ -74,14 +74,14 @@ func TestListConstructors(t *testing.T) {
 			if got := list.Length(); got != 3 {
 				t.Errorf("Length() = %d, want 3", got)
 			}
-			got := list.GetAsSlice()
+			got := list.AsSlice()
 			want := []int{1, 2, 3}
 			if len(got) != len(want) {
-				t.Fatalf("GetAsSlice() = %v, want %v", got, want)
+				t.Fatalf("AsSlice() = %v, want %v", got, want)
 			}
 			for i := range want {
 				if got[i] != want[i] {
-					t.Errorf("GetAsSlice()[%d] = %d, want %d", i, got[i], want[i])
+					t.Errorf("AsSlice()[%d] = %d, want %d", i, got[i], want[i])
 				}
 			}
 		})

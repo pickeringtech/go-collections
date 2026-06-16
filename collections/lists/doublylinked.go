@@ -178,12 +178,13 @@ func (dl *DoublyLinked[T]) removeNode(node *doublyNode[T]) {
 	dl.size--
 }
 
-// Get returns the element at the given index, or defaultValue if out of bounds.
-func (dl *DoublyLinked[T]) Get(index int, defaultValue T) T {
+// Get returns the element at the given index and true, or defaultValue and
+// false if the index is out of bounds.
+func (dl *DoublyLinked[T]) Get(index int, defaultValue T) (T, bool) {
 	if index < 0 || index >= dl.size {
-		return defaultValue
+		return defaultValue, false
 	}
-	return dl.nodeAt(index).value
+	return dl.nodeAt(index).value, true
 }
 
 // nodeAt returns the node at index, walking from whichever end is closer. The
@@ -218,17 +219,17 @@ func (dl *DoublyLinked[T]) IsEmpty() bool {
 
 // RemoveAt returns a new slice with the element at index removed, without
 // modifying the receiver. If index is out of bounds the elements are returned
-// unchanged. GetAsSlice already allocates a fresh slice, so the element is
+// unchanged. AsSlice already allocates a fresh slice, so the element is
 // deleted in place on it without a second copy.
 func (dl *DoublyLinked[T]) RemoveAt(index int) []T {
-	return deleteOwned(dl.GetAsSlice(), index)
+	return deleteOwned(dl.AsSlice(), index)
 }
 
 // Remove returns a new slice with the first element deeply equal to element
 // removed, without modifying the receiver. If no element matches, the elements
 // are returned unchanged.
 func (dl *DoublyLinked[T]) Remove(element T) []T {
-	slice := dl.GetAsSlice()
+	slice := dl.AsSlice()
 	return deleteOwned(slice, indexOfDeepEqual(slice, element))
 }
 
@@ -292,8 +293,8 @@ func (dl *DoublyLinked[T]) ForEachWithIndex(fn IndexedEachFunc[T]) {
 	}
 }
 
-// GetAsSlice returns the list as a slice.
-func (dl *DoublyLinked[T]) GetAsSlice() []T {
+// AsSlice returns the list as a slice.
+func (dl *DoublyLinked[T]) AsSlice() []T {
 	result := make([]T, 0, dl.size)
 	current := dl.head
 	for current != nil {
@@ -308,7 +309,7 @@ func (dl *DoublyLinked[T]) GetAsSlice() []T {
 
 // Insert creates a new slice with elements inserted at the given index.
 func (dl *DoublyLinked[T]) Insert(index int, elements ...T) []T {
-	slice := dl.GetAsSlice()
+	slice := dl.AsSlice()
 	if index < 0 || index > len(slice) {
 		return slice
 	}
@@ -388,7 +389,7 @@ func (dl *DoublyLinked[T]) insertAt(index int, element T) {
 
 // Sort returns a new sorted slice.
 func (dl *DoublyLinked[T]) Sort(lessThan func(T, T) bool) []T {
-	slice := dl.GetAsSlice()
+	slice := dl.AsSlice()
 	// Simple bubble sort for demonstration
 	for i := 0; i < len(slice); i++ {
 		for j := 0; j < len(slice)-1-i; j++ {
@@ -418,7 +419,7 @@ func (dl *DoublyLinked[T]) SortInPlace(lessThan func(T, T) bool) {
 
 // Push adds an element to the end and returns a new slice.
 func (dl *DoublyLinked[T]) Push(element T) []T {
-	slice := dl.GetAsSlice()
+	slice := dl.AsSlice()
 	return append(slice, element)
 }
 
@@ -429,7 +430,7 @@ func (dl *DoublyLinked[T]) PushInPlace(element T) {
 
 // Pop removes and returns the last element.
 func (dl *DoublyLinked[T]) Pop() (T, bool, []T) {
-	slice := dl.GetAsSlice()
+	slice := dl.AsSlice()
 	if len(slice) == 0 {
 		var zero T
 		return zero, false, slice
@@ -470,7 +471,7 @@ func (dl *DoublyLinked[T]) EnqueueInPlace(element T) {
 
 // Dequeue removes and returns the first element.
 func (dl *DoublyLinked[T]) Dequeue() (T, bool, []T) {
-	slice := dl.GetAsSlice()
+	slice := dl.AsSlice()
 	if len(slice) == 0 {
 		var zero T
 		return zero, false, slice
