@@ -6,19 +6,19 @@
 
 **A comprehensive, type-safe, and high-performance collections library for Go**
 
-Go Collections provides powerful data structures and utilities that make working with collections in Go simple, safe, and efficient. Whether you need thread-safe maps, mathematical sets, or flexible lists, this library has you covered.
+Go Collections provides data structures and utilities for working with collections in Go. It includes thread-safe maps, mathematical sets, and flexible lists.
 
-## ✨ Features
+## Features
 
-- **🔒 Thread-Safe**: Concurrent implementations for multi-threaded applications
-- **⚡ High Performance**: Optimized implementations with detailed benchmarks
-- **🎯 Type-Safe**: Full generic support with compile-time type checking
-- **🧩 Rich APIs**: Comprehensive operations for filtering, mapping, and transforming data
-- **📚 Well Documented**: Extensive examples and clear documentation
-- **🔧 Zero Dependencies**: Pure Go implementation with no external dependencies
-- **🎨 Familiar**: APIs inspired by popular languages (Java, Python, JavaScript)
+- **Thread-Safe**: Concurrent implementations for multi-threaded applications
+- **High Performance**: Optimized implementations with detailed benchmarks
+- **Type-Safe**: Full generic support with compile-time type checking
+- **Rich APIs**: Operations for filtering, mapping, and transforming data
+- **Well Documented**: Examples and clear documentation
+- **Zero Dependencies**: Pure Go implementation with no external dependencies
+- **Familiar**: APIs inspired by popular languages (Java, Python, JavaScript)
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 go get github.com/pickeringtech/go-collections
@@ -61,15 +61,15 @@ func main() {
 }
 ```
 
-## 📦 What's Included
+## What's Included
 
 ### Core Collections
 
 | Package | Description | Thread-Safe Options |
 |---------|-------------|---------------------|
-| **[Dicts](./collections/dicts/)** | Key-value mappings with rich operations | ✅ Mutex & RWMutex |
-| **[Sets](./collections/sets/)** | Mathematical sets with union, intersection | ✅ Mutex & RWMutex |
-| **[Lists](./collections/lists/)** | Flexible sequences with stack/queue operations | ✅ Mutex & RWMutex |
+| **[Dicts](./collections/dicts/)** | Key-value mappings with rich operations | Mutex & RWMutex |
+| **[Sets](./collections/sets/)** | Mathematical sets with union, intersection | Mutex & RWMutex |
+| **[Lists](./collections/lists/)** | Flexible sequences with stack/queue operations | Mutex & RWMutex |
 
 ### Utilities
 
@@ -80,7 +80,7 @@ func main() {
 | **[Channels](./channels/)** | Channel-based pipelines | Stream processing, fan-out/fan-in |
 | **[Constraints](./constraints/)** | Type constraints for generics | Custom generic functions |
 
-## 🎯 Choose Your Data Structure
+## Choose Your Data Structure
 
 ### When to Use Dicts (Maps)
 ```go
@@ -127,7 +127,7 @@ task, found := queue.DequeueInPlace()
 
 **Use when**: You need ordered data, stacks, queues, or sequential processing.
 
-## 🔒 Thread Safety Made Simple
+## Thread Safety
 
 All collections offer thread-safe variants:
 
@@ -143,7 +143,7 @@ list := collections.NewConcurrentList(...)     // Balanced read/write
 list := collections.NewConcurrentRWList(...)   // Read-heavy workloads
 ```
 
-## 📊 Performance
+## Performance
 
 All implementations are benchmarked and optimized:
 
@@ -154,7 +154,7 @@ BenchmarkDict_Get/ConcurrentHashRW-16    100M   10.30 ns/op     0 B/op
 BenchmarkDict_Get/Tree-16                 50M   25.67 ns/op     0 B/op
 ```
 
-## 📚 Documentation & Examples
+## Documentation & Examples
 
 Each package includes:
 - **Comprehensive README** with usage examples
@@ -171,14 +171,14 @@ Each package includes:
 - **[Maps Utilities](./maps/README.md)** - Native map helpers
 - **[Channels Utilities](./channels/README.md)** - Pipeline processing
 
-## 🤝 Contributing
+## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+Contributions are welcome. See the [Contributing Guide](CONTRIBUTING.md) for details.
 
-## 📄 License
+## License
 
 Go Collections is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ---
 
-Made with ♥ by [Pickering Technologies](https://www.picktech.co.uk) - Your Strategic Technology Partner
+Made by [Pickering Technologies](https://www.picktech.co.uk).
