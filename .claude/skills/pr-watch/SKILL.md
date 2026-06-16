@@ -3,9 +3,9 @@ name: pr-watch
 description: Autonomously drive an open PR to merge-ready by reacting to whichever fires first — a CI failure, a new review comment (Copilot/bot/human), or a base-branch merge conflict. On green it keeps the branch current with base and arms auto-merge so the PR lands before it can go stale. Loops up to N iterations (default 15), dedups handled comments, detects stuck loops, and stops on success/cap/human-needed. Use when the user says "/pr-watch", "/pr-babysit", "babysit the PR", "watch the PR", or "get this PR to green".
 ---
 
-# /pr-watch — drive a PR to green (OR-race responder)
+# /pr-watch — drive a PR to merge-ready (OR-race responder)
 
-Watch an open PR and react **autonomously** to whichever of three signals
+Watch an open PR and react **autonomously** to whichever of these signals
 occurs first, then loop:
 
 1. **CI failure** — a required check fails (includes the coverage floor and,
@@ -21,6 +21,14 @@ one signal is already present in the *same* poll, handle them in the priority
 order below (new comments → conflict → behind base → CI failure). That ordering
 is only a deterministic tie-break for a single poll; it never overrides
 first-to-fire across polls.
+
+**Before finalizing, wait for automated review.** Arming auto-merge is **not** a
+race signal — it is the *last* step, gated on the automated reviewer (Copilot)
+having finished reviewing the current head commit **and** all its comments being
+handled. CI going green is necessary but not sufficient: Copilot's review is
+asynchronous and is **not** a required status check, so auto-merge (which only
+waits for required checks) will otherwise merge the PR before Copilot reviews or
+before its comments are addressed. See "Gate before finalizing" below.
 
 ## Arguments & pacing
 
@@ -44,7 +52,7 @@ Initialize run state (in-memory across iterations):
 - `iteration = 0`, `max = arg or 15`.
 - `last_failure_signature = none` — for loop detection.
 
-## Each iteration — poll all three signals, then act on the first present
+## Each iteration — poll all signals, then act on the first present
 
 ### Poll: CI status (one call, all checks)
 
@@ -80,15 +88,46 @@ gh pr view "$PR" --json mergeable,mergeStateStatus,baseRefName,headRefName
   push. **Poll/retry until the value resolves** — never treat `UNKNOWN` as
   conflict-free.
 
+### Poll: automated review status (is Copilot still reviewing?)
+
+```bash
+# Primary signal: Copilot is mid-review iff it is still a requested reviewer.
+# GitHub clears it from reviewRequests when it submits, and re-adds it on each
+# new push (when auto-review is enabled), so this naturally re-arms per commit.
+gh pr view "$PR" --json reviewRequests -q '.reviewRequests[].login'
+
+# Optional, more robust: confirm Copilot's latest review points at the current
+# head SHA — otherwise its review predates your last push and is stale.
+HEAD_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
+gh api "repos/$OWNER_REPO/pulls/$PR/reviews" \
+  -q '[.[] | select(.user.login=="copilot-pull-request-reviewer")] | last | .commit_id'
+```
+- **Review pending** if `copilot-pull-request-reviewer` is in `reviewRequests`
+  (or, using the optional check, its latest review's `commit_id` != `HEAD_SHA`).
+  Key off `reviewRequests` as the primary signal — do **not** infer "reviewed the
+  latest push" from a mere count of past reviews.
+- **Not applicable** if no automated reviewer is configured/requested at all —
+  then there is nothing to wait for; don't block.
+- **Don't hang waiting for a re-review that won't come.** GitHub does **not**
+  always re-request Copilot after every push — depending on repo settings it may
+  review once (on open) and not re-review fix commits. So the optional
+  `commit_id == HEAD_SHA` check can stay false forever. Treat `reviewRequests`
+  (empty = not pending) as authoritative, **bound** the wait (a few poll cycles),
+  and once Copilot is not pending and there are no unhandled comments, consider
+  the review **settled** and finalize — even if its last review predates the head.
+- This is a **finalization gate**, not an OR-race signal: it only governs whether
+  it's safe to arm auto-merge, never preempts handling CI/comments/conflicts.
+
 ### Act on the first present signal (priority order)
 
 ```
-if new comments:        handle each → commit/push if code changed → continue
-elif merge conflict:    fetch base, merge, resolve, commit, push   → continue
-elif behind base:       update branch from base, push             → continue
-elif ci failed:         diagnose, fix, commit, push → iteration++ → continue
-elif ci still running:  ScheduleWakeup 30–60s, re-poll
-else:  # green + no unhandled comments
+if new comments:           handle each → commit/push if code changed → continue
+elif merge conflict:       fetch base, merge, resolve, commit, push   → continue
+elif behind base:          update branch from base, push             → continue
+elif ci failed:            diagnose, fix, commit, push → iteration++ → continue
+elif ci still running:     ScheduleWakeup 30–60s, re-poll
+elif review pending:       ScheduleWakeup 30–60s, re-poll   # give Copilot time to finish
+else:  # green + no unhandled comments + automated review settled
         update branch from base (stay current) → if it conflicts, run the
             conflict playbook and continue
         enable auto-merge so the PR lands the moment it's ready → DONE(auto-merge armed)
@@ -98,6 +137,14 @@ Reaching green is **not** where we stop and walk away — that's exactly when a 
 starts silently going stale as other PRs merge into `main`. Instead, make the
 PR *land itself*: bring it up to date with base and arm auto-merge, so there is
 no idle window in which an unwatched conflict can accumulate.
+
+**But green is also not where we finalize.** The `review pending` branch above is
+what gives Copilot its chance: when CI is green but Copilot hasn't finished
+reviewing the current head commit, **wait** — do not arm auto-merge yet. When
+Copilot then posts comments, they arrive via the `new comments` arm and get
+handled (which pushes a fix, re-triggering Copilot's review, so we wait again).
+Only when CI is green, the automated review has settled, and no unhandled
+comments remain do we update + arm auto-merge.
 
 ## Remediation playbooks
 
@@ -148,11 +195,24 @@ git push
   is genuinely ambiguous or risks losing intent, **stop and escalate** — don't
   guess.
 
+### Gate before finalizing — let the automated review finish
+
+Before doing anything below, confirm the automated review has settled (see the
+"Poll: automated review status" step). **While Copilot is still requested /
+hasn't reviewed the current head commit, do not arm auto-merge** — `ScheduleWakeup`
+and re-poll. When its comments arrive, handle them via the new-comment playbook
+(which pushes a fix and re-triggers the review, so you wait again). Proceed only
+once: CI green **and** automated review settled **and** no unhandled comments.
+
+Why this matters: Copilot's review is asynchronous and is **not** a required
+status check, so auto-merge (which waits only for required checks) will merge the
+PR out from under an in-flight review — leaving its comments stranded on a merged
+PR, exactly what we want to avoid.
+
 ### Green — keep current and auto-merge (close the staleness window)
 
-When CI is green and there are no unhandled comments, **don't just terminate** —
-a PR that merely *is* mergeable now will conflict later as other PRs land. Make
-it land itself:
+Once the gate above is satisfied, **don't just terminate** — a PR that merely
+*is* mergeable now will conflict later as other PRs land. Make it land itself:
 
 ```bash
 # 1. Bring the branch up to date with base (GitHub-side merge of base → head).
@@ -164,12 +224,18 @@ gh pr update-branch "$PR"          # no-op if already current
 # the gh token lacks the `workflow` OAuth scope, this fails with
 # "refusing to allow an OAuth App to create or update workflow ... without
 # workflow scope". `git push` over SSH is NOT scope-gated, so fall back to a
-# local merge instead of giving up:
-#   git fetch origin "$BASE" && git merge "origin/$BASE" && git push
+# local merge instead of giving up (uses <baseRefName> from Setup):
+#   git fetch origin <baseRefName> && git merge origin/<baseRefName> && git push
 # (resolve any conflicts on their merits, as in the conflict playbook).
 
 # 2. Arm auto-merge so the PR merges the instant it is green + up to date.
-gh pr merge "$PR" --auto --squash  # method per repo convention (--squash/--merge/--rebase)
+#    Use the repo's default merge method; fall back to --squash if none detected.
+case "$(gh repo view --json viewerDefaultMergeMethod -q .viewerDefaultMergeMethod)" in
+  MERGE)  FLAG=--merge  ;;
+  REBASE) FLAG=--rebase ;;
+  *)      FLAG=--squash ;;   # SQUASH or unset
+esac
+gh pr merge "$PR" --auto "$FLAG"
 ```
 
 - **Auto-merge is now in-scope** for this skill (the user opted into it): arming
@@ -205,10 +271,13 @@ gh pr merge "$PR" --auto --squash  # method per repo convention (--squash/--merg
 ## Termination
 
 Stop and report when any holds:
-- **Success** — CI green, no unhandled comments, branch up to date with base, and
-  **auto-merge armed** (or the PR already merged). Do not exit on "green +
-  mergeable" *without* first updating the branch and arming auto-merge — that is
-  the gap that lets later conflicts go unhandled.
+- **Success** — CI green, **automated review settled**, no unhandled comments,
+  branch up to date with base, and the PR is **set to land**: either auto-merge
+  armed, or — when auto-merge is not permitted (see the Green playbook's
+  precondition) — green + mergeable after one last update. Do not exit on "green +
+  mergeable" *without* first letting the review finish, handling its comments, and
+  updating the branch — those are the gaps that merge too early or let later
+  conflicts go unhandled.
 - **Cap** — `iteration == max`.
 - **Stuck** — repeated identical failure with no progress.
 - **Human-needed** — ambiguous conflict, a change needing a product decision, or
