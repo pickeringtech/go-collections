@@ -4,21 +4,21 @@
 <text class="title" x="16" y="30">Benchmark — lower is faster (ns/op, n=1000)</text>
 <text class="caption" x="16" y="50">Reference — Framework Desktop</text>
 <text class="label" x="236" y="95" text-anchor="end">Dict — Hash.Get</text>
-<rect x="246" y="81" width="4.02" height="20" rx="3" fill="#4c78a8"/>
-<text class="value" x="256.02" y="95">4.67</text>
+<rect x="246" y="81" width="4.52" height="20" rx="3" fill="#4c78a8"/>
+<text class="value" x="256.52" y="95">4.44</text>
 <text class="label" x="236" y="129" text-anchor="end">Dict — ConcurrentHash.Get</text>
-<rect x="246" y="115" width="11.77" height="20" rx="3" fill="#72b7b2"/>
-<text class="value" x="263.77" y="129">13.7</text>
+<rect x="246" y="115" width="13.03" height="20" rx="3" fill="#72b7b2"/>
+<text class="value" x="265.03" y="129">12.8</text>
 <text class="label" x="236" y="163" text-anchor="end">Dict — ConcurrentHashRW.Get</text>
-<rect x="246" y="149" width="11.37" height="20" rx="3" fill="#54a24b"/>
-<text class="value" x="263.37" y="163">13.2</text>
+<rect x="246" y="149" width="12.83" height="20" rx="3" fill="#54a24b"/>
+<text class="value" x="264.83" y="163">12.6</text>
 <text class="label" x="236" y="197" text-anchor="end">Dict — Tree.Get</text>
 <rect x="246" y="183" width="418" height="20" rx="3" fill="#eeca3b"/>
-<text class="value" x="670" y="197">485</text>
+<text class="value" x="670" y="197">411</text>
 <text class="label" x="236" y="231" text-anchor="end">List — Array.Get</text>
-<rect x="246" y="217" width="1.27" height="20" rx="3" fill="#e45756"/>
-<text class="value" x="253.27" y="231">1.48</text>
+<rect x="246" y="217" width="1.44" height="20" rx="3" fill="#e45756"/>
+<text class="value" x="253.44" y="231">1.41</text>
 <text class="label" x="236" y="265" text-anchor="end">Set — Hash.Contains</text>
-<rect x="246" y="251" width="4.5" height="20" rx="3" fill="#b279a2"/>
-<text class="value" x="256.5" y="265">5.23</text>
+<rect x="246" y="251" width="5.32" height="20" rx="3" fill="#b279a2"/>
+<text class="value" x="257.32" y="265">5.23</text>
 </svg>

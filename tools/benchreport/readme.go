@@ -21,13 +21,16 @@ func InjectRegion(doc, region string) (string, error) {
 	if si < 0 {
 		return "", fmt.Errorf("start marker %q not found in README", MarkerStart)
 	}
-	ei := strings.Index(doc, MarkerEnd)
-	if ei < 0 {
-		return "", fmt.Errorf("end marker %q not found in README", MarkerEnd)
+	// Search for the end marker only *after* the start marker, so a stray
+	// MarkerEnd earlier in the document can't be mistaken for the region's end
+	// (and an end marker that only appears before the start is correctly an
+	// error, not silent corruption).
+	afterStart := si + len(MarkerStart)
+	rel := strings.Index(doc[afterStart:], MarkerEnd)
+	if rel < 0 {
+		return "", fmt.Errorf("end marker %q not found after start marker in README", MarkerEnd)
 	}
-	if ei < si {
-		return "", fmt.Errorf("end marker appears before start marker in README")
-	}
+	ei := afterStart + rel
 
 	before := doc[:si]
 	after := doc[ei+len(MarkerEnd):]

@@ -160,16 +160,16 @@ _Headline numbers are from the controlled **Reference — Framework Desktop** ba
 
 | Operation | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|
-| Dict — Hash.Get | 4.67 | 0 | 0 |
-| Dict — ConcurrentHash.Get | 13.7 | 0 | 0 |
-| Dict — ConcurrentHashRW.Get | 13.2 | 0 | 0 |
-| Dict — Tree.Get | 485 | 0 | 0 |
-| List — Array.Get | 1.48 | 0 | 0 |
+| Dict — Hash.Get | 4.44 | 0 | 0 |
+| Dict — ConcurrentHash.Get | 12.8 | 0 | 0 |
+| Dict — ConcurrentHashRW.Get | 12.6 | 0 | 0 |
+| Dict — Tree.Get | 411 | 0 | 0 |
+| List — Array.Get | 1.41 | 0 | 0 |
 | Set — Hash.Contains | 5.23 | 0 | 0 |
 
 ![Benchmark chart](docs/bench.svg)
 
-Reference — Framework Desktop: `91af082` · 2026-06-16 · linux/amd64 · Go go1.25.5
+Reference — Framework Desktop: `31d657d` · 2026-06-16 · linux/amd64 · Go go1.25.5
 
 Full report → [BENCHMARKS.md](BENCHMARKS.md)
 <!-- BENCH:END -->

@@ -186,6 +186,23 @@ func TestInjectRegionIdempotent(t *testing.T) {
 	}
 }
 
+func TestInjectRegionIgnoresStrayEndBeforeStart(t *testing.T) {
+	// A MarkerEnd appearing before the real region (e.g. quoted in prose) must
+	// not be mistaken for the region's end — the end is searched after start.
+	doc := "prose mentioning " + MarkerEnd + " here\n" +
+		MarkerStart + "\n\nold\n" + MarkerEnd + "\ntail\n"
+	out, err := InjectRegion(doc, "fresh\n")
+	if err != nil {
+		t.Fatalf("InjectRegion: %v", err)
+	}
+	if !strings.Contains(out, "fresh") || strings.Contains(out, "old") {
+		t.Errorf("region not replaced correctly:\n%s", out)
+	}
+	if !strings.HasPrefix(out, "prose mentioning "+MarkerEnd+" here\n") {
+		t.Errorf("stray end marker / preamble not preserved:\n%s", out)
+	}
+}
+
 func TestInjectRegionMissingMarkers(t *testing.T) {
 	if _, err := InjectRegion("no markers here", "x\n"); err == nil {
 		t.Error("expected error when start marker missing")

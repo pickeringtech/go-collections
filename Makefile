@@ -48,6 +48,11 @@ test: ## Run the library test suite with race + shuffle
 bench: ## Run the collections benchmarks once (no report), printing results
 	go test -run='^$$' -bench=. -benchmem -benchtime=$(BENCH_TIME) -count=$(BENCH_COUNT) $(BENCH_PKGS)
 
+# Scope bash + pipefail to bench-report so the `go test … | tee` pipeline fails
+# the target when the benchmarks fail, instead of being masked by tee's exit
+# status (the rest of the Makefile keeps POSIX-sh defaults).
+bench-report: SHELL := bash
+bench-report: .SHELLFLAGS := -o pipefail -c
 bench-report: ## Benchmark this environment, capture its dataset, and regenerate the combined report
 	@mkdir -p $(BUILD_DIR) $(BENCH_DATA_DIR)
 	@echo ">> benchmarking $(BENCH_PKGS) for env '$(BENCH_ENV)' (-benchtime=$(BENCH_TIME) -count=$(BENCH_COUNT))"
