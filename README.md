@@ -73,6 +73,7 @@ func main() {
 | **[Multimaps](./collections/multimaps/)** | One key to many values (list- or set-backed) | Mutex & RWMutex |
 | **[Deques](./collections/deques/)** | Double-ended queue / bounded ring buffer | Mutex & RWMutex |
 | **[Heaps](./collections/heaps/)** | Binary heap / priority queue (min, max, comparator) | Mutex & RWMutex |
+| **[LRU](./collections/lru/)** | Bounded cache with least-recently-used eviction | Mutex & RWMutex |
 
 ### Utilities
 
@@ -221,6 +222,7 @@ downstream-consumer smoke test. See the [examples README](./examples/README.md).
 - **[Sets Documentation](./collections/sets/README.md)** - Mathematical sets
 - **[Lists Documentation](./collections/lists/README.md)** - Ordered sequences
 - **[Multimaps Documentation](./collections/multimaps/README.md)** - One key, many values
+- **[LRU Documentation](./collections/lru/README.md)** - Bounded cache with eviction
 - **[Slices Utilities](./slices/README.md)** - Enhanced slice operations
 - **[Maps Utilities](./maps/README.md)** - Native map helpers
 - **[Channels Utilities](./channels/README.md)** - Pipeline processing

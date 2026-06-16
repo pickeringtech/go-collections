@@ -1,6 +1,7 @@
 package sets_test
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/sets"
@@ -159,4 +160,159 @@ func isSubset(sub, sup map[uint8]struct{}) bool {
 		}
 	}
 	return true
+}
+
+// sortedSetFuzzFactories returns the sorted-set constructors to fuzz, each
+// producing a fresh MutableSortedSet[uint8] from the given elements.
+func sortedSetFuzzFactories() []func(...uint8) sets.MutableSortedSet[uint8] {
+	return []func(...uint8) sets.MutableSortedSet[uint8]{
+		func(e ...uint8) sets.MutableSortedSet[uint8] { return sets.NewTreeSet(e...) },
+		func(e ...uint8) sets.MutableSortedSet[uint8] { return sets.NewConcurrentTreeSet(e...) },
+		func(e ...uint8) sets.MutableSortedSet[uint8] { return sets.NewConcurrentTreeSetRW(e...) },
+	}
+}
+
+// sortedKeysOf returns the oracle's keys in ascending order.
+func sortedKeysOf(oracle map[uint8]struct{}) []uint8 {
+	keys := make([]uint8, 0, len(oracle))
+	for k := range oracle {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
+}
+
+// FuzzTreeSetOracle differentially fuzzes every sorted-set backend against a
+// native map oracle, checking both membership/set-operations and the ordered
+// queries (Min/Max/Floor/Ceiling/Range and ascending/descending iteration).
+func FuzzTreeSetOracle(f *testing.F) {
+	f.Add([]byte(nil), []byte(nil))
+	f.Add([]byte{}, []byte{1})
+	f.Add([]byte{1, 2, 3}, []byte{2, 3, 4})
+	f.Add([]byte{1, 1, 1}, []byte{1})
+	f.Add([]byte{5, 3, 9, 1, 7}, []byte{2, 8})
+
+	f.Fuzz(func(t *testing.T, a, b []byte) {
+		oa := nativeSet(a)
+		ob := nativeSet(b)
+		sortedA := sortedKeysOf(oa)
+
+		for _, makeSet := range sortedSetFuzzFactories() {
+			setA := makeSet(a...)
+			setB := makeSet(b...)
+
+			// Membership and set operations match the unordered oracle.
+			assertMatchesOracle(t, "A", setA, oa)
+			union := map[uint8]struct{}{}
+			for k := range oa {
+				union[k] = struct{}{}
+			}
+			for k := range ob {
+				union[k] = struct{}{}
+			}
+			assertMatchesOracle(t, "A∪B", setA.Union(setB), union)
+
+			inter := map[uint8]struct{}{}
+			for k := range oa {
+				if _, ok := ob[k]; ok {
+					inter[k] = struct{}{}
+				}
+			}
+			assertMatchesOracle(t, "A∩B", setA.Intersection(setB), inter)
+
+			// Ordered invariants.
+			if got := setA.AsSlice(); !equalU8Slice(got, sortedA) {
+				t.Fatalf("AsSlice = %v, want sorted %v", got, sortedA)
+			}
+			if got := collectSeqU8(setA.All()); !equalU8Slice(got, sortedA) {
+				t.Fatalf("All() = %v, want %v", got, sortedA)
+			}
+			if got := collectSeqU8(setA.Backward()); !equalU8Slice(got, reverseU8Slice(sortedA)) {
+				t.Fatalf("Backward() = %v, want %v", got, reverseU8Slice(sortedA))
+			}
+
+			if len(sortedA) == 0 {
+				if _, ok := setA.Min(); ok {
+					t.Fatalf("Min() ok on empty set")
+				}
+				if _, ok := setA.Max(); ok {
+					t.Fatalf("Max() ok on empty set")
+				}
+			} else {
+				if e, ok := setA.Min(); !ok || e != sortedA[0] {
+					t.Fatalf("Min() = (%d, %v), want %d", e, ok, sortedA[0])
+				}
+				if e, ok := setA.Max(); !ok || e != sortedA[len(sortedA)-1] {
+					t.Fatalf("Max() = (%d, %v), want %d", e, ok, sortedA[len(sortedA)-1])
+				}
+			}
+
+			// Floor/Ceiling across the whole byte domain.
+			for x := 0; x < 256; x++ {
+				q := uint8(x)
+				wf, wfo := floorScan(sortedA, q)
+				if e, ok := setA.Floor(q); ok != wfo || (ok && e != wf) {
+					t.Fatalf("Floor(%d) = (%d, %v), want (%d, %v)", q, e, ok, wf, wfo)
+				}
+				wc, wco := ceilingScan(sortedA, q)
+				if e, ok := setA.Ceiling(q); ok != wco || (ok && e != wc) {
+					t.Fatalf("Ceiling(%d) = (%d, %v), want (%d, %v)", q, e, ok, wc, wco)
+				}
+			}
+
+			if got := setA.Range(0, 255); !equalU8Slice(got, sortedA) {
+				t.Fatalf("Range(0,255) = %v, want %v", got, sortedA)
+			}
+		}
+	})
+}
+
+func collectSeqU8(seq func(yield func(uint8) bool)) []uint8 {
+	out := []uint8{}
+	seq(func(e uint8) bool {
+		out = append(out, e)
+		return true
+	})
+	return out
+}
+
+func equalU8Slice(a, b []uint8) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func reverseU8Slice(in []uint8) []uint8 {
+	out := make([]uint8, len(in))
+	for i, v := range in {
+		out[len(in)-1-i] = v
+	}
+	return out
+}
+
+func floorScan(sorted []uint8, q uint8) (uint8, bool) {
+	found := false
+	var best uint8
+	for _, k := range sorted {
+		if k <= q {
+			best = k
+			found = true
+		}
+	}
+	return best, found
+}
+
+func ceilingScan(sorted []uint8, q uint8) (uint8, bool) {
+	for _, k := range sorted {
+		if k >= q {
+			return k, true
+		}
+	}
+	return 0, false
 }

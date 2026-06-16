@@ -32,6 +32,31 @@
 //   - Concurrent reads, exclusive writes
 //   - Perfect for read-heavy workloads
 //
+// Tree Set (sets.TreeSet):
+//   - Sorted set backed by the dicts binary search tree
+//   - O(log n) operations, elements kept in sorted order
+//   - Adds ordered navigation: Min/Max, Floor/Ceiling, Range, and the
+//     ascending (All), descending (Backward) and bounded (RangeAll) iterators
+//   - Elements must implement constraints.Ordered
+//
+// Concurrent Tree Sets (sets.ConcurrentTreeSet / sets.ConcurrentTreeSetRW):
+//   - Thread-safe sorted sets (mutex / read-write mutex)
+//
+// The SortedSet[T] and MutableSortedSet[T] interfaces describe the ordered
+// contract, implemented by TreeSet and both concurrent tree sets.
+//
+// # Ordered Queries
+//
+//	s := sets.NewTreeSet(10, 20, 30)
+//
+//	e, _ := s.Floor(25)    // 20
+//	e, _ = s.Ceiling(25)   // 30
+//
+//	for element := range s.All() {        // ascending order
+//		fmt.Println(element)
+//	}
+//	inRange := s.Range(15, 30)            // elements with 15 <= e <= 30
+//
 // # Mathematical Set Operations
 //
 // Sets provide all standard mathematical operations:

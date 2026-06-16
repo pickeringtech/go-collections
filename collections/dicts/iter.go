@@ -68,10 +68,9 @@ func (h Hash[K, V]) ValuesSeq() iter.Seq[V] {
 	}
 }
 
-// All returns an iterator over key/value pairs in ascending key order.
-func (t *Tree[K, V]) All() iter.Seq2[K, V] { return seqPairs(t.Items()) }
-
-// KeysSeq returns an iterator over the keys in ascending order.
+// KeysSeq returns an iterator over the keys in ascending order. The ascending
+// All and Backward iterators live in tree_ordered.go alongside the other
+// SortedDict operations.
 func (t *Tree[K, V]) KeysSeq() iter.Seq[K] { return seqOf(t.Keys()) }
 
 // ValuesSeq returns an iterator over the values in ascending key order.
@@ -100,3 +99,20 @@ func (ch *ConcurrentHashRW[K, V]) KeysSeq() iter.Seq[K] { return seqOf(ch.Keys()
 // ValuesSeq returns an iterator over the values, over a snapshot taken under the
 // lock. It is safe for concurrent use. Iteration order is unspecified.
 func (ch *ConcurrentHashRW[K, V]) ValuesSeq() iter.Seq[V] { return seqOf(ch.Values()) }
+
+// KeysSeq returns an iterator over the keys in ascending order, over a snapshot
+// taken under the lock. It is safe for concurrent use. The ascending All and
+// descending Backward iterators live alongside the SortedDict operations.
+func (ch *ConcurrentTree[K, V]) KeysSeq() iter.Seq[K] { return seqOf(ch.Keys()) }
+
+// ValuesSeq returns an iterator over the values in ascending key order, over a
+// snapshot taken under the lock. It is safe for concurrent use.
+func (ch *ConcurrentTree[K, V]) ValuesSeq() iter.Seq[V] { return seqOf(ch.Values()) }
+
+// KeysSeq returns an iterator over the keys in ascending order, over a snapshot
+// taken under the lock. It is safe for concurrent use.
+func (ch *ConcurrentTreeRW[K, V]) KeysSeq() iter.Seq[K] { return seqOf(ch.Keys()) }
+
+// ValuesSeq returns an iterator over the values in ascending key order, over a
+// snapshot taken under the lock. It is safe for concurrent use.
+func (ch *ConcurrentTreeRW[K, V]) ValuesSeq() iter.Seq[V] { return seqOf(ch.Values()) }

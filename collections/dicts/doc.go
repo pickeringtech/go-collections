@@ -21,6 +21,13 @@
 // keys in sorted order. Provides O(log n) average case performance and ordered iteration.
 // Keys must implement constraints.Ordered (integers, floats, strings).
 //
+// Concurrent Tree Dictionary (ConcurrentTree[K, V]): A thread-safe ordered dictionary
+// backed by the binary search tree, using a mutex for synchronization.
+//
+// Concurrent RW Tree Dictionary (ConcurrentTreeRW[K, V]): A thread-safe ordered dictionary
+// backed by the binary search tree, using a read-write mutex so reads can proceed
+// concurrently.
+//
 // # Interfaces
 //
 // Dict[K, V]: Immutable dictionary interface that provides comprehensive key-value
@@ -28,6 +35,32 @@
 //
 // MutableDict[K, V]: Mutable dictionary interface that provides comprehensive key-value
 // operations with the ability to modify the dictionary in place.
+//
+// SortedDict[K, V]: Immutable ordered-dictionary interface that adds sorted-order
+// navigation and iteration on top of Dict — Min/Max, Floor/Ceiling, Range, and the
+// ascending (All), descending (Backward) and bounded (RangeAll) iter.Seq2 iterators.
+// Tree, ConcurrentTree and ConcurrentTreeRW all implement it.
+//
+// MutableSortedDict[K, V]: Mutable counterpart of SortedDict.
+//
+// # Ordered Queries
+//
+//	tree := dicts.NewTree(
+//		dicts.Pair[int, string]{Key: 10, Value: "ten"},
+//		dicts.Pair[int, string]{Key: 20, Value: "twenty"},
+//		dicts.Pair[int, string]{Key: 30, Value: "thirty"},
+//	)
+//
+//	k, v, _ := tree.Floor(25)   // 20, "twenty"
+//	k, v, _ = tree.Ceiling(25)  // 30, "thirty"
+//
+//	for key, value := range tree.All() {      // ascending key order
+//		fmt.Println(key, value)
+//	}
+//	for key := range tree.Backward() {        // descending key order
+//		fmt.Println(key)
+//	}
+//	inRange := tree.Range(15, 30)             // entries with 15 <= key <= 30
 //
 // # Performance Characteristics
 //

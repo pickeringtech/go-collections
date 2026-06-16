@@ -144,18 +144,6 @@ func TestFromSeq2_LastWins(t *testing.T) {
 	}
 }
 
-func ExampleTree_All() {
-	tree := dicts.NewTree(
-		dicts.Pair[string, int]{Key: "charlie", Value: 3},
-		dicts.Pair[string, int]{Key: "alice", Value: 1},
-		dicts.Pair[string, int]{Key: "bob", Value: 2},
-	)
-	for k, v := range tree.All() {
-		fmt.Printf("%s=%d ", k, v)
-	}
-	// Output: alice=1 bob=2 charlie=3
-}
-
 func ExampleFromSeq2() {
 	source := dicts.NewTree(
 		dicts.Pair[string, int]{Key: "a", Value: 1},
