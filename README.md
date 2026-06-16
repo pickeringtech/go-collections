@@ -170,6 +170,7 @@ Each package includes:
 - **[Slices Utilities](./slices/README.md)** - Enhanced slice operations
 - **[Maps Utilities](./maps/README.md)** - Native map helpers
 - **[Channels Utilities](./channels/README.md)** - Pipeline processing
+- **[Mutation Testing](./docs/mutation-testing.md)** - How we verify the tests catch regressions, not just run lines
 
 ## 🤝 Contributing
 

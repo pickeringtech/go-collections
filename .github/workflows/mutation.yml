@@ -1,0 +1,122 @@
+name: Mutation testing
+
+# Mutation testing (gremlins) verifies that the *test suite catches regressions*,
+# not merely that lines execute — the gap line coverage can't see (issue #32).
+# It mutates the source (e.g. flips `<` to `<=`, negates conditionals) and checks
+# whether a test fails. A surviving ("LIVED") mutant is a hole in the assertions.
+#
+# Why this lives in its own workflow rather than ci.yml:
+#   Mutation testing re-runs the whole suite once *per mutant* (~400 mutants here),
+#   so it is far too slow to gate every PR. Per #32 it must be bounded. Two shapes:
+#     - full:   weekly + on-demand, the whole module, report-only.
+#     - scoped: per-PR but limited to the lines the PR changed (gremlins --diff),
+#               so cost is proportional to the change, not the codebase.
+#
+# Gating policy (mirrors ci.yml's COVERAGE_MIN ratchet):
+#   Both jobs are REPORT-ONLY today — `continue-on-error: true` keeps them
+#   non-gating while the first runs are triaged for equivalent/known mutants
+#   (see docs/mutation-testing.md). To start gating, raise the *_MIN floors
+#   below and remove `continue-on-error` from that job. Ratchet the floors
+#   upward only, never down.
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"   # Mondays 04:00 UTC — weekly full run on main
+  workflow_dispatch:        # manual on-demand full run (any branch)
+  pull_request:             # per-PR, scoped to changed lines
+
+permissions:
+  contents: read
+
+# A newer push to a PR cancels the previous (slow) scoped run; weekly/manual
+# full runs are keyed by run_id so they never cancel each other.
+concurrency:
+  group: mutation-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  # Pin the tool so runs are reproducible; bump deliberately (cf. GOSEC_VERSION
+  # in ci.yml). gremlins itself is built with the Go version its module requires
+  # (>= 1.25 for v0.6.0), auto-fetched by the toolchain; the *project's* tests
+  # still run under the go.mod version (1.24) — see the install step.
+  GREMLINS_VERSION: "v0.6.0"
+  # Mutation-score floors. 0 == report-only (gremlins does not enforce). Raise
+  # these as the suite improves; this is the single ratchet knob for both jobs.
+  MUTATION_EFFICACY_MIN: "0"   # % of (KILLED) / (KILLED + LIVED)
+  MUTATION_MCOVER_MIN: "0"     # % of (KILLED + LIVED) / (all mutants)
+
+jobs:
+  full:
+    name: Full run (weekly / on-demand) — report-only
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod   # project tests run under the declared Go version
+      - name: Install gremlins (pinned)
+        # GOTOOLCHAIN=auto lets `go install` fetch the newer Go the gremlins
+        # module requires to *build the tool*, without changing the toolchain
+        # gremlins then shells out to for `go test` on this module.
+        env:
+          GOTOOLCHAIN: auto
+        run: go install "github.com/go-gremlins/gremlins/cmd/gremlins@${GREMLINS_VERSION}"
+      - name: Unleash gremlins on the whole module
+        continue-on-error: true   # report-only — see gating policy at top of file
+        run: |
+          gremlins unleash . \
+            --output mutation-report.json \
+            --threshold-efficacy "${MUTATION_EFFICACY_MIN}" \
+            --threshold-mcover "${MUTATION_MCOVER_MIN}"
+      - name: Upload mutation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: mutation-report.json
+          if-no-files-found: warn
+
+  scoped:
+    name: PR-scoped run (changed lines only) — report-only
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # gremlins --diff needs history back to the merge-base
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install gremlins (pinned)
+        env:
+          GOTOOLCHAIN: auto
+        run: go install "github.com/go-gremlins/gremlins/cmd/gremlins@${GREMLINS_VERSION}"
+      - name: Unleash gremlins on lines changed by this PR
+        continue-on-error: true   # report-only — see gating policy at top of file
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -uo pipefail
+          git fetch --quiet origin "$BASE_REF"
+          # Skip entirely when the PR touches no non-test Go source — otherwise an
+          # empty diff would make gremlins fall back to mutating the whole module,
+          # defeating the point of the scoped job.
+          changed=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- '*.go' \
+                    | grep -vE '_test\.go$' || true)
+          if [ -z "$changed" ]; then
+            echo "No non-test Go source changed by this PR — nothing to mutate."
+            exit 0
+          fi
+          echo "Changed Go source (mutants restricted to these diffs):"
+          echo "$changed"
+          gremlins unleash . \
+            --diff "origin/${BASE_REF}" \
+            --output mutation-report.json \
+            --threshold-efficacy "${MUTATION_EFFICACY_MIN}" \
+            --threshold-mcover "${MUTATION_MCOVER_MIN}"
+      - name: Upload mutation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report-pr
+          path: mutation-report.json
+          if-no-files-found: ignore
