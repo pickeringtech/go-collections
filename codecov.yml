@@ -1,0 +1,48 @@
+# Codecov configuration for go-collections.
+#
+# Goal: make the Codecov-reported total track the authoritative
+# `go tool cover -func` total that CI enforces, and keep Codecov
+# *informational* so it never double-gates merges.
+#
+# Gating policy (matches .github/workflows/ci.yml):
+#   - The coverage floor is enforced in CI by `go tool cover` against
+#     COVERAGE_MIN (currently 90%; actual is ~99%). That check is the
+#     single source of truth and it BLOCKS.
+#   - Codecov here is INFORMATIONAL only (`informational: true`): it posts
+#     a status and a PR comment for visibility but never fails a build.
+#     This avoids a second, redundant gate and stops a flaky upload from
+#     blocking a merge. Promote to a hard gate later by dropping
+#     `informational: true` if desired.
+
+coverage:
+  # Round to whole percent so the Codecov number lines up with the
+  # `go tool cover -func | tail -1` total CI prints.
+  precision: 2
+  round: down
+  range: "90...100"
+
+  status:
+    project:
+      default:
+        # Align with the CI floor; actual is ~99% so this leaves headroom.
+        target: 90%
+        # Allow a small dip from the parent commit without flagging red.
+        threshold: 1%
+        informational: true
+    patch:
+      default:
+        # New/changed lines should themselves clear the floor.
+        target: 90%
+        threshold: 1%
+        informational: true
+
+# Exclude non-product files so the Codecov denominator matches what
+# `go tool cover` measures for the library itself.
+ignore:
+  - "**/*_test.go"      # tests, doc Example funcs, and *_examples_test.go
+  - "**/doc.go"         # package-doc-only files (no executable statements)
+
+comment:
+  layout: "header, diff, flags, components, files"
+  behavior: default
+  require_changes: false
