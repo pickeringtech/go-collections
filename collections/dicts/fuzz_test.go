@@ -25,6 +25,20 @@ func runDictOracle(t *testing.T, d dicts.MutableDict[uint8, uint8], program []by
 			d.RemoveInPlace(key)
 			delete(oracle, key)
 		}
+
+		// Cheap per-step checks keep the dict and oracle in agreement after
+		// every step (full-domain checks happen once at the end), which
+		// localises any divergence to the operation that caused it.
+		oracleVal, inOracle := oracle[key]
+		if got := d.Contains(key); got != inOracle {
+			t.Fatalf("step %d: Contains(%d) = %v, want %v", i/3, key, got, inOracle)
+		}
+		if got, ok := d.Get(key, 0); ok != inOracle || (inOracle && got != oracleVal) {
+			t.Fatalf("step %d: Get(%d) = (%d, %v), want (%d, %v)", i/3, key, got, ok, oracleVal, inOracle)
+		}
+		if d.Length() != len(oracle) {
+			t.Fatalf("step %d: Length = %d, want %d", i/3, d.Length(), len(oracle))
+		}
 	}
 
 	// Length agreement.

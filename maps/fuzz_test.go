@@ -100,6 +100,13 @@ func FuzzUpdate(f *testing.F) {
 		base := bytesToMap(a)
 		upd := bytesToMap(b)
 
+		// Snapshot the base map's full contents so we can detect any mutation
+		// (key removal, value change), not just a length change.
+		snapshot := map[uint8]uint8{}
+		for k, v := range base {
+			snapshot[k] = v
+		}
+
 		got := maps.Update(base, upd)
 
 		want := map[uint8]uint8{}
@@ -117,9 +124,14 @@ func FuzzUpdate(f *testing.F) {
 				t.Fatalf("Update[%d] = %d, want %d", k, got[k], v)
 			}
 		}
-		// Update must not mutate the original input map.
-		if len(base) != len(bytesToMap(a)) {
-			t.Fatalf("Update mutated its input map")
+		// Update must not mutate the original input map (keys or values).
+		if len(base) != len(snapshot) {
+			t.Fatalf("Update changed input map length: %d, want %d", len(base), len(snapshot))
+		}
+		for k, v := range snapshot {
+			if base[k] != v {
+				t.Fatalf("Update mutated input map at key %d: %d, want %d", k, base[k], v)
+			}
 		}
 	})
 }

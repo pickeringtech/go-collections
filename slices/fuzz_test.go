@@ -166,17 +166,33 @@ func FuzzPaginate(f *testing.F) {
 		}
 		input := bytesToInts(data)
 
+		// Compute the exact page count up front. This avoids ever calling
+		// Paginate with a pageIndex large enough to overflow pageSize*pageIndex,
+		// and lets us assert that every non-last page is full.
+		pageCount := 0
+		if len(input) > 0 {
+			pageCount = (len(input)-1)/pageSize + 1
+		}
+
 		var rebuilt []int
-		maxPages := len(input) + 2 // safety bound against runaway loops
-		for pageIndex := 0; pageIndex <= maxPages; pageIndex++ {
+		for pageIndex := 0; pageIndex < pageCount; pageIndex++ {
 			page := slices.Paginate(input, pageIndex, pageSize)
 			if page == nil {
-				break
+				t.Fatalf("page %d unexpectedly nil (pageCount %d, pageSize %d)", pageIndex, pageCount, pageSize)
+			}
+			isLast := pageIndex == pageCount-1
+			if !isLast && len(page) != pageSize {
+				t.Fatalf("non-last page %d has len %d, want full page of %d", pageIndex, len(page), pageSize)
 			}
 			if len(page) > pageSize {
 				t.Fatalf("page %d has len %d > pageSize %d", pageIndex, len(page), pageSize)
 			}
 			rebuilt = append(rebuilt, page...)
+		}
+
+		// The first out-of-range page must be nil.
+		if page := slices.Paginate(input, pageCount, pageSize); page != nil {
+			t.Fatalf("page %d (out of range) = %v, want nil", pageCount, page)
 		}
 
 		if len(rebuilt) != len(input) {

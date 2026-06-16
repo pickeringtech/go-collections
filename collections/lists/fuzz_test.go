@@ -138,10 +138,12 @@ func FuzzConcurrentListRace(f *testing.F) {
 			return
 		}
 
-		// Count how many elements could possibly be added.
+		// Count how many elements could possibly be added. Only Push (0) and
+		// Enqueue (1) add elements in the race worker below — opcode 4 maps to
+		// the read-only PeekEnd, so it must not inflate the bound.
 		var adds int
 		for i := 0; i+1 < len(program); i += 2 {
-			if m := program[i] % 5; m == 0 || m == 1 || m == 4 {
+			if m := program[i] % 5; m == 0 || m == 1 {
 				adds++
 			}
 		}
