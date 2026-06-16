@@ -9,14 +9,22 @@ name: CI
 #                  coverage floor, gofmt, go vet, govulncheck, golangci-lint
 #                  (incl. cyclop/gocognit complexity) and gosec.
 #   - Report-only: Go tip; cross-arch (386 build+vet+test, arm64/s390x
-#                  build+vet only); fuzz and benchmarks. These print
-#                  findings/early warnings but do not fail the build (per #7's
-#                  gating policy).
+#                  build+vet only); fuzz; benchmarks; API compatibility. These
+#                  print findings/early warnings but do not fail the build (per
+#                  #7's gating policy).
 #
 # Test matrix (see #33): the `test` job gates Linux/macOS/Windows on the primary
 # (go.mod) Go version, plus the previous minor on Linux — 4 cells, kept small to
 # control runner-minutes. `test-tip` (Go tip) and `cross-arch` (386/arm64/s390x)
 # are report-only so exotic/experimental cells warn without blocking a merge.
+#
+# API-compatibility gating (#29): the api-compat job runs gorelease against the
+# last released tag and reports the implied semver bump + any breaking changes.
+# It is REPORT-ONLY pre-1.0, because breaking changes are permitted under semver
+# while the major version is 0 — the output exists to inform the CHANGELOG and
+# version-bump decision. Post-v1.0, flip it to blocking (drop continue-on-error
+# and fail when gorelease reports incompatible changes to the stable API), per
+# the project's "ratchet the gates" pattern.
 #
 # Coverage floor is 90% (current total is ~99%); the issue-#7 goal of 85% is met.
 # Raise COVERAGE_MIN as tests are added so coverage can only move upward.
@@ -38,6 +46,8 @@ env:
   # Pin security-tool versions so CI is reproducible; bump deliberately.
   GOVULNCHECK_VERSION: "v1.3.0"
   GOSEC_VERSION: "v2.27.1"
+  # gorelease lives in x/exp, which has no per-command tags — pin the pseudo-version.
+  GORELEASE_VERSION: "v0.0.0-20260611194520-c48552f49976"
 
 jobs:
   build:
@@ -246,6 +256,83 @@ jobs:
         run: |
           go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
           gosec ./...
+
+  api-compat:
+    name: API compatibility (gorelease vs last tag) — report-only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gorelease and the latest-tag lookup both need the full tag history,
+          # which the default shallow checkout omits.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Report API compatibility and implied semver bump
+        # Report-only pre-1.0 (see the gating-policy comment at the top): breaking
+        # changes are allowed while major version is 0, so this surfaces the verdict
+        # without gating. gorelease itself also exits 0 for a pre-1.0 base even when
+        # the API breaks (it just suggests a minor bump), so continue-on-error is a
+        # belt-and-braces guard, not the only thing keeping the job green.
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          go install "golang.org/x/exp/cmd/gorelease@${GORELEASE_VERSION}"
+
+          # Latest released semver tag (vMAJOR.MINOR.PATCH; skip pre-releases).
+          base=$(git tag --sort=-version:refname \
+                   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          if [ -z "$base" ]; then
+            echo "No released semver tag found — nothing to diff against yet."
+            echo "No released tag to compare against." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "Comparing the working tree's public API against $base ..."
+
+          # Write the report OUTSIDE the repo: gorelease treats any untracked file
+          # in the working tree as "uncommitted changes" and aborts, so a report.txt
+          # created in-place by the redirect would make it fail on itself.
+          report="$(mktemp)"
+          # gorelease exits non-zero only for a *failed* analysis (not for finding
+          # breaking changes pre-1.0), so capture the status to distinguish the two.
+          gorelease -base "$base" > "$report" 2>&1 && status=0 || status=$?
+          cat "$report"
+
+          suggested=$(grep -i 'Suggested version' "$report" | head -1 | sed 's/.*: //')
+          # Count change lines that fall under a "## incompatible changes" header.
+          incompat=$(awk '
+            /^## incompatible changes/ {f=1; next}
+            /^## compatible changes/   {f=0; next}
+            /^# /                      {f=0; next}   # new package section ("# path")
+            f && NF                    {c++}
+            END                        {print c+0}' "$report")
+
+          {
+            echo "## API compatibility vs ${base}"
+            echo
+            if [ -z "$suggested" ] && [ "$status" -ne 0 ]; then
+              # gorelease aborted (e.g. couldn't resolve the base) — don't imply a
+              # clean bill of health from an analysis that never produced a verdict.
+              echo "⚠️ gorelease could not complete the analysis (exit ${status}); see the job log."
+            else
+              [ -n "$suggested" ] && echo "**Suggested version:** ${suggested}"
+              echo
+              if [ "${incompat:-0}" -gt 0 ]; then
+                echo "⚠️ **${incompat} incompatible (breaking) change(s)** detected — report-only"
+                echo "pre-1.0. Flag these in the CHANGELOG and the version-bump decision."
+              else
+                echo "✅ No incompatible changes detected."
+              fi
+            fi
+            echo
+            echo "<details><summary>Full gorelease report</summary>"
+            echo
+            echo '```'
+            cat "$report"
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   fuzz:
     name: Fuzz (short run per target) — report-only
