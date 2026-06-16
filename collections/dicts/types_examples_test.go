@@ -2,6 +2,8 @@ package dicts_test
 
 import (
 	"fmt"
+	"sort"
+
 	"github.com/pickeringtech/go-collections/collections/dicts"
 )
 
@@ -84,7 +86,7 @@ func Example_polymorphicUsage() {
 	// Function that works with any Dict implementation
 	processDict := func(d dicts.Dict[string, int], name string) {
 		fmt.Printf("%s - Length: %d\n", name, d.Length())
-		
+
 		// Find all values greater than 5
 		filtered := d.Filter(func(key string, value int) bool {
 			return value > 5
@@ -133,8 +135,8 @@ func Example_functionalStyle() {
 
 	// Chain immutable operations
 	result := original.
-		Put("d", 4).                    // Add new item
-		Remove("a").                    // Remove item
+		Put("d", 4).                        // Add new item
+		Remove("a").                        // Remove item
 		Filter(func(k string, v int) bool { // Keep only even values
 			return v%2 == 0
 		})
@@ -192,7 +194,10 @@ func Example_conversion() {
 	// Convert to Tree for sorted iteration
 	tree := dicts.NewTree(hash.Items()...)
 
-	fmt.Printf("Hash keys (unordered): %v\n", hash.Keys())
+	// Hash iteration order is unspecified, so sort a copy for a stable example.
+	hashKeys := hash.Keys()
+	sort.Strings(hashKeys)
+	fmt.Printf("Hash keys (sorted for display): %v\n", hashKeys)
 	fmt.Printf("Tree keys (sorted): %v\n", tree.Keys())
 
 	// Convert back to native Go map
@@ -200,7 +205,7 @@ func Example_conversion() {
 	fmt.Printf("Native map: %v\n", nativeMap)
 
 	// Output:
-	// Hash keys (unordered): [c a b]
+	// Hash keys (sorted for display): [a b c]
 	// Tree keys (sorted): [a b c]
 	// Native map: map[a:1 b:2 c:3]
 }
@@ -227,9 +232,11 @@ func Example_searchOperations() {
 	})
 	fmt.Printf("Found long key: %t\n", found)
 
-	// Find by value predicate
+	// Find by value predicate. Use a predicate that matches exactly one value
+	// (5 and 3 are both odd) so the result is deterministic regardless of
+	// hash iteration order.
 	foundValue, found := dict.FindValue(func(v int) bool {
-		return v%2 == 1 // odd number
+		return v%2 == 1 && v > 4 // odd number greater than four
 	})
 	if found {
 		fmt.Printf("Found odd value: %d\n", foundValue)

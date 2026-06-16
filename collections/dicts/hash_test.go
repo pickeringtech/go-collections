@@ -282,7 +282,7 @@ func ExampleHash_Put() {
 	)
 
 	newH := h.Put("two", 2)
-	
+
 	fmt.Printf("Original length: %d\n", h.Length())
 	fmt.Printf("New length: %d\n", newH.Length())
 

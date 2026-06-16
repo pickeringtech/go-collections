@@ -99,13 +99,13 @@
 //
 //	// Find error logs from last hour
 //	recentErrors := slices.Filter(logs, func(log LogEntry) bool {
-//		return log.Level == "ERROR" && 
+//		return log.Level == "ERROR" &&
 //			   time.Since(log.Timestamp) < time.Hour
 //	})
 //
 //	// Group by error type
-//	errorCounts := slices.Reduce(recentErrors, 
-//		make(map[string]int), 
+//	errorCounts := slices.Reduce(recentErrors,
+//		make(map[string]int),
 //		func(acc map[string]int, log LogEntry) map[string]int {
 //			acc[log.ErrorType]++
 //			return acc
@@ -142,10 +142,10 @@
 //
 //	// Process data and store in collections
 //	users := []User{...}
-//	
+//
 //	activeEmails := slices.Filter(users, isActive).
 //		Map(getEmail)
-//	
+//
 //	emailSet := collections.NewSet(activeEmails...)
 //	emailDict := collections.NewDict(
 //		slices.Map(activeEmails, func(email string) collections.Pair[string, bool] {

@@ -66,7 +66,7 @@
 // Concurrent Dictionary:
 //
 //	ch := dicts.NewConcurrentHash[string, int]()
-//	
+//
 //	// Safe to use from multiple goroutines
 //	go func() {
 //	    if mutableDict, ok := ch.(dicts.MutableDict[string, int]); ok {
@@ -110,6 +110,7 @@
 // Error Handling:
 //   - Always check the boolean return value from Get() operations
 //   - Use Contains() for existence checks when you don't need the value
+//
 // Package dicts provides powerful key-value mappings that extend Go's built-in maps
 // with rich operations, thread safety, and both immutable and mutable interfaces.
 //

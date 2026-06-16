@@ -89,5 +89,3 @@ func NewConcurrentDoublyLinkedList[T any](elements ...T) lists.List[T] {
 func NewConcurrentRWDoublyLinkedList[T any](elements ...T) lists.List[T] {
 	return lists.NewConcurrentRWDoublyLinked[T](elements...)
 }
-
-

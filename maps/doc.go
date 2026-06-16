@@ -146,11 +146,11 @@
 //
 //	// Extract and process map data
 //	inventory := map[string]int{"apples": 50, "oranges": 30}
-//	
+//
 //	// Get keys and process with slices
 //	items := maps.Keys(inventory)
 //	sortedItems := slices.Sort(items, func(a, b string) bool { return a < b })
-//	
+//
 //	// Store in collections
 //	itemSet := collections.NewSet(items...)
 //	itemDict := collections.NewDict(

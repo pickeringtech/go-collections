@@ -1,0 +1,42 @@
+# golangci-lint v2 configuration.
+#
+# Enabled linters back the product mission (trustworthy, readable collections):
+#   - errcheck, govet, ineffassign, staticcheck, unused  (the v2 "standard" set;
+#     staticcheck subsumes gosimple + stylecheck)
+#   - unconvert   — flags redundant type conversions
+#   - misspell    — catches typos in comments/docs
+#   - revive      — fast, configurable style/lint rules
+#   - cyclop      — cyclomatic complexity ceiling (readability standard)
+#   - gocognit    — cognitive complexity ceiling (readability standard)
+#
+# CI currently runs this report-only; thresholds below are the agreed ceilings
+# so they are meaningful the moment the gate is flipped to blocking.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard
+  enable:
+    - unconvert
+    - misspell
+    - revive
+    - cyclop
+    - gocognit
+  settings:
+    cyclop:
+      max-complexity: 15
+    gocognit:
+      min-complexity: 20
+  exclusions:
+    rules:
+      # Tests, examples and benchmarks are allowed to be longer/more involved.
+      - path: _test\.go
+        linters:
+          - cyclop
+          - gocognit
+
+formatters:
+  enable:
+    - gofmt
