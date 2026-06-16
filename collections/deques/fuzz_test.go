@@ -18,13 +18,18 @@ func assertMatches(t *testing.T, name string, d deques.Deque[uint8], oracle []ui
 	if len(got) != len(oracle) {
 		t.Fatalf("%s: AsSlice length = %d, want %d", name, len(got), len(oracle))
 	}
-	// FromSeq(Values) must round-trip back to the same front-to-back contents.
-	if rt := deques.FromSeq(d.Values()).AsSlice(); len(rt) != len(oracle) {
+	// FromSeq(Values) must round-trip back to the same front-to-back contents:
+	// check length and every element/position, not just the length.
+	rt := deques.FromSeq(d.Values()).AsSlice()
+	if len(rt) != len(oracle) {
 		t.Fatalf("%s: FromSeq round-trip length = %d, want %d", name, len(rt), len(oracle))
 	}
 	for i := range oracle {
 		if got[i] != oracle[i] {
 			t.Fatalf("%s: element[%d] = %d, want %d (full %v want %v)", name, i, got[i], oracle[i], got, oracle)
+		}
+		if rt[i] != oracle[i] {
+			t.Fatalf("%s: FromSeq round-trip[%d] = %d, want %d (full %v want %v)", name, i, rt[i], oracle[i], rt, oracle)
 		}
 	}
 	front, okF := d.PeekFront()

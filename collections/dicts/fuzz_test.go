@@ -100,23 +100,35 @@ func assertDictIterators(t *testing.T, d dicts.MutableDict[uint8, uint8], oracle
 		t.Fatalf("All entries = %v, want %v", allSeen, oracle)
 	}
 
-	keyCount := 0
+	// KeysSeq must yield exactly the oracle's key set — each key once, no
+	// omissions — independently of All. Tracking membership (not just a count)
+	// catches an iterator that duplicates one key while dropping another.
+	keysSeen := map[uint8]struct{}{}
 	for k := range d.KeysSeq() {
 		if _, ok := oracle[k]; !ok {
 			t.Fatalf("KeysSeq yielded %d not in oracle", k)
 		}
-		keyCount++
+		if _, dup := keysSeen[k]; dup {
+			t.Fatalf("KeysSeq yielded duplicate key %d", k)
+		}
+		keysSeen[k] = struct{}{}
 	}
-	if keyCount != len(oracle) {
-		t.Fatalf("KeysSeq count = %d, want %d", keyCount, len(oracle))
+	if len(keysSeen) != len(oracle) {
+		t.Fatalf("KeysSeq yielded %d distinct keys, want %d", len(keysSeen), len(oracle))
 	}
 
-	valCount := 0
-	for range d.ValuesSeq() {
-		valCount++
+	// ValuesSeq must yield the oracle's values as a multiset (a value repeated
+	// across keys must appear once per key), so compare value->count tallies.
+	wantVals := map[uint8]int{}
+	for _, v := range oracle {
+		wantVals[v]++
 	}
-	if valCount != len(oracle) {
-		t.Fatalf("ValuesSeq count = %d, want %d", valCount, len(oracle))
+	gotVals := map[uint8]int{}
+	for v := range d.ValuesSeq() {
+		gotVals[v]++
+	}
+	if !reflect.DeepEqual(gotVals, wantVals) {
+		t.Fatalf("ValuesSeq tally = %v, want %v", gotVals, wantVals)
 	}
 
 	roundTrip := dicts.FromSeq2(d.All())

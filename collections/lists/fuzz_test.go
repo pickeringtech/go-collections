@@ -135,10 +135,21 @@ func assertListIterators(t *testing.T, name string, l lists.MutableList[uint8], 
 		}
 	}
 
+	// Backward must yield indices strictly descending from len-1 down to 0, with
+	// each value matching the oracle at that index. Tracking the expected index
+	// independently catches a buggy impl that iterates front-to-back.
+	wantIdx := len(oracle) - 1
 	for i, v := range l.Backward() {
+		if i != wantIdx {
+			t.Fatalf("%s: Backward yielded index %d, want %d (not back-to-front)", name, i, wantIdx)
+		}
 		if v != oracle[i] {
 			t.Fatalf("%s: Backward index %d = %d, want %d", name, i, v, oracle[i])
 		}
+		wantIdx--
+	}
+	if wantIdx != -1 {
+		t.Fatalf("%s: Backward yielded %d elements, want %d", name, len(oracle)-1-wantIdx, len(oracle))
 	}
 
 	roundTrip := lists.FromSeq(l.Values()).AsSlice()
