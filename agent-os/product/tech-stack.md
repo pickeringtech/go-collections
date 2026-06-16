@@ -38,10 +38,8 @@ These are development/CI dependencies only — they do not affect the zero **run
 GitHub Actions on push/PR, fronted by a single stable `CI Gate` aggregator that is
 the only required branch-protection check (#41), so matrix/job changes never wedge PRs:
 
-- **Build & module hygiene**, **race + coverage tests** across an OS × Go-version matrix (#33), **lint/complexity** (`golangci-lint`, committed `.golangci.yml`), **security** (`govulncheck` + `gosec`) — all blocking.
-- **Fuzzing:** `testing.F` targets across collections/utilities (#10), run as a fast count-based smoke step (#25).
-- **Examples E2E:** separate-module example apps with golden-output assertions (#30) — blocking.
-- **Report-only (ratcheting toward blocking):** API compatibility via `gorelease` (#29), benchmark-regression via `benchstat` (#31), mutation testing via `gremlins` (#32), and Codecov upload (#14).
+- **Blocking** (in `CI Gate`'s `needs:`): **build & module hygiene**, **race + coverage tests** across an OS × Go-version matrix (#33), **lint/complexity** (`golangci-lint`, committed `.golangci.yml`), **security** (`govulncheck` + `gosec`), and **examples E2E** (separate-module apps with golden-output assertions, #30).
+- **Report-only** (not in the gate; `continue-on-error`): **fuzzing** (`testing.F` targets, fast count-based smoke run, #10/#25), **API compatibility** via `gorelease` (#29), **benchmark-regression** via `benchstat` (#31), **mutation testing** via `gremlins` (#32), and **Codecov** upload (#14). The latter four ratchet toward blocking as they prove out.
 
 ## Planned (not yet in repo)
 

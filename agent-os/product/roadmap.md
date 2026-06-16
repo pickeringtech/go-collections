@@ -34,18 +34,20 @@ is about hardening these into a trustworthy, stable v1.0.
 
 ## Verification harness (done)
 
-The "real verification" mission pillar is largely delivered and gating via the
-`CI Gate` aggregator ([#41](https://github.com/pickeringtech/go-collections/issues/41)):
-build, race+coverage tests across an OS × Go-version matrix
+The "real verification" mission pillar is largely delivered. **Blocking** via the
+`CI Gate` aggregator ([#41](https://github.com/pickeringtech/go-collections/issues/41),
+its `needs:` list): build, race+coverage tests across an OS × Go-version matrix
 ([#33](https://github.com/pickeringtech/go-collections/issues/33)), lint/complexity,
-security (govulncheck + gosec), fuzz ([#10](https://github.com/pickeringtech/go-collections/issues/10),
-fast count-based run [#25](https://github.com/pickeringtech/go-collections/issues/25)),
-and the examples golden-output E2E ([#30](https://github.com/pickeringtech/go-collections/issues/30)).
-Report-only (ratcheting toward blocking): API compatibility
-([#29](https://github.com/pickeringtech/go-collections/issues/29)), benchmark
-regression ([#31](https://github.com/pickeringtech/go-collections/issues/31)),
+security (govulncheck + gosec), and the examples golden-output E2E
+([#30](https://github.com/pickeringtech/go-collections/issues/30)).
+**Report-only** (not in the gate; `continue-on-error`): fuzz
+([#10](https://github.com/pickeringtech/go-collections/issues/10), fast count-based
+run [#25](https://github.com/pickeringtech/go-collections/issues/25)), API
+compatibility ([#29](https://github.com/pickeringtech/go-collections/issues/29)),
+benchmark regression ([#31](https://github.com/pickeringtech/go-collections/issues/31)),
 mutation testing ([#32](https://github.com/pickeringtech/go-collections/issues/32)),
-and Codecov ([#14](https://github.com/pickeringtech/go-collections/issues/14)).
+and Codecov ([#14](https://github.com/pickeringtech/go-collections/issues/14)). The
+last four ratchet toward blocking as they prove out.
 
 ## Phase 2: Post-Launch
 
