@@ -70,6 +70,7 @@ func main() {
 | **[Dicts](./collections/dicts/)** | Key-value mappings with rich operations | Mutex & RWMutex |
 | **[Sets](./collections/sets/)** | Mathematical sets with union, intersection | Mutex & RWMutex |
 | **[Lists](./collections/lists/)** | Flexible sequences with stack/queue operations | Mutex & RWMutex |
+| **[Deques](./collections/deques/)** | Double-ended queue / bounded ring buffer | Mutex & RWMutex |
 
 ### Utilities
 
