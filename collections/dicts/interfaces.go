@@ -1,5 +1,11 @@
 package dicts
 
+import (
+	"iter"
+
+	"github.com/pickeringtech/go-collections/constraints"
+)
+
 // Indexable provides basic key-value access operations for dictionaries.
 type Indexable[K comparable, V any] interface {
 	// Get retrieves the value associated with the given key.
@@ -152,6 +158,62 @@ type Dict[K comparable, V any] interface {
 // comprehensive key-value operations with the ability to modify the dictionary in place.
 type MutableDict[K comparable, V any] interface {
 	Dict[K, V]
+	MutableFilterable[K, V]
+	MutableInsertable[K, V]
+	MutableRemovable[K, V]
+}
+
+// Ordered provides sorted-order navigation and iteration for dictionaries whose
+// keys are kept in sorted order (e.g. Tree). These are pure read-only queries, so
+// — unlike the mutating roles — there is no in-place twin.
+type Ordered[K constraints.Ordered, V any] interface {
+	// Min returns the entry with the smallest key.
+	// Returns the key, value, and true if the dictionary is non-empty;
+	// zero values and false otherwise.
+	Min() (K, V, bool)
+
+	// Max returns the entry with the largest key.
+	// Returns the key, value, and true if the dictionary is non-empty;
+	// zero values and false otherwise.
+	Max() (K, V, bool)
+
+	// Floor returns the entry with the largest key less than or equal to the
+	// given key. Returns the key, value, and true if such an entry exists;
+	// zero values and false otherwise.
+	Floor(key K) (K, V, bool)
+
+	// Ceiling returns the entry with the smallest key greater than or equal to
+	// the given key. Returns the key, value, and true if such an entry exists;
+	// zero values and false otherwise.
+	Ceiling(key K) (K, V, bool)
+
+	// Range returns all entries whose key is within the inclusive range
+	// [lo, hi], in ascending key order. Returns a non-nil (possibly empty) slice.
+	Range(lo, hi K) []Pair[K, V]
+
+	// All returns an iterator over all entries in ascending key order.
+	All() iter.Seq2[K, V]
+
+	// Backward returns an iterator over all entries in descending key order.
+	Backward() iter.Seq2[K, V]
+
+	// RangeAll returns an iterator over the entries whose key is within the
+	// inclusive range [lo, hi], in ascending key order.
+	RangeAll(lo, hi K) iter.Seq2[K, V]
+}
+
+// SortedDict represents an immutable dictionary whose keys are maintained in
+// sorted order, adding ordered navigation and iteration on top of the standard
+// Dict contract.
+type SortedDict[K constraints.Ordered, V any] interface {
+	Dict[K, V]
+	Ordered[K, V]
+}
+
+// MutableSortedDict represents a mutable dictionary whose keys are maintained in
+// sorted order, combining the SortedDict contract with in-place mutation.
+type MutableSortedDict[K constraints.Ordered, V any] interface {
+	SortedDict[K, V]
 	MutableFilterable[K, V]
 	MutableInsertable[K, V]
 	MutableRemovable[K, V]

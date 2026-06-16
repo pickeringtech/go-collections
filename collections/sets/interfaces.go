@@ -1,5 +1,11 @@
 package sets
 
+import (
+	"iter"
+
+	"github.com/pickeringtech/go-collections/constraints"
+)
+
 // Indexable provides basic element access operations for sets.
 type Indexable[T comparable] interface {
 	// Contains checks if the given element exists in the set.
@@ -160,6 +166,58 @@ type Set[T comparable] interface {
 // comprehensive element operations with the ability to modify the set in place.
 type MutableSet[T comparable] interface {
 	Set[T]
+	MutableFilterable[T]
+	MutableInsertable[T]
+	MutableRemovable[T]
+	MutableSetOperations[T]
+}
+
+// Ordered provides sorted-order navigation and iteration for sets whose elements
+// are kept in sorted order (e.g. TreeSet). These are pure read-only queries, so
+// — unlike the mutating roles — there is no in-place twin.
+type Ordered[T constraints.Ordered] interface {
+	// Min returns the smallest element.
+	// Returns the element and true if the set is non-empty; zero value and false otherwise.
+	Min() (T, bool)
+
+	// Max returns the largest element.
+	// Returns the element and true if the set is non-empty; zero value and false otherwise.
+	Max() (T, bool)
+
+	// Floor returns the largest element less than or equal to the given element.
+	// Returns the element and true if such an element exists; zero value and false otherwise.
+	Floor(element T) (T, bool)
+
+	// Ceiling returns the smallest element greater than or equal to the given element.
+	// Returns the element and true if such an element exists; zero value and false otherwise.
+	Ceiling(element T) (T, bool)
+
+	// Range returns all elements within the inclusive range [lo, hi], in
+	// ascending order. Returns a non-nil (possibly empty) slice.
+	Range(lo, hi T) []T
+
+	// All returns an iterator over all elements in ascending order.
+	All() iter.Seq[T]
+
+	// Backward returns an iterator over all elements in descending order.
+	Backward() iter.Seq[T]
+
+	// RangeAll returns an iterator over the elements within the inclusive range
+	// [lo, hi], in ascending order.
+	RangeAll(lo, hi T) iter.Seq[T]
+}
+
+// SortedSet represents an immutable set whose elements are maintained in sorted
+// order, adding ordered navigation and iteration on top of the standard Set contract.
+type SortedSet[T constraints.Ordered] interface {
+	Set[T]
+	Ordered[T]
+}
+
+// MutableSortedSet represents a mutable set whose elements are maintained in
+// sorted order, combining the SortedSet contract with in-place mutation.
+type MutableSortedSet[T constraints.Ordered] interface {
+	SortedSet[T]
 	MutableFilterable[T]
 	MutableInsertable[T]
 	MutableRemovable[T]
