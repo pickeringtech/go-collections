@@ -632,6 +632,30 @@ func TestListMultimap_RemoveFirstOccurrence(t *testing.T) {
 	}
 }
 
+// TestListMultimap_NonComparableValues verifies that the list-backed multimap
+// accepts non-comparable value types (here, []int) and compares them with
+// reflect.DeepEqual for ContainsEntry / Remove.
+func TestListMultimap_NonComparableValues(t *testing.T) {
+	m := multimaps.NewListMultimap[string, []int]()
+	m.PutInPlace("a", []int{1, 2})
+	m.PutInPlace("a", []int{3, 4})
+
+	if !m.ContainsEntry("a", []int{1, 2}) {
+		t.Errorf("ContainsEntry(a, [1 2]) = false, want true")
+	}
+	if m.ContainsEntry("a", []int{9, 9}) {
+		t.Errorf("ContainsEntry(a, [9 9]) = true, want false")
+	}
+	if !m.RemoveInPlace("a", []int{1, 2}) {
+		t.Errorf("RemoveInPlace(a, [1 2]) = false, want true")
+	}
+	got := m.Get("a")
+	want := [][]int{{3, 4}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Get(a) = %v, want %v", got, want)
+	}
+}
+
 // TestSetMultimap_Dedupes verifies the set-backed multimap collapses duplicates.
 func TestSetMultimap_Dedupes(t *testing.T) {
 	m := multimaps.NewSetMultimap[string, int]()

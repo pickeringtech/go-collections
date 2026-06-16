@@ -94,18 +94,18 @@ func NewConcurrentRWLinkedList[T any](elements ...T) lists.List[T] {
 	return lists.NewConcurrentRWLinked[T](elements...)
 }
 
-// NewListMultimap creates a list-backed Multimap (one key to many ordered, possibly-duplicate values) with the given entries.
-func NewListMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+// NewListMultimap creates a list-backed Multimap (one key to many ordered, possibly-duplicate values) with the given entries. V may be any type.
+func NewListMultimap[K comparable, V any](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
 	return multimaps.NewListMultimap(entries...)
 }
 
-// NewConcurrentListMultimap creates a thread-safe list-backed Multimap (mutex-guarded) with the given entries.
-func NewConcurrentListMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+// NewConcurrentListMultimap creates a thread-safe list-backed Multimap (mutex-guarded) with the given entries. V may be any type.
+func NewConcurrentListMultimap[K comparable, V any](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
 	return multimaps.NewConcurrentListMultimap(entries...)
 }
 
-// NewConcurrentRWListMultimap creates a thread-safe list-backed Multimap optimised for concurrent reads (RWMutex-guarded) with the given entries.
-func NewConcurrentRWListMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+// NewConcurrentRWListMultimap creates a thread-safe list-backed Multimap optimised for concurrent reads (RWMutex-guarded) with the given entries. V may be any type.
+func NewConcurrentRWListMultimap[K comparable, V any](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
 	return multimaps.NewConcurrentRWListMultimap(entries...)
 }
 

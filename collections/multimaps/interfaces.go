@@ -3,7 +3,7 @@ package multimaps
 import "iter"
 
 // Indexable provides basic key-to-many-values access operations for multimaps.
-type Indexable[K comparable, V comparable] interface {
+type Indexable[K comparable, V any] interface {
 	// Get returns a copy of all values currently bound to the given key.
 	// If the key has no values, an empty (non-nil) slice is returned. The
 	// returned slice is independent of the multimap; mutating it does not
@@ -15,6 +15,9 @@ type Indexable[K comparable, V comparable] interface {
 	ContainsKey(key K) bool
 
 	// ContainsEntry reports whether the given key is bound to the given value.
+	// Value equality follows the backing: set-backed multimaps require V to be
+	// comparable and use native equality; list-backed multimaps accept any V and
+	// compare with reflect.DeepEqual.
 	ContainsEntry(key K, value V) bool
 
 	// Length returns the total number of entries (key-value associations) in
@@ -31,7 +34,7 @@ type Indexable[K comparable, V comparable] interface {
 }
 
 // Iterable provides iteration capabilities for multimaps.
-type Iterable[K comparable, V comparable] interface {
+type Iterable[K comparable, V any] interface {
 	// ForEach executes the given function once for every entry (key-value
 	// association), visiting each key once per value bound to it.
 	ForEach(fn func(key K, value V))
@@ -50,7 +53,7 @@ type Iterable[K comparable, V comparable] interface {
 }
 
 // Filterable provides filtering capabilities for multimaps.
-type Filterable[K comparable, V comparable] interface {
+type Filterable[K comparable, V any] interface {
 	// Filter returns a new multimap containing only the entries that satisfy
 	// the given predicate. Keys left with no values are dropped. The original
 	// is not modified.
@@ -58,7 +61,7 @@ type Filterable[K comparable, V comparable] interface {
 }
 
 // MutableFilterable provides in-place filtering capabilities.
-type MutableFilterable[K comparable, V comparable] interface {
+type MutableFilterable[K comparable, V any] interface {
 	// FilterInPlace removes every entry that does not satisfy the given
 	// predicate, modifying the multimap in place. Keys left with no values are
 	// dropped.
@@ -69,7 +72,7 @@ type MutableFilterable[K comparable, V comparable] interface {
 //
 // AllMatch, AnyMatch, NoneMatch and Find form the search core shared across the
 // lists, dicts and sets families, here operating over individual entries.
-type Searchable[K comparable, V comparable] interface {
+type Searchable[K comparable, V any] interface {
 	// AllMatch returns true if every entry satisfies the given predicate. It is
 	// vacuously true for an empty multimap.
 	AllMatch(fn func(key K, value V) bool) bool
@@ -89,7 +92,7 @@ type Searchable[K comparable, V comparable] interface {
 }
 
 // Convertible provides conversion capabilities for multimaps.
-type Convertible[K comparable, V comparable] interface {
+type Convertible[K comparable, V any] interface {
 	// Keys returns a slice containing each distinct key once. Order is
 	// unspecified.
 	Keys() []K
@@ -109,7 +112,7 @@ type Convertible[K comparable, V comparable] interface {
 }
 
 // Insertable provides insertion capabilities for multimaps.
-type Insertable[K comparable, V comparable] interface {
+type Insertable[K comparable, V any] interface {
 	// Put returns a new multimap with the given value bound to the given key,
 	// in addition to any existing values. The original is not modified.
 	Put(key K, value V) Multimap[K, V]
@@ -121,7 +124,7 @@ type Insertable[K comparable, V comparable] interface {
 }
 
 // MutableInsertable provides in-place insertion capabilities.
-type MutableInsertable[K comparable, V comparable] interface {
+type MutableInsertable[K comparable, V any] interface {
 	// PutInPlace binds the given value to the given key, in addition to any
 	// existing values, modifying the multimap in place.
 	PutInPlace(key K, value V)
@@ -132,7 +135,7 @@ type MutableInsertable[K comparable, V comparable] interface {
 }
 
 // Removable provides removal capabilities for multimaps.
-type Removable[K comparable, V comparable] interface {
+type Removable[K comparable, V any] interface {
 	// Remove returns a new multimap with a single binding of the given value to
 	// the given key removed. For list-backed multimaps the first occurrence is
 	// removed; set-backed multimaps hold at most one. The original is not
@@ -145,7 +148,7 @@ type Removable[K comparable, V comparable] interface {
 }
 
 // MutableRemovable provides in-place removal capabilities.
-type MutableRemovable[K comparable, V comparable] interface {
+type MutableRemovable[K comparable, V any] interface {
 	// RemoveInPlace removes a single binding of the given value to the given
 	// key, modifying the multimap in place. Returns true if a binding was
 	// present and removed; false otherwise.
@@ -163,7 +166,7 @@ type MutableRemovable[K comparable, V comparable] interface {
 // Multimap represents an immutable multimap interface: one key maps to many
 // values, with operations that return a new multimap rather than modifying the
 // receiver.
-type Multimap[K comparable, V comparable] interface {
+type Multimap[K comparable, V any] interface {
 	Indexable[K, V]
 	Iterable[K, V]
 	Filterable[K, V]
@@ -175,7 +178,7 @@ type Multimap[K comparable, V comparable] interface {
 
 // MutableMultimap represents a mutable multimap interface, extending Multimap
 // with in-place operations that modify the receiver.
-type MutableMultimap[K comparable, V comparable] interface {
+type MutableMultimap[K comparable, V any] interface {
 	Multimap[K, V]
 	MutableFilterable[K, V]
 	MutableInsertable[K, V]

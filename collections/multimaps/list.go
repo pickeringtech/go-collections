@@ -1,6 +1,9 @@
 package multimaps
 
-import "iter"
+import (
+	"iter"
+	"reflect"
+)
 
 // ListMultimap is a list-backed multimap: each key maps to an ordered slice of
 // values that preserves insertion order and allows the same value to be bound to
@@ -13,6 +16,9 @@ import "iter"
 // Key iteration order is unspecified (it follows Go's map iteration); the order
 // of values within a single key is the order in which they were inserted.
 //
+// V may be any type, including non-comparable types such as slices or maps:
+// value equality (for ContainsEntry and Remove) uses reflect.DeepEqual.
+//
 // Example usage:
 //
 //	// Group orders by customer, preserving order and duplicates.
@@ -21,7 +27,7 @@ import "iter"
 //	orders.PutInPlace("alice", "pen")
 //	orders.PutInPlace("alice", "book") // duplicate kept
 //	alice := orders.Get("alice")       // ["book", "pen", "book"]
-type ListMultimap[K comparable, V comparable] map[K][]V
+type ListMultimap[K comparable, V any] map[K][]V
 
 // NewListMultimap creates a new list-backed multimap seeded with the given
 // entries, preserving their order and any duplicate bindings.
@@ -36,7 +42,7 @@ type ListMultimap[K comparable, V comparable] map[K][]V
 //		multimaps.Entry[string, int]{Key: "alice", Value: 10},
 //		multimaps.Entry[string, int]{Key: "alice", Value: 20},
 //	)
-func NewListMultimap[K comparable, V comparable](entries ...Entry[K, V]) ListMultimap[K, V] {
+func NewListMultimap[K comparable, V any](entries ...Entry[K, V]) ListMultimap[K, V] {
 	m := make(ListMultimap[K, V])
 	for _, entry := range entries {
 		m[entry.Key] = append(m[entry.Key], entry.Value)
@@ -45,8 +51,10 @@ func NewListMultimap[K comparable, V comparable](entries ...Entry[K, V]) ListMul
 }
 
 // Interface guards to ensure ListMultimap implements the required interfaces.
+// The [string, []int] guard proves the API accepts non-comparable value types.
 var _ Multimap[string, int] = ListMultimap[string, int]{}
 var _ MutableMultimap[string, int] = ListMultimap[string, int]{}
+var _ MutableMultimap[string, []int] = ListMultimap[string, []int]{}
 
 // Get returns a copy of all values bound to the given key, in insertion order.
 // Returns an empty (non-nil) slice if the key has no values.
@@ -61,9 +69,10 @@ func (m ListMultimap[K, V]) ContainsKey(key K) bool {
 }
 
 // ContainsEntry reports whether the given key is bound to the given value.
+// Values are compared with reflect.DeepEqual so non-comparable types are safe.
 func (m ListMultimap[K, V]) ContainsEntry(key K, value V) bool {
 	for _, existing := range m[key] {
-		if existing == value {
+		if reflect.DeepEqual(existing, value) {
 			return true
 		}
 	}
@@ -300,7 +309,7 @@ func (m ListMultimap[K, V]) RemoveInPlace(key K, value V) bool {
 		return false
 	}
 	for index, existing := range values {
-		if existing != value {
+		if !reflect.DeepEqual(existing, value) {
 			continue
 		}
 		remaining := append(values[:index], values[index+1:]...)
@@ -342,7 +351,7 @@ func (m ListMultimap[K, V]) clone() ListMultimap[K, V] {
 }
 
 // cloneValues returns an independent, non-nil copy of the given values.
-func cloneValues[V comparable](values []V) []V {
+func cloneValues[V any](values []V) []V {
 	result := make([]V, len(values))
 	copy(result, values)
 	return result

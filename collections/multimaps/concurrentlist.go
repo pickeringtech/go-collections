@@ -12,14 +12,14 @@ import (
 //
 // Immutable operations return a new ConcurrentListMultimap, preserving thread
 // safety of results (see the concurrency standards).
-type ConcurrentListMultimap[K comparable, V comparable] struct {
+type ConcurrentListMultimap[K comparable, V any] struct {
 	data ListMultimap[K, V]
 	lock *sync.Mutex
 }
 
 // NewConcurrentListMultimap creates a new thread-safe, list-backed multimap
 // seeded with the given entries.
-func NewConcurrentListMultimap[K comparable, V comparable](entries ...Entry[K, V]) *ConcurrentListMultimap[K, V] {
+func NewConcurrentListMultimap[K comparable, V any](entries ...Entry[K, V]) *ConcurrentListMultimap[K, V] {
 	return &ConcurrentListMultimap[K, V]{
 		data: NewListMultimap(entries...),
 		lock: &sync.Mutex{},
