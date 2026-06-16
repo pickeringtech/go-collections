@@ -189,19 +189,23 @@ jobs:
           fi
           echo "Comparing the working tree's public API against $base ..."
 
+          # Write the report OUTSIDE the repo: gorelease treats any untracked file
+          # in the working tree as "uncommitted changes" and aborts, so a report.txt
+          # created in-place by the redirect would make it fail on itself.
+          report="$(mktemp)"
           # gorelease exits non-zero only for a *failed* analysis (not for finding
           # breaking changes pre-1.0), so capture the status to distinguish the two.
-          gorelease -base "$base" > report.txt 2>&1 && status=0 || status=$?
-          cat report.txt
+          gorelease -base "$base" > "$report" 2>&1 && status=0 || status=$?
+          cat "$report"
 
-          suggested=$(grep -i 'Suggested version' report.txt | head -1 | sed 's/.*: //')
+          suggested=$(grep -i 'Suggested version' "$report" | head -1 | sed 's/.*: //')
           # Count change lines that fall under a "## incompatible changes" header.
           incompat=$(awk '
             /^## incompatible changes/ {f=1; next}
             /^## compatible changes/   {f=0; next}
             /^# /                      {f=0; next}   # new package section ("# path")
             f && NF                    {c++}
-            END                        {print c+0}' report.txt)
+            END                        {print c+0}' "$report")
 
           {
             echo "## API compatibility vs ${base}"
@@ -224,7 +228,7 @@ jobs:
             echo "<details><summary>Full gorelease report</summary>"
             echo
             echo '```'
-            cat report.txt
+            cat "$report"
             echo '```'
             echo "</details>"
           } >> "$GITHUB_STEP_SUMMARY"
