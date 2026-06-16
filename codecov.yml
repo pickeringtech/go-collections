@@ -15,8 +15,8 @@
 #     `informational: true` if desired.
 
 coverage:
-  # Round to whole percent so the Codecov number lines up with the
-  # `go tool cover -func | tail -1` total CI prints.
+  # Two decimal places, rounded down — matches the precision of the
+  # `go tool cover -func | tail -1` total CI prints (e.g. 99.12%).
   precision: 2
   round: down
   range: "90...100"
