@@ -2,6 +2,8 @@ package dicts
 
 import (
 	"cmp"
+	"reflect"
+
 	"github.com/pickeringtech/go-collections/constraints"
 )
 
@@ -307,14 +309,14 @@ func (t *Tree[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 }
 
 // ContainsValue checks if the given value exists in the dictionary.
+//
+// Values are compared with reflect.DeepEqual, matching the equality semantics
+// used by list removal. This supports non-comparable value types (slices, maps,
+// funcs) without panicking.
 func (t *Tree[K, V]) ContainsValue(value V) bool {
-	found := false
-	t.ForEach(func(_ K, v V) {
-		if !found && any(v) == any(value) {
-			found = true
-		}
+	return t.AnyMatch(func(_ K, v V) bool {
+		return reflect.DeepEqual(v, value)
 	})
-	return found
 }
 
 // Keys returns a slice containing all keys in sorted order.
