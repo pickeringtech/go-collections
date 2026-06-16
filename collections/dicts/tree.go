@@ -314,13 +314,9 @@ func (t *Tree[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 // used by list removal. This supports non-comparable value types (slices, maps,
 // funcs) without panicking.
 func (t *Tree[K, V]) ContainsValue(value V) bool {
-	found := false
-	t.ForEach(func(_ K, v V) {
-		if !found && reflect.DeepEqual(v, value) {
-			found = true
-		}
+	return t.AnyMatch(func(_ K, v V) bool {
+		return reflect.DeepEqual(v, value)
 	})
-	return found
 }
 
 // Keys returns a slice containing all keys in sorted order.
