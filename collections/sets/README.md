@@ -1,8 +1,8 @@
-# Sets - Mathematical Collections Made Simple
+# Sets - Mathematical Collections
 
-The `sets` package brings the power of mathematical sets to Go with a clean, intuitive API. Perfect for membership testing, eliminating duplicates, and performing set operations like union and intersection.
+The `sets` package provides mathematical sets for Go. Use it for membership testing, removing duplicates, and set operations like union and intersection.
 
-## 🚀 Quick Start
+## Quick Start
 
 ```go
 import "github.com/pickeringtech/go-collections/collections/sets"
@@ -18,7 +18,7 @@ missing := permissions.Difference(userPerms)           // {execute}
 isSubset := userPerms.IsSubsetOf(permissions)          // true
 ```
 
-## ✨ Why Use Sets?
+## Why Use Sets?
 
 **Native Go maps for sets are clunky:**
 ```go
@@ -32,7 +32,7 @@ if _, exists := permissions["read"]; exists {
 // No built-in operations for union, intersection, etc.
 ```
 
-**Sets are elegant and powerful:**
+**Sets are concise:**
 ```go
 // Clean and expressive
 permissions := sets.NewHash("read", "write", "execute")

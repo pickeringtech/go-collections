@@ -1,8 +1,8 @@
 # Collections - Core Data Structures
 
-The `collections` package provides the foundation of the Go Collections library with three essential data structures: **Dicts** (key-value mappings), **Sets** (unique collections), and **Lists** (ordered sequences).
+The `collections` package provides the core of the Go Collections library with three data structures: **Dicts** (key-value mappings), **Sets** (unique collections), and **Lists** (ordered sequences).
 
-## 🎯 Quick Start
+## Quick Start
 
 ```go
 import "github.com/pickeringtech/go-collections/collections"
@@ -17,10 +17,10 @@ set := collections.NewSet("red", "green", "blue")
 list := collections.NewList(1, 2, 3, 4, 5)
 ```
 
-## 📦 What's Inside
+## What's Inside
 
-### 🗂️ Dicts - Key-Value Mappings
-Perfect for lookups, caching, and associative data.
+### Dicts - Key-Value Mappings
+Use for lookups, caching, and associative data.
 
 ```go
 // Create a user database
@@ -44,8 +44,8 @@ activeUsers := users.Filter(func(id int, name string) bool {
 - `NewConcurrentDict()` - Thread-safe with mutex
 - `NewConcurrentRWDict()` - Thread-safe with read-write mutex (best for read-heavy)
 
-### 🎯 Sets - Unique Collections
-Perfect for membership testing and mathematical operations.
+### Sets - Unique Collections
+Use for membership testing and mathematical operations.
 
 ```go
 // Create permission sets
@@ -68,8 +68,8 @@ canDelete := adminPerms.Contains("delete") // true
 - `NewConcurrentSet()` - Thread-safe with mutex
 - `NewConcurrentRWSet()` - Thread-safe with read-write mutex
 
-### 📋 Lists - Ordered Sequences
-Perfect for stacks, queues, and ordered data.
+### Lists - Ordered Sequences
+Use for stacks, queues, and ordered data.
 
 ```go
 // Create a task queue
@@ -96,7 +96,7 @@ longTasks := tasks.Filter(func(task string) bool {
 - `NewConcurrentDoublyLinkedList()` - Thread-safe bidirectional list
 - `NewConcurrentRWList()` - Read-optimized thread-safe list
 
-## 🔄 Common Patterns
+## Common Patterns
 
 ### Immutable vs Mutable Operations
 
@@ -153,7 +153,7 @@ total, _ := counter.Get("requests", 0)
 fmt.Printf("Total requests: %d\n", total)
 ```
 
-## 🚀 Performance Guide
+## Performance Guide
 
 ### Choose the Right Implementation
 
@@ -174,7 +174,7 @@ fmt.Printf("Total requests: %d\n", total)
 | Remove | O(1) | O(1) | O(n) | ~2x slower |
 | Iteration | O(n) | O(n) | O(n) | Minimal |
 
-## 📚 Detailed Documentation
+## Detailed Documentation
 
 Each data structure has comprehensive documentation:
 
@@ -182,7 +182,7 @@ Each data structure has comprehensive documentation:
 - **[Sets Documentation](./sets/README.md)** - Complete guide to mathematical sets
 - **[Lists Documentation](./lists/README.md)** - Complete guide to ordered sequences
 
-## 🎨 Real-World Examples
+## Real-World Examples
 
 ### Web Application Cache
 ```go
@@ -253,7 +253,7 @@ go func() {
 }()
 ```
 
-## 🔧 Best Practices
+## Best Practices
 
 1. **Choose Immutable for Functional Style**: Use `Put()`, `Add()`, `Filter()` for functional programming
 2. **Choose Mutable for Performance**: Use `PutInPlace()`, `AddInPlace()` for high-performance scenarios
@@ -261,5 +261,5 @@ go func() {
 4. **Prefer Sets for Membership**: Use sets instead of maps when you only need to check existence
 5. **Use Lists for Ordered Data**: When insertion order or sequential access matters
 
-Start with the simple variants (`NewDict`, `NewSet`, `NewList`) and upgrade to concurrent versions only when needed!
+Start with the simple variants (`NewDict`, `NewSet`, `NewList`) and switch to concurrent versions only when needed.
 
