@@ -91,16 +91,21 @@ gh pr view "$PR" --json mergeable,mergeStateStatus,baseRefName,headRefName
 ### Poll: automated review status (is Copilot still reviewing?)
 
 ```bash
-# Pending if the automated reviewer is still in the requested-reviewers list.
+# Primary signal: Copilot is mid-review iff it is still a requested reviewer.
+# GitHub clears it from reviewRequests when it submits, and re-adds it on each
+# new push (when auto-review is enabled), so this naturally re-arms per commit.
 gh pr view "$PR" --json reviewRequests -q '.reviewRequests[].login'
-# Has it reviewed at all yet?
-gh pr view "$PR" --json reviews \
-  -q '[.reviews[] | select(.author.login=="copilot-pull-request-reviewer")] | length'
+
+# Optional, more robust: confirm Copilot's latest review points at the current
+# head SHA — otherwise its review predates your last push and is stale.
+HEAD_SHA=$(gh pr view "$PR" --json headRefOid -q .headRefOid)
+gh api "repos/$OWNER_REPO/pulls/$PR/reviews" \
+  -q '[.[] | select(.user.login=="copilot-pull-request-reviewer")] | last | .commit_id'
 ```
-- **Review pending** if `copilot-pull-request-reviewer` is in `reviewRequests`,
-  **or** it has been requested but has not yet submitted a review for the current
-  head commit. GitHub re-requests Copilot on each new push (when auto-review is
-  enabled), so this re-arms after every commit you push.
+- **Review pending** if `copilot-pull-request-reviewer` is in `reviewRequests`
+  (or, using the optional check, its latest review's `commit_id` != `HEAD_SHA`).
+  Key off `reviewRequests` as the primary signal — do **not** infer "reviewed the
+  latest push" from a mere count of past reviews.
 - **Not applicable** if no automated reviewer is configured/requested at all —
   then there is nothing to wait for; don't block.
 - This is a **finalization gate**, not an OR-race signal: it only governs whether
@@ -217,10 +222,13 @@ gh pr update-branch "$PR"          # no-op if already current
 # (resolve any conflicts on their merits, as in the conflict playbook).
 
 # 2. Arm auto-merge so the PR merges the instant it is green + up to date.
-#    Pick the merge method GitHub reports as the repo default
-#    (gh repo view --json viewerDefaultMergeMethod -q .viewerDefaultMergeMethod);
-#    --squash here is a sensible fallback when no default is detected.
-gh pr merge "$PR" --auto --squash
+#    Use the repo's default merge method; fall back to --squash if none detected.
+case "$(gh repo view --json viewerDefaultMergeMethod -q .viewerDefaultMergeMethod)" in
+  MERGE)  FLAG=--merge  ;;
+  REBASE) FLAG=--rebase ;;
+  *)      FLAG=--squash ;;   # SQUASH or unset
+esac
+gh pr merge "$PR" --auto "$FLAG"
 ```
 
 - **Auto-merge is now in-scope** for this skill (the user opted into it): arming
