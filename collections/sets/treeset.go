@@ -206,10 +206,15 @@ func (s *TreeSet[T]) RemoveManyInPlace(elements ...T) {
 }
 
 // DifferenceInPlace removes all elements that are present in the other set.
+//
+// The elements to remove are snapshotted before any mutation, so passing the
+// receiver itself (s.DifferenceInPlace(s), which empties the set) does not
+// mutate the backing tree while it is being traversed.
 func (s *TreeSet[T]) DifferenceInPlace(other Set[T]) {
-	other.ForEach(func(element T) {
+	toRemove := other.AsSlice()
+	for _, element := range toRemove {
 		s.tree.RemoveInPlace(element)
-	})
+	}
 }
 
 // Clear removes all elements from the set.

@@ -315,6 +315,17 @@ func TestTreeSet_Mutations(t *testing.T) {
 	}
 }
 
+// TestTreeSet_DifferenceInPlaceSelf guards against mutating the backing tree
+// mid-traversal: removing the receiver from itself must empty it cleanly rather
+// than corrupt the in-order walk.
+func TestTreeSet_DifferenceInPlaceSelf(t *testing.T) {
+	s := sets.NewTreeSet(5, 3, 9, 1, 7, 4)
+	s.DifferenceInPlace(s)
+	if !s.IsEmpty() {
+		t.Errorf("DifferenceInPlace(self) left %v, want empty", s.AsSlice())
+	}
+}
+
 // TestConcurrentTreeSet_ReturnsConcurrentType asserts the thread-safe-in →
 // thread-safe-out contract for immutable operations.
 func TestConcurrentTreeSet_ReturnsConcurrentType(t *testing.T) {
