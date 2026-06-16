@@ -33,8 +33,17 @@ These are development/CI dependencies only — they do not affect the zero **run
 - **Module path:** `github.com/pickeringtech/go-collections`, distributed via the Go module proxy.
 - **API reference:** published on [pkg.go.dev](https://pkg.go.dev/github.com/pickeringtech/go-collections) / GoDoc, driven by per-package `doc.go` files.
 
+## CI / verification (in repo)
+
+GitHub Actions on push/PR, fronted by a single stable `CI Gate` aggregator that is
+the only required branch-protection check (#41), so matrix/job changes never wedge PRs:
+
+- **Build & module hygiene**, **race + coverage tests** across an OS × Go-version matrix (#33), **lint/complexity** (`golangci-lint`, committed `.golangci.yml`), **security** (`govulncheck` + `gosec`) — all blocking.
+- **Fuzzing:** `testing.F` targets across collections/utilities (#10), run as a fast count-based smoke step (#25).
+- **Examples E2E:** separate-module example apps with golden-output assertions (#30) — blocking.
+- **Report-only (ratcheting toward blocking):** API compatibility via `gorelease` (#29), benchmark-regression via `benchstat` (#31), mutation testing via `gremlins` (#32), and Codecov upload (#14).
+
 ## Planned (not yet in repo)
 
-- **CI:** GitHub Actions running build, test (`-race`), lint, complexity, fuzz, and vulnerability checks on push/PR (#7).
-- **Linting:** committed `.golangci.yml` configuration for development.
-- **Fuzzing:** `testing.F` fuzz targets across the collections and utility packages (#10).
+- **Iterator support:** Go 1.23+ `iter.Seq`/`iter.Seq2` accessors across the collections (#53).
+- **Serialization:** `MarshalJSON`/`UnmarshalJSON` on the concrete collection types.
