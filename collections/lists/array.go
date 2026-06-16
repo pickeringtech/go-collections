@@ -128,22 +128,19 @@ func (a *Array[T]) IsEmpty() bool {
 	return a.Length() == 0
 }
 
-// RemoveAt returns a new slice with the element at index removed, without
-// modifying the receiver. If index is out of bounds the elements are returned
-// unchanged.
+// RemoveAt returns a new, independent slice with the element at index removed,
+// without modifying the receiver. If index is out of bounds the elements are
+// returned unchanged.
 func (a *Array[T]) RemoveAt(index int) []T {
-	return slices.Delete(a.elements, index)
+	return deleteOwned(slices.Copy(a.elements), index)
 }
 
-// Remove returns a new slice with the first element deeply equal to element
-// removed, without modifying the receiver. If no element matches, the elements
-// are returned unchanged.
+// Remove returns a new, independent slice with the first element deeply equal to
+// element removed, without modifying the receiver. If no element matches, the
+// elements are returned unchanged.
 func (a *Array[T]) Remove(element T) []T {
-	index := indexOfDeepEqual(a.elements, element)
-	if index < 0 {
-		return slices.Copy(a.elements)
-	}
-	return slices.Delete(a.elements, index)
+	elements := slices.Copy(a.elements)
+	return deleteOwned(elements, indexOfDeepEqual(elements, element))
 }
 
 // RemoveAtInPlace removes the element at index, returning it and whether the

@@ -1,10 +1,6 @@
 package lists
 
-import (
-	"reflect"
-
-	"github.com/pickeringtech/go-collections/slices"
-)
+import "reflect"
 
 // doublyNode represents a single node in the doubly linked list.
 type doublyNode[T any] struct {
@@ -217,9 +213,10 @@ func (dl *DoublyLinked[T]) IsEmpty() bool {
 
 // RemoveAt returns a new slice with the element at index removed, without
 // modifying the receiver. If index is out of bounds the elements are returned
-// unchanged.
+// unchanged. GetAsSlice already allocates a fresh slice, so the element is
+// deleted in place on it without a second copy.
 func (dl *DoublyLinked[T]) RemoveAt(index int) []T {
-	return slices.Delete(dl.GetAsSlice(), index)
+	return deleteOwned(dl.GetAsSlice(), index)
 }
 
 // Remove returns a new slice with the first element deeply equal to element
@@ -227,11 +224,7 @@ func (dl *DoublyLinked[T]) RemoveAt(index int) []T {
 // are returned unchanged.
 func (dl *DoublyLinked[T]) Remove(element T) []T {
 	slice := dl.GetAsSlice()
-	index := indexOfDeepEqual(slice, element)
-	if index < 0 {
-		return slice
-	}
-	return slices.Delete(slice, index)
+	return deleteOwned(slice, indexOfDeepEqual(slice, element))
 }
 
 // RemoveAtInPlace removes the element at index, returning it and whether the

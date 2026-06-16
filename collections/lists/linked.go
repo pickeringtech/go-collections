@@ -1,10 +1,6 @@
 package lists
 
-import (
-	"reflect"
-
-	"github.com/pickeringtech/go-collections/slices"
-)
+import "reflect"
 
 type node[T any] struct {
 	value  T
@@ -270,9 +266,10 @@ func (l *Linked[T]) IsEmpty() bool {
 
 // RemoveAt returns a new slice with the element at index removed, without
 // modifying the receiver. If index is out of bounds the elements are returned
-// unchanged.
+// unchanged. GetAsSlice already allocates a fresh slice, so the element is
+// deleted in place on it without a second copy.
 func (l *Linked[T]) RemoveAt(index int) []T {
-	return slices.Delete(l.GetAsSlice(), index)
+	return deleteOwned(l.GetAsSlice(), index)
 }
 
 // Remove returns a new slice with the first element deeply equal to element
@@ -280,11 +277,7 @@ func (l *Linked[T]) RemoveAt(index int) []T {
 // are returned unchanged.
 func (l *Linked[T]) Remove(element T) []T {
 	slice := l.GetAsSlice()
-	index := indexOfDeepEqual(slice, element)
-	if index < 0 {
-		return slice
-	}
-	return slices.Delete(slice, index)
+	return deleteOwned(slice, indexOfDeepEqual(slice, element))
 }
 
 // RemoveAtInPlace removes the element at index, returning it and whether the
@@ -328,7 +321,7 @@ func (l *Linked[T]) removeFirst(match func(index int, value T) bool) (T, bool) {
 	prev := l.head
 	current := l.head.next
 	index := 1
-	for current != nil && !(l.isCircular && current == l.head) {
+	for current != nil && (!l.isCircular || current != l.head) {
 		if match(index, current.value) {
 			value := current.value
 			prev.next = current.next

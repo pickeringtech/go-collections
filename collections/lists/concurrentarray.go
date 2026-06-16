@@ -211,7 +211,7 @@ func (a *ConcurrentArray[T]) RemoveAt(index int) []T {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	return slices.Delete(slices.Copy(a.elements), index)
+	return deleteOwned(slices.Copy(a.elements), index)
 }
 
 // Remove returns a new slice (independent of the receiver's backing array) with
@@ -223,11 +223,7 @@ func (a *ConcurrentArray[T]) Remove(element T) []T {
 	defer a.lock.Unlock()
 
 	elements := slices.Copy(a.elements)
-	index := indexOfDeepEqual(elements, element)
-	if index < 0 {
-		return elements
-	}
-	return slices.Delete(elements, index)
+	return deleteOwned(elements, indexOfDeepEqual(elements, element))
 }
 
 // RemoveAtInPlace removes the element at index, returning it and whether the

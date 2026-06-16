@@ -83,6 +83,16 @@ func TestMutableList_RemoveAt(t *testing.T) {
 					t.Errorf("RemoveAt(%d) = %v, want [10 20 30]", idx, got)
 				}
 			}
+
+			// The returned slice is independent of the list, including on the
+			// out-of-bounds path: mutating it must not affect the receiver.
+			oob := l.RemoveAt(99)
+			if len(oob) > 0 {
+				oob[0] = -1
+			}
+			if got := l.RemoveAt(99); !reflect.DeepEqual(got, []int{10, 20, 30}) {
+				t.Errorf("RemoveAt result leaked backing array; list now %v", got)
+			}
 		})
 	}
 }
