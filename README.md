@@ -70,6 +70,7 @@ func main() {
 | **[Dicts](./collections/dicts/)** | Key-value mappings with rich operations | Mutex & RWMutex |
 | **[Sets](./collections/sets/)** | Mathematical sets with union, intersection | Mutex & RWMutex |
 | **[Lists](./collections/lists/)** | Flexible sequences with stack/queue operations | Mutex & RWMutex |
+| **[LRU](./collections/lru/)** | Bounded cache with least-recently-used eviction | Mutex & RWMutex |
 
 ### Utilities
 
@@ -183,6 +184,7 @@ downstream-consumer smoke test. See the [examples README](./examples/README.md).
 - **[Dicts Documentation](./collections/dicts/README.md)** - Key-value mappings
 - **[Sets Documentation](./collections/sets/README.md)** - Mathematical sets
 - **[Lists Documentation](./collections/lists/README.md)** - Ordered sequences
+- **[LRU Documentation](./collections/lru/README.md)** - Bounded cache with eviction
 - **[Slices Utilities](./slices/README.md)** - Enhanced slice operations
 - **[Maps Utilities](./maps/README.md)** - Native map helpers
 - **[Channels Utilities](./channels/README.md)** - Pipeline processing

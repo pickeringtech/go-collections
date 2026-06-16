@@ -181,6 +181,7 @@ Each data structure has comprehensive documentation:
 - **[Dicts Documentation](./dicts/README.md)** - Complete guide to key-value mappings
 - **[Sets Documentation](./sets/README.md)** - Complete guide to mathematical sets
 - **[Lists Documentation](./lists/README.md)** - Complete guide to ordered sequences
+- **[LRU Documentation](./lru/README.md)** - Complete guide to bounded caches with eviction
 
 ## Real-World Examples
 
