@@ -16,6 +16,10 @@ name: CI
 #                  A/B-compares against the base branch with benchstat and posts
 #                  the delta table — still advisory (see the job for the
 #                  documented path to a future regression gate).
+#   - main-only:   bench-report regenerates BENCHMARKS.md, docs/bench.svg and
+#                  the README preview, then bot-commits with `[skip ci]` (issue
+#                  #50). It runs only on push to main and is the sole job with
+#                  contents:write; the `[skip ci]` tag stops it re-triggering CI.
 #
 # Branch protection (#41): the ONLY required check is the `CI Gate` job, which
 # `needs:` every blocking job and fails unless they all succeed. Requiring a
@@ -589,6 +593,64 @@ jobs:
             gh api -X POST "${api}/${PR_NUMBER}/comments" -F body=@comment.md >/dev/null \
               && echo "Posted benchstat comment." \
               || echo "::warning::Could not post PR comment (likely a fork's read-only token); see the job summary."
+          fi
+
+  bench-report:
+    # main-only: regenerate the performance report (BENCHMARKS.md), the chart
+    # (docs/bench.svg) and the README preview region, then bot-commit the result
+    # so the project's performance story is visible and self-updating (issue #50).
+    #
+    # Deliberately isolated from the PR `benchmarks` job above, which stays
+    # contents:read + report-only. This is the ONLY job that writes to the repo.
+    #
+    # Recursion guard (two layers): the job runs only on a direct push to main,
+    # and the bot commit carries `[skip ci]`, which GitHub Actions honours by not
+    # starting a new run — so the commit this job makes never re-triggers CI.
+    #
+    # Thin wrapper over `make bench-report` so local and CI generation can't
+    # drift: the Make target owns the run → benchstat → generator pipeline.
+    name: Benchmark report (main-only — regenerate & commit)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      # push-time only; the PR report path above stays contents: read.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the rebase-on-reject retry below has something to
+          # rebase onto if main advances while this job runs.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      - name: Install benchstat (pinned)
+        # Same pinned version as the PR A/B job, for a reproducible CSV format.
+        run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
+      - name: Regenerate report, chart, and README preview
+        # Uses the repo's BENCH_TIME/BENCH_COUNT knobs (exported from env above)
+        # rather than the 10x smoke, so the committed numbers are meaningful.
+        run: make bench-report
+      - name: Commit regenerated artifacts (if changed) with [skip ci]
+        run: |
+          set -euo pipefail
+          changed=$(git status --porcelain -- BENCHMARKS.md docs/bench.svg README.md)
+          if [ -z "$changed" ]; then
+            echo "No benchmark-artifact changes — nothing to commit."
+            exit 0
+          fi
+          echo "Changed artifacts:"; echo "$changed"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add BENCHMARKS.md docs/bench.svg README.md
+          # [skip ci] in the subject is the recursion guard — keep it.
+          git commit -m "chore(bench): regenerate report, chart & README preview [skip ci]"
+          # main may have advanced while we benchmarked; rebase and retry once.
+          if ! git push origin HEAD:main; then
+            echo "::warning::push rejected (main advanced); rebasing and retrying once"
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
 
   ci-gate:
