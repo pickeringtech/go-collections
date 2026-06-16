@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/dicts"
+	"github.com/pickeringtech/go-collections/collections/multimaps"
 )
 
 // listConstructor names a List-returning constructor so the same assertions can
@@ -146,6 +147,35 @@ func TestDictConstructors(t *testing.T) {
 			_, ok = d.Get("missing", -1)
 			if ok {
 				t.Errorf("Get(missing) ok = true, want false")
+			}
+		})
+	}
+}
+
+func TestMultimapConstructors(t *testing.T) {
+	multimapFns := map[string]func(...multimaps.Entry[string, int]) multimaps.Multimap[string, int]{
+		"NewListMultimap":             NewListMultimap[string, int],
+		"NewConcurrentListMultimap":   NewConcurrentListMultimap[string, int],
+		"NewConcurrentRWListMultimap": NewConcurrentRWListMultimap[string, int],
+		"NewSetMultimap":              NewSetMultimap[string, int],
+		"NewConcurrentSetMultimap":    NewConcurrentSetMultimap[string, int],
+		"NewConcurrentRWSetMultimap":  NewConcurrentRWSetMultimap[string, int],
+	}
+	for name, make := range multimapFns {
+		t.Run(name, func(t *testing.T) {
+			m := make(
+				multimaps.Entry[string, int]{Key: "a", Value: 1},
+				multimaps.Entry[string, int]{Key: "a", Value: 2},
+				multimaps.Entry[string, int]{Key: "b", Value: 3},
+			)
+			if m.KeyCount() != 2 {
+				t.Errorf("KeyCount() = %d, want 2", m.KeyCount())
+			}
+			if !m.ContainsEntry("a", 1) {
+				t.Errorf("ContainsEntry(a, 1) = false, want true")
+			}
+			if m.ContainsEntry("a", 99) {
+				t.Errorf("ContainsEntry(a, 99) = true, want false")
 			}
 		})
 	}

@@ -53,6 +53,20 @@
 //		return len(task) > 4
 //	})
 //
+// # Multimaps - One Key, Many Values
+//
+// Multimaps map a single key to many values, replacing hand-rolled
+// map[K][]V plumbing:
+//
+//	// Group orders by customer (ordered, duplicates kept)
+//	orders := collections.NewListMultimap[string, string]()
+//	orders.PutInPlace("alice", "book")
+//	orders.PutInPlace("alice", "pen")
+//	alice := orders.Get("alice") // [book pen]
+//
+//	// Tag documents (duplicates collapsed)
+//	tags := collections.NewSetMultimap[string, string]()
+//
 // # Thread Safety
 //
 // All data structures offer thread-safe variants:
