@@ -1,5 +1,7 @@
 package lists
 
+import "reflect"
+
 // doublyNode represents a single node in the doubly linked list.
 type doublyNode[T any] struct {
 	value T
@@ -65,6 +67,11 @@ func (dl *DoublyLinked[T]) AnyMatch(fn func(T) bool) bool {
 		}
 	}
 	return false
+}
+
+// NoneMatch returns true if no element satisfies the given predicate.
+func (dl *DoublyLinked[T]) NoneMatch(fn func(T) bool) bool {
+	return !dl.AnyMatch(fn)
 }
 
 // Find returns the first element that satisfies the given predicate.
@@ -177,8 +184,12 @@ func (dl *DoublyLinked[T]) Get(index int, defaultValue T) (T, bool) {
 	if index < 0 || index >= dl.size {
 		return defaultValue, false
 	}
+	return dl.nodeAt(index).value, true
+}
 
-	// Optimize by starting from head or tail
+// nodeAt returns the node at index, walking from whichever end is closer. The
+// caller must ensure index is within [0, dl.size).
+func (dl *DoublyLinked[T]) nodeAt(index int) *doublyNode[T] {
 	var current *doublyNode[T]
 	if index < dl.size/2 {
 		// Start from head
@@ -193,13 +204,67 @@ func (dl *DoublyLinked[T]) Get(index int, defaultValue T) (T, bool) {
 			current = current.prev
 		}
 	}
-
-	return current.value, true
+	return current
 }
 
 // Length returns the number of elements in the list.
 func (dl *DoublyLinked[T]) Length() int {
 	return dl.size
+}
+
+// IsEmpty returns true if the list contains no elements.
+func (dl *DoublyLinked[T]) IsEmpty() bool {
+	return dl.size == 0
+}
+
+// RemoveAt returns a new slice with the element at index removed, without
+// modifying the receiver. If index is out of bounds the elements are returned
+// unchanged. AsSlice already allocates a fresh slice, so the element is
+// deleted in place on it without a second copy.
+func (dl *DoublyLinked[T]) RemoveAt(index int) []T {
+	return deleteOwned(dl.AsSlice(), index)
+}
+
+// Remove returns a new slice with the first element deeply equal to element
+// removed, without modifying the receiver. If no element matches, the elements
+// are returned unchanged.
+func (dl *DoublyLinked[T]) Remove(element T) []T {
+	slice := dl.AsSlice()
+	return deleteOwned(slice, indexOfDeepEqual(slice, element))
+}
+
+// RemoveAtInPlace removes the element at index, returning it and whether the
+// index was in bounds, modifying the receiver.
+func (dl *DoublyLinked[T]) RemoveAtInPlace(index int) (T, bool) {
+	if index < 0 || index >= dl.size {
+		var zero T
+		return zero, false
+	}
+	node := dl.nodeAt(index)
+	value := node.value
+	dl.removeNode(node)
+	return value, true
+}
+
+// RemoveInPlace removes the first element deeply equal to element, reporting
+// whether an element was removed, modifying the receiver.
+func (dl *DoublyLinked[T]) RemoveInPlace(element T) bool {
+	current := dl.head
+	for i := 0; i < dl.size; i++ {
+		if reflect.DeepEqual(current.value, element) {
+			dl.removeNode(current)
+			return true
+		}
+		current = current.next
+	}
+	return false
+}
+
+// Clear removes all elements from the list.
+func (dl *DoublyLinked[T]) Clear() {
+	dl.head = nil
+	dl.tail = nil
+	dl.size = 0
 }
 
 // ForEach executes the given function for each element.

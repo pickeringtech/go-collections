@@ -1,7 +1,7 @@
 # Go Collections
 
 <a href="https://github.com/pickeringtech/go-collections/actions/workflows/ci.yml"><img src="https://github.com/pickeringtech/go-collections/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-<a href="https://codecov.io/gh/pickeringtech/go-collections"><img src="https://codecov.io/gh/pickeringtech/go-collections/branch/main/graph/badge.svg" alt="Coverage"></a>
+<a href="https://codecov.io/gh/pickeringtech/go-collections"><img src="https://codecov.io/gh/pickeringtech/go-collections/graph/badge.svg?token=J2EZ0A9GUI" alt="Coverage"></a>
 <a href="https://pkg.go.dev/github.com/pickeringtech/go-collections"><img src="https://img.shields.io/badge/api-reference-blue.svg?style=flat-square" alt="GoDoc"></a>
 
 **A comprehensive, type-safe, and high-performance collections library for Go**

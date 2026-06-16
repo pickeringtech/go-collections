@@ -33,16 +33,25 @@ type MutableFilterable[T comparable] interface {
 }
 
 // Searchable provides search capabilities for sets.
+//
+// AllMatch, AnyMatch, NoneMatch and Find form the search core shared across the
+// lists, dicts and sets families.
 type Searchable[T comparable] interface {
 	// Find returns the first element that satisfies the given predicate.
 	// Returns the element and true if found; zero value and false otherwise.
 	Find(fn func(element T) bool) (T, bool)
 
 	// AllMatch returns true if all elements satisfy the given predicate.
+	// It is vacuously true for an empty set.
 	AllMatch(fn func(element T) bool) bool
 
 	// AnyMatch returns true if any element satisfies the given predicate.
+	// It is false for an empty set.
 	AnyMatch(fn func(element T) bool) bool
+
+	// NoneMatch returns true if no element satisfies the given predicate.
+	// It is vacuously true for an empty set.
+	NoneMatch(fn func(element T) bool) bool
 }
 
 // Convertible provides conversion capabilities for sets.

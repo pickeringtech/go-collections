@@ -44,6 +44,13 @@ func (cl *ConcurrentRWDoublyLinked[T]) AnyMatch(fn func(T) bool) bool {
 	return cl.data.AnyMatch(fn)
 }
 
+// NoneMatch returns true if no element satisfies the given predicate.
+func (cl *ConcurrentRWDoublyLinked[T]) NoneMatch(fn func(T) bool) bool {
+	cl.lock.RLock()
+	defer cl.lock.RUnlock()
+	return cl.data.NoneMatch(fn)
+}
+
 // Find returns the first element that satisfies the given predicate.
 func (cl *ConcurrentRWDoublyLinked[T]) Find(fn func(T) bool) (T, bool) {
 	cl.lock.RLock()
@@ -85,6 +92,52 @@ func (cl *ConcurrentRWDoublyLinked[T]) Length() int {
 	cl.lock.RLock()
 	defer cl.lock.RUnlock()
 	return cl.data.Length()
+}
+
+// IsEmpty returns true if the list contains no elements.
+func (cl *ConcurrentRWDoublyLinked[T]) IsEmpty() bool {
+	cl.lock.RLock()
+	defer cl.lock.RUnlock()
+	return cl.data.IsEmpty()
+}
+
+// RemoveAt returns a new slice with the element at index removed, without
+// modifying the receiver.
+func (cl *ConcurrentRWDoublyLinked[T]) RemoveAt(index int) []T {
+	cl.lock.RLock()
+	defer cl.lock.RUnlock()
+	return cl.data.RemoveAt(index)
+}
+
+// Remove returns a new slice with the first element deeply equal to element
+// removed, without modifying the receiver.
+func (cl *ConcurrentRWDoublyLinked[T]) Remove(element T) []T {
+	cl.lock.RLock()
+	defer cl.lock.RUnlock()
+	return cl.data.Remove(element)
+}
+
+// RemoveAtInPlace removes the element at index, returning it and whether the
+// index was in bounds.
+func (cl *ConcurrentRWDoublyLinked[T]) RemoveAtInPlace(index int) (T, bool) {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	return cl.data.RemoveAtInPlace(index)
+}
+
+// RemoveInPlace removes the first element deeply equal to element, reporting
+// whether an element was removed.
+func (cl *ConcurrentRWDoublyLinked[T]) RemoveInPlace(element T) bool {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	return cl.data.RemoveInPlace(element)
+}
+
+// Clear removes all elements from the list.
+func (cl *ConcurrentRWDoublyLinked[T]) Clear() {
+	cl.lock.Lock()
+	defer cl.lock.Unlock()
+	cl.data.Clear()
 }
 
 // ForEach executes the given function for each element.

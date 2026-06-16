@@ -130,6 +130,19 @@ func (ch *ConcurrentHash[T]) AnyMatch(fn func(element T) bool) bool {
 	return false
 }
 
+// NoneMatch returns true if no element satisfies the given predicate.
+func (ch *ConcurrentHash[T]) NoneMatch(fn func(element T) bool) bool {
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
+
+	for element := range ch.data {
+		if fn(element) {
+			return false
+		}
+	}
+	return true
+}
+
 // AsSlice returns the set as a slice.
 func (ch *ConcurrentHash[T]) AsSlice() []T {
 	ch.lock.Lock()

@@ -206,6 +206,43 @@ func (t *Tree[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	}
 }
 
+// AllMatch returns true if every key-value pair satisfies the given predicate.
+// It is vacuously true for an empty dictionary. It short-circuits on the first
+// pair that fails the predicate.
+func (t *Tree[K, V]) AllMatch(fn func(key K, value V) bool) bool {
+	return !t.anyInOrder(t.root, func(key K, value V) bool {
+		return !fn(key, value)
+	})
+}
+
+// AnyMatch returns true if at least one key-value pair satisfies the given
+// predicate. It is false for an empty dictionary. It short-circuits on the
+// first matching pair.
+func (t *Tree[K, V]) AnyMatch(fn func(key K, value V) bool) bool {
+	return t.anyInOrder(t.root, fn)
+}
+
+// anyInOrder reports whether any key-value pair in the subtree rooted at n
+// satisfies fn, traversing in order and returning as soon as a match is found.
+func (t *Tree[K, V]) anyInOrder(n *node[K, V], fn func(key K, value V) bool) bool {
+	if n == nil {
+		return false
+	}
+	if t.anyInOrder(n.Left, fn) {
+		return true
+	}
+	if fn(n.Key, n.Value) {
+		return true
+	}
+	return t.anyInOrder(n.Right, fn)
+}
+
+// NoneMatch returns true if no key-value pair satisfies the given predicate.
+// It is vacuously true for an empty dictionary.
+func (t *Tree[K, V]) NoneMatch(fn func(key K, value V) bool) bool {
+	return !t.AnyMatch(fn)
+}
+
 // Find returns the first key-value pair that satisfies the given predicate.
 // Returns the key, value, and true if found; zero values and false otherwise.
 func (t *Tree[K, V]) Find(fn func(key K, value V) bool) (K, V, bool) {

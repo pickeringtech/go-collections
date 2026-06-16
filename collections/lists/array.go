@@ -32,6 +32,12 @@ func (a *Array[T]) AnyMatch(fn func(T) bool) bool {
 	return slices.AnyMatch(a.elements, fn)
 }
 
+// NoneMatch returns true if no element satisfies the predicate fn (vacuously
+// true for an empty list).
+func (a *Array[T]) NoneMatch(fn func(T) bool) bool {
+	return !slices.AnyMatch(a.elements, fn)
+}
+
 // Dequeue returns the first element, whether one was present, and a new slice
 // with that element removed, without modifying the receiver.
 func (a *Array[T]) Dequeue() (T, bool, []T) {
@@ -124,6 +130,54 @@ func (a *Array[T]) InsertInPlace(index int, element ...T) {
 // Length returns the number of elements in the list.
 func (a *Array[T]) Length() int {
 	return slices.Length(a.elements)
+}
+
+// IsEmpty returns true if the list contains no elements.
+func (a *Array[T]) IsEmpty() bool {
+	return a.Length() == 0
+}
+
+// RemoveAt returns a new, independent slice with the element at index removed,
+// without modifying the receiver. If index is out of bounds the elements are
+// returned unchanged.
+func (a *Array[T]) RemoveAt(index int) []T {
+	return deleteOwned(slices.Copy(a.elements), index)
+}
+
+// Remove returns a new, independent slice with the first element deeply equal to
+// element removed, without modifying the receiver. If no element matches, the
+// elements are returned unchanged.
+func (a *Array[T]) Remove(element T) []T {
+	elements := slices.Copy(a.elements)
+	return deleteOwned(elements, indexOfDeepEqual(elements, element))
+}
+
+// RemoveAtInPlace removes the element at index, returning it and whether the
+// index was in bounds, modifying the receiver.
+func (a *Array[T]) RemoveAtInPlace(index int) (T, bool) {
+	if index < 0 || index >= len(a.elements) {
+		var zero T
+		return zero, false
+	}
+	removed := a.elements[index]
+	a.elements = slices.Delete(a.elements, index)
+	return removed, true
+}
+
+// RemoveInPlace removes the first element deeply equal to element, reporting
+// whether an element was removed, modifying the receiver.
+func (a *Array[T]) RemoveInPlace(element T) bool {
+	index := indexOfDeepEqual(a.elements, element)
+	if index < 0 {
+		return false
+	}
+	a.elements = slices.Delete(a.elements, index)
+	return true
+}
+
+// Clear removes all elements from the list.
+func (a *Array[T]) Clear() {
+	a.elements = nil
 }
 
 // PeekEnd returns the last element without removing it, and whether one was

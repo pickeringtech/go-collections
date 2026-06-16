@@ -1,5 +1,7 @@
 package lists
 
+import "reflect"
+
 type node[T any] struct {
 	value  T
 	next   *node[T]
@@ -130,6 +132,11 @@ func (l *Linked[T]) AnyMatch(fn func(T) bool) bool {
 	return false
 }
 
+// NoneMatch returns true if no element satisfies the given predicate.
+func (l *Linked[T]) NoneMatch(fn func(T) bool) bool {
+	return !l.AnyMatch(fn)
+}
+
 // Find returns the first element that satisfies the given predicate.
 func (l *Linked[T]) Find(fn func(T) bool) (T, bool) {
 	current := l.head
@@ -256,6 +263,93 @@ func (l *Linked[T]) Length() int {
 		}
 	}
 	return count
+}
+
+// IsEmpty returns true if the list contains no elements.
+func (l *Linked[T]) IsEmpty() bool {
+	return l.head == nil
+}
+
+// RemoveAt returns a new slice with the element at index removed, without
+// modifying the receiver. If index is out of bounds the elements are returned
+// unchanged. AsSlice already allocates a fresh slice, so the element is
+// deleted in place on it without a second copy.
+func (l *Linked[T]) RemoveAt(index int) []T {
+	return deleteOwned(l.AsSlice(), index)
+}
+
+// Remove returns a new slice with the first element deeply equal to element
+// removed, without modifying the receiver. If no element matches, the elements
+// are returned unchanged.
+func (l *Linked[T]) Remove(element T) []T {
+	slice := l.AsSlice()
+	return deleteOwned(slice, indexOfDeepEqual(slice, element))
+}
+
+// RemoveAtInPlace removes the element at index, returning it and whether the
+// index was in bounds, modifying the receiver.
+func (l *Linked[T]) RemoveAtInPlace(index int) (T, bool) {
+	return l.removeFirst(func(i int, _ T) bool { return i == index })
+}
+
+// RemoveInPlace removes the first element deeply equal to element, reporting
+// whether an element was removed, modifying the receiver.
+func (l *Linked[T]) RemoveInPlace(element T) bool {
+	_, ok := l.removeFirst(func(_ int, value T) bool {
+		return reflect.DeepEqual(value, element)
+	})
+	return ok
+}
+
+// removeFirst unlinks the first node whose index and value satisfy match,
+// returning the removed value and whether a node was removed. It maintains the
+// circular invariant when the list is circular.
+func (l *Linked[T]) removeFirst(match func(index int, value T) bool) (T, bool) {
+	var zero T
+	if l.head == nil {
+		return zero, false
+	}
+
+	if match(0, l.head.value) {
+		value := l.head.value
+		if l.head == l.tail {
+			l.head = nil
+			l.tail = nil
+		} else {
+			l.head = l.head.next
+			if l.isCircular {
+				l.tail.next = l.head
+			}
+		}
+		return value, true
+	}
+
+	prev := l.head
+	current := l.head.next
+	index := 1
+	for current != nil && (!l.isCircular || current != l.head) {
+		if match(index, current.value) {
+			value := current.value
+			prev.next = current.next
+			if current == l.tail {
+				l.tail = prev
+				if l.isCircular {
+					l.tail.next = l.head
+				}
+			}
+			return value, true
+		}
+		prev = current
+		current = current.next
+		index++
+	}
+	return zero, false
+}
+
+// Clear removes all elements from the list.
+func (l *Linked[T]) Clear() {
+	l.head = nil
+	l.tail = nil
 }
 
 // ForEach executes the given function for each element.
