@@ -1,8 +1,8 @@
-# Lists - Ordered Collections Made Flexible
+# Lists - Ordered Collections
 
-The `lists` package provides powerful, ordered collections that go beyond Go's built-in slices. Whether you need a stack, queue, or just a flexible sequence with rich operations, lists have you covered.
+The `lists` package provides ordered collections that build on Go's built-in slices. It supports stacks, queues, and general sequences with operations like filtering, searching, and sorting.
 
-## 🚀 Quick Start
+## Quick Start
 
 ```go
 import "github.com/pickeringtech/go-collections/collections/lists"
@@ -24,7 +24,7 @@ longTasks := tasks.Filter(func(task string) bool {
 })
 ```
 
-## ✨ Why Use Lists?
+## Why Use Lists?
 
 **Native Go slices are limited:**
 ```go
@@ -35,9 +35,9 @@ tasks := []string{"design", "implement", "test"}
 // Not thread-safe
 ```
 
-**Lists are powerful and flexible:**
+**Lists add these operations:**
 ```go
-// Rich operations and multiple implementations
+// Multiple implementations with shared operations
 tasks := lists.NewConcurrentLinked("design", "implement", "test")
 
 // Built-in stack/queue operations
@@ -51,9 +51,9 @@ task, found := tasks.Find(func(task string) bool { return strings.Contains(task,
 // Thread-safe by default with concurrent implementations
 ```
 
-## 📦 Available Implementations
+## Available Implementations
 
-### 🔗 Linked List - Simple & Fast
+### Linked List
 **Perfect for**: Stacks, queues, frequent insertions at ends
 
 ```go
@@ -73,7 +73,7 @@ top, found := stack.PopInPlace()              // Returns 2 (LIFO)
 
 **Performance**: O(1) at ends, O(n) for random access
 
-### 🔗🔗 Doubly Linked List - Bidirectional Power
+### Doubly Linked List
 **Perfect for**: When you need efficient access from both ends, better random access
 
 ```go
@@ -91,7 +91,7 @@ deque.InsertInPlace(2, 99)                     // Insert at index 2
 
 **Performance**: O(n/2) average access, O(1) insertion/removal anywhere
 
-### 🔒 Concurrent Lists - Thread-Safe Operations
+### Concurrent Lists - Thread-Safe Operations
 **Perfect for**: Multi-threaded applications, shared queues, producer-consumer patterns
 
 ```go
@@ -120,18 +120,18 @@ go func() {
 - `NewConcurrentRWLinked()` - Read-optimized singly linked (RWMutex)
 - `NewConcurrentRWDoublyLinked()` - Read-optimized doubly linked (RWMutex)
 
-## 🎯 Choose Your Implementation
+## Choose Your Implementation
 
 | Implementation | Use When | Access Time | Insert/Remove | Thread-Safe |
 |---------------|----------|-------------|---------------|-------------|
-| `NewLinked()` | Stacks, queues, simple sequences | O(n) | O(1) at ends | ❌ |
-| `NewDoublyLinked()` | Need bidirectional access | O(n/2) avg | O(1) anywhere | ❌ |
-| `NewConcurrentLinked()` | Multi-threaded stacks/queues | O(n) | O(1) at ends | ✅ |
-| `NewConcurrentRWLinked()` | Read-heavy multi-threaded | O(n) | O(1) at ends | ✅ |
+| `NewLinked()` | Stacks, queues, simple sequences | O(n) | O(1) at ends | No |
+| `NewDoublyLinked()` | Need bidirectional access | O(n/2) avg | O(1) anywhere | No |
+| `NewConcurrentLinked()` | Multi-threaded stacks/queues | O(n) | O(1) at ends | Yes |
+| `NewConcurrentRWLinked()` | Read-heavy multi-threaded | O(n) | O(1) at ends | Yes |
 
-## 🔄 Two Ways to Work: Immutable vs Mutable
+## Two Ways to Work: Immutable vs Mutable
 
-### 🧊 Immutable Style (Functional Programming)
+### Immutable Style (Functional Programming)
 Returns new slices, original list unchanged:
 
 ```go
@@ -148,7 +148,7 @@ sorted := tasks.Sort(func(a, b string) bool { return a < b })
 fmt.Printf("Original: %v\n", tasks.AsSlice())
 ```
 
-### ⚡ Mutable Style (Performance-Focused)
+### Mutable Style (Performance-Focused)
 Modifies the list in place:
 
 ```go
@@ -165,7 +165,7 @@ tasks.SortInPlace(func(a, b string) bool { return a < b })
 fmt.Printf("Modified: %v\n", tasks.AsSlice())
 ```
 
-## 🛠️ Essential Operations
+## Essential Operations
 
 ### Stack Operations (LIFO - Last In, First Out)
 ```go
@@ -240,7 +240,7 @@ ok = numbers.RemoveInPlace(30)                // ok=true
 numbers.Clear()                               // now empty
 ```
 
-## 🔍 Membership and Value Equality
+## Membership and Value Equality
 
 Lists are parameterized `[T any]`, so — unlike `sets` and `dicts`, whose keys are
 `comparable` — they cannot use the `==` operator. Value-based `Remove` /

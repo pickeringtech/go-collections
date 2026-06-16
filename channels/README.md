@@ -1,8 +1,8 @@
 # Channels - Pipeline Processing Made Simple
 
-The `channels` package provides powerful pipeline patterns for Go channels, enabling elegant concurrent data processing without complex channel management. Build composable, concurrent data processing workflows with ease.
+The `channels` package provides pipeline patterns for Go channels, letting you build concurrent data processing without managing channels by hand. Compose stages into concurrent workflows.
 
-## 🚀 Quick Start
+## Quick Start
 
 ```go
 import "github.com/pickeringtech/go-collections/channels"
@@ -27,7 +27,7 @@ results := pipeline.Collect()
 fmt.Printf("Results: %v\n", results) // [4, 16, 36, 64, 100]
 ```
 
-## ✨ Why Use Channel Pipelines?
+## Why Use Channel Pipelines?
 
 **Native Go channels require complex coordination:**
 ```go
@@ -70,9 +70,9 @@ results := channels.NewPipeline(input).
     Collect()
 ```
 
-## 🔧 Core Pipeline Operations
+## Core Pipeline Operations
 
-### 🔄 Transform Operations
+### Transform Operations
 
 #### Map - Transform Each Element
 ```go
@@ -141,7 +141,7 @@ allTags := channels.NewPipeline(posts).
 // Result: ["go", "programming", "tutorial", "go"]
 ```
 
-### ⚡ Concurrent Operations
+### Concurrent Operations
 
 #### Parallel - Process with Multiple Workers
 ```go
@@ -187,7 +187,7 @@ channels.NewPipeline(users).
     })
 ```
 
-### 🔧 Utility Operations
+### Utility Operations
 
 #### Buffer - Add Buffering
 ```go
@@ -272,7 +272,7 @@ go channels.NewPipeline(outputs[2]).
     ForEach(handleC)
 ```
 
-## 🌟 Real-World Examples
+## Real-World Examples
 
 ### Log Processing System
 ```go
@@ -398,7 +398,7 @@ go func() {
 }()
 ```
 
-## 📊 Performance Guide
+## Performance Guide
 
 ### When to Use Pipelines vs Manual Channels
 
@@ -432,27 +432,27 @@ BenchmarkManual/Parallel-16           25M   105.2 ns/op   320 B/op   5 allocs/op
 ### Optimization Tips
 
 ```go
-// ✅ Good: Use appropriate buffer sizes
+// Good: Use appropriate buffer sizes
 input := make(chan Data, 100)  // Buffer based on expected load
 
-// ✅ Good: Chain operations to minimize intermediate channels
+// Good: Chain operations to minimize intermediate channels
 result := channels.NewPipeline(input).
     Map(transform1).
     Filter(condition).
     Map(transform2).
     Collect()
 
-// ❌ Avoid: Creating separate pipelines for each operation
+// Avoid: Creating separate pipelines for each operation
 stage1 := channels.NewPipeline(input).Map(transform1).Channel()
 stage2 := channels.NewPipeline(stage1).Filter(condition).Channel()
 result := channels.NewPipeline(stage2).Map(transform2).Collect()
 
-// ✅ Good: Use Parallel for CPU-intensive work
+// Good: Use Parallel for CPU-intensive work
 results := channels.NewPipeline(input).
     Parallel(runtime.NumCPU(), expensiveComputation).
     Collect()
 
-// ✅ Good: Use Batch for I/O operations
+// Good: Use Batch for I/O operations
 channels.NewPipeline(input).
     Batch(100).
     ForEach(func(batch []Item) {
@@ -460,7 +460,7 @@ channels.NewPipeline(input).
     })
 ```
 
-## 🔗 Integration with Other Packages
+## Integration with Other Packages
 
 Channels work seamlessly with slices and collections:
 
@@ -494,11 +494,11 @@ channels.NewPipeline(valueChannel).
     ForEach(processValue)
 ```
 
-## 🎯 Best Practices
+## Best Practices
 
-### 1. 🏗️ Design for Composability
+### 1. Design for Composability
 ```go
-// ✅ Good: Create reusable pipeline stages
+// Good: Create reusable pipeline stages
 func validateData(input <-chan RawData) <-chan ValidData {
     return channels.NewPipeline(input).
         Filter(func(data RawData) bool { return data.IsValid() }).
@@ -521,9 +521,9 @@ enriched := enrichData(validated)
 results := channels.NewPipeline(enriched).Collect()
 ```
 
-### 2. ⚡ Handle Errors Gracefully
+### 2. Handle Errors Gracefully
 ```go
-// ✅ Good: Use error handling pipelines
+// Good: Use error handling pipelines
 results, errors := channels.NewPipeline(input).
     MapWithError(func(item Item) (Result, error) {
         return processItem(item)
@@ -544,9 +544,9 @@ go func() {
 }()
 ```
 
-### 3. 🔧 Use Appropriate Concurrency
+### 3. Use Appropriate Concurrency
 ```go
-// ✅ Good: Match workers to workload type
+// Good: Match workers to workload type
 cpuIntensive := channels.NewPipeline(input).
     Parallel(runtime.NumCPU(), computeHeavyTask).  // CPU-bound: use CPU count
     Collect()
@@ -557,7 +557,7 @@ ioIntensive := channels.NewPipeline(input).
     }).
     Collect()
 
-// ✅ Good: Use buffering for rate mismatches
+// Good: Use buffering for rate mismatches
 fastProducer := make(chan Data, 1000)  // Buffer for bursty production
 channels.NewPipeline(fastProducer).
     Buffer(500).                        // Additional buffering
@@ -565,9 +565,9 @@ channels.NewPipeline(fastProducer).
     ForEach(handleResult)
 ```
 
-### 4. 🧹 Manage Resources
+### 4. Manage Resources
 ```go
-// ✅ Good: Always close channels when done
+// Good: Always close channels when done
 func processData(data []Item) {
     input := make(chan Item, len(data))
     defer close(input)  // Ensure channel is closed
@@ -587,7 +587,7 @@ func processData(data []Item) {
     handleResults(results)
 }
 
-// ✅ Good: Use context for cancellation
+// Good: Use context for cancellation
 func processWithContext(ctx context.Context, input <-chan Data) {
     channels.NewPipeline(input).
         WithContext(ctx).  // Respect context cancellation
@@ -596,9 +596,9 @@ func processWithContext(ctx context.Context, input <-chan Data) {
 }
 ```
 
-### 5. 📊 Monitor and Debug
+### 5. Monitor and Debug
 ```go
-// ✅ Good: Add monitoring to pipelines
+// Good: Add monitoring to pipelines
 channels.NewPipeline(input).
     Map(func(item Item) Item {
         metrics.IncrementProcessed()
@@ -618,7 +618,7 @@ channels.NewPipeline(input).
     ForEach(handleResult)
 ```
 
-## 🚀 Quick Reference
+## Quick Reference
 
 ### Essential Operations
 ```go
@@ -657,4 +657,4 @@ channels.Split(input, count)          // Split to multiple channels
 .CollectWithErrors()                  // Collect results and errors
 ```
 
-Start with simple Map and Filter operations, then explore Parallel processing and advanced patterns like Batch and Merge as your needs grow!
+Start with Map and Filter, then add Parallel processing and patterns like Batch and Merge as your needs grow.

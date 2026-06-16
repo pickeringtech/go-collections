@@ -2,7 +2,7 @@
 
 The `constraints` package provides type constraints for building type-safe generic functions and APIs. These constraints extend Go's built-in `comparable` with more specific type categories, enabling you to write reusable, type-safe code.
 
-## 🚀 Quick Start
+## Quick Start
 
 ```go
 import "github.com/pickeringtech/go-collections/constraints"
@@ -30,7 +30,7 @@ maxInt := Max(10, 20)                    // 20
 maxString := Max("apple", "banana")      // "banana"
 ```
 
-## ✨ Why Use Constraints?
+## Why Use Constraints?
 
 **Without constraints - code duplication:**
 ```go
@@ -64,9 +64,9 @@ intSum := Sum([]int{1, 2, 3})
 floatSum := Sum([]float64{1.1, 2.2, 3.3})
 ```
 
-## 📋 Available Constraints
+## Available Constraints
 
-### 🔢 Numeric Constraints
+### Numeric Constraints
 
 #### Integer - All Integer Types
 ```go
@@ -137,7 +137,7 @@ avgInt := Average([]int{1, 2, 3, 4, 5})           // 3
 avgFloat := Average([]float64{1.5, 2.5, 3.5})     // 2.5
 ```
 
-### 📊 Ordering Constraints
+### Ordering Constraints
 
 #### Ordered - Types Supporting Comparison
 ```go
@@ -163,7 +163,7 @@ minNum := Min(10, 20)           // 10
 minStr := Min("zebra", "apple") // "apple"
 ```
 
-## 🛠️ Building Generic Data Structures
+## Building Generic Data Structures
 
 ### Generic Stack
 ```go
@@ -289,7 +289,7 @@ stringBST.Insert("zebra")
 found = stringBST.Contains("apple") // true
 ```
 
-## 🌟 Real-World Examples
+## Real-World Examples
 
 ### Mathematical Operations
 ```go
@@ -409,7 +409,7 @@ floatConfig := Config[float64]{MinValue: 0.0, MaxValue: 1.0, Default: 0.5}
 validated = floatConfig.Validate(1.5) // 1.0 (clamped to max)
 ```
 
-## 🔗 Integration with Collections
+## Integration with Collections
 
 Constraints work seamlessly with the collections package:
 
@@ -450,7 +450,7 @@ inventory := collections.NewDict(
 totalItems := SumDictValues(inventory) // 80
 ```
 
-## 🎯 Building Custom Constraints
+## Building Custom Constraints
 
 ### Combining Existing Constraints
 ```go
@@ -519,7 +519,7 @@ score := Score(85.5)
 valid = ValidatePercentage(score) // true
 ```
 
-## 📊 Performance Guide
+## Performance Guide
 
 ### Compile-Time vs Runtime
 
@@ -543,18 +543,18 @@ result2 := Add(5, 10)
 ### Best Practices for Performance
 
 ```go
-// ✅ Good: Use specific constraints
+// Good: Use specific constraints
 func ProcessIntegers[T constraints.Integer](data []T) { ... }
 
-// ❌ Avoid: Overly broad constraints when specific ones work
+// Avoid: Overly broad constraints when specific ones work
 func ProcessIntegers[T constraints.Numeric](data []T) { ... }
 
-// ✅ Good: Inline simple operations
+// Good: Inline simple operations
 func Add[T constraints.Numeric](a, b T) T {
     return a + b  // Will be inlined
 }
 
-// ✅ Good: Use constraints for type safety, not performance
+// Good: Use constraints for type safety, not performance
 func SafeDivide[T constraints.Float](a, b T) T {
     if b == 0 {
         return 0
@@ -563,25 +563,25 @@ func SafeDivide[T constraints.Float](a, b T) T {
 }
 ```
 
-## 🎯 Best Practices
+## Best Practices
 
-### 1. 🎨 Use the Most Specific Constraint
+### 1. Use the Most Specific Constraint
 ```go
-// ✅ Good: Use specific constraint
+// Good: Use specific constraint
 func Abs[T constraints.Signed](n T) T {
     if n < 0 { return -n }
     return n
 }
 
-// ❌ Avoid: Overly broad constraint
+// Avoid: Overly broad constraint
 func Abs[T constraints.Numeric](n T) T {
     // Won't work with unsigned types anyway
 }
 ```
 
-### 2. 🔧 Combine Constraints When Needed
+### 2. Combine Constraints When Needed
 ```go
-// ✅ Good: Create meaningful combinations
+// Good: Create meaningful combinations
 type Comparable[T any] interface {
     comparable
 }
@@ -598,16 +598,16 @@ func UniqueAndSort[T OrderedComparable[T]](slice []T) []T {
 }
 ```
 
-### 3. 📝 Document Constraint Requirements
+### 3. Document Constraint Requirements
 ```go
-// ✅ Good: Clear documentation
+// Good: Clear documentation
 // ProcessNumericData processes a slice of numeric values.
 // T must be a numeric type (integer or float).
 func ProcessNumericData[T constraints.Numeric](data []T) T {
     // Implementation
 }
 
-// ✅ Good: Explain why constraint is needed
+// Good: Explain why constraint is needed
 // BinarySearch requires ordered types to perform comparisons.
 // T must support <, >, and == operators.
 func BinarySearch[T constraints.Ordered](slice []T, target T) int {
@@ -615,7 +615,7 @@ func BinarySearch[T constraints.Ordered](slice []T, target T) int {
 }
 ```
 
-### 4. 🧪 Test with Multiple Types
+### 4. Test with Multiple Types
 ```go
 func TestSum(t *testing.T) {
     // Test with different numeric types
@@ -630,7 +630,7 @@ func TestSum(t *testing.T) {
 }
 ```
 
-## 🚀 Quick Reference
+## Quick Reference
 
 ### Available Constraints
 ```go
@@ -660,4 +660,4 @@ type MyConstraint interface {
 }
 ```
 
-Start with the basic constraints (`Numeric`, `Ordered`) and create custom ones as your generic programming needs grow. Remember: constraints are about type safety, not performance!
+Start with the basic constraints (`Numeric`, `Ordered`) and create custom ones as your needs grow. Constraints are about type safety, not performance.

@@ -1,8 +1,8 @@
 # Maps - Native Map Utilities
 
-The `maps` package provides functional programming utilities for Go's native maps, enabling elegant data transformation without manual iteration. Perfect for processing existing map data with clean, composable operations.
+The `maps` package provides functional utilities for Go's native maps, so you can transform map data without writing manual iteration loops. Use it to process existing map data with composable operations.
 
-## 🚀 Quick Start
+## Quick Start
 
 ```go
 import "github.com/pickeringtech/go-collections/maps"
@@ -27,21 +27,21 @@ doubled := maps.MapValues(inventory, func(count int) int {
 // Result: {"apples": 100, "oranges": 60, "bananas": 40}
 ```
 
-## 🎯 Maps vs Collections/Dicts - When to Use What?
+## Maps vs Collections/Dicts - When to Use What?
 
 ### Use Maps Package When:
-- ✅ Working with existing native Go maps (`map[K]V`)
-- ✅ Need simple transformations on map data
-- ✅ Integrating with APIs that return `map[K]V`
-- ✅ Want functional operations without changing data structures
-- ✅ Processing configuration or JSON data
+- Working with existing native Go maps (`map[K]V`)
+- Need simple transformations on map data
+- Integrating with APIs that return `map[K]V`
+- Want functional operations without changing data structures
+- Processing configuration or JSON data
 
 ### Use Collections/Dicts When:
-- ✅ Need rich operations like `Find`, `Contains`, etc.
-- ✅ Want thread-safe concurrent access
-- ✅ Need both immutable and mutable operations
-- ✅ Building new applications from scratch
-- ✅ Want advanced features like sorted iteration
+- Need rich operations like `Find`, `Contains`, etc.
+- Want thread-safe concurrent access
+- Need both immutable and mutable operations
+- Building new applications from scratch
+- Want advanced features like sorted iteration
 
 ```go
 // Maps package - for existing native maps
@@ -55,9 +55,9 @@ richDict := dicts.NewHash(
 element, found := richDict.Find(predicate)
 ```
 
-## 🛠️ Core Operations
+## Core Operations
 
-### 🔍 Filter - Keep Matching Pairs
+### Filter - Keep Matching Pairs
 ```go
 // Filter configuration by prefix
 config := map[string]string{
@@ -83,7 +83,7 @@ topPerformers := maps.Filter(highScores, func(name string, score int) bool {
 // Result: {"alice": 95, "charlie": 92}
 ```
 
-### 🔄 Transform Operations
+### Transform Operations
 
 #### MapValues - Transform All Values
 ```go
@@ -147,7 +147,7 @@ stockLevels := maps.Map(inventory, func(item string, count int) (int, string) {
 // Result: {50: "apples (high stock)", 30: "oranges (low stock)"}
 ```
 
-### 🔧 Utility Operations
+### Utility Operations
 
 #### Keys/Values - Extract Data
 ```go
@@ -214,7 +214,7 @@ merged := maps.Merge(config1, config2, config3)
 // Later maps override earlier ones
 ```
 
-## 🌟 Real-World Examples
+## Real-World Examples
 
 ### Configuration Processing
 ```go
@@ -354,7 +354,7 @@ appConfigTyped := maps.MapValues(appConfigLower, func(value string) interface{} 
 })
 ```
 
-## 📊 Performance Guide
+## Performance Guide
 
 ### When to Use Maps vs Manual Iteration
 
@@ -382,9 +382,9 @@ BenchmarkMapValues/Functional-16  45M    32.7 ns/op    72 B/op    1 allocs/op
 - Performance gap is acceptable for most business logic
 - Complex transformations benefit from functional approach
 
-## 🔗 Integration with Other Packages
+## Integration with Other Packages
 
-Maps package works seamlessly with slices and collections:
+The maps package works alongside the slices and collections packages:
 
 ```go
 // Extract and process map data
@@ -416,32 +416,32 @@ userDict.ForEach(func(id int, name string) {
 processedUsers := maps.MapValues(userMap, strings.ToUpper)
 ```
 
-## 🎯 Best Practices
+## Best Practices
 
-### 1. 🎨 Choose the Right Operation
+### 1. Choose the Right Operation
 ```go
-// ✅ Good: Use Filter for conditional selection
+// Good: Use Filter for conditional selection
 activeUsers := maps.Filter(users, func(id int, user User) bool {
     return user.Active
 })
 
-// ✅ Good: Use MapValues for value transformation
+// Good: Use MapValues for value transformation
 uppercaseNames := maps.MapValues(names, strings.ToUpper)
 
-// ✅ Good: Use MapKeys for key transformation
+// Good: Use MapKeys for key transformation
 cleanKeys := maps.MapKeys(apiData, func(key string) string {
     return strings.TrimPrefix(key, "api_")
 })
 ```
 
-### 2. ⚡ Consider Performance
+### 2. Consider Performance
 ```go
-// ✅ For business logic - prioritize clarity
+// For business logic - prioritize clarity
 processedConfig := maps.Filter(config, isValid).
     MapValues(normalize).
     MapKeys(cleanKey)
 
-// ✅ For hot paths - use manual iteration
+// For hot paths - use manual iteration
 func processHotPath(data map[string]int) map[string]int {
     result := make(map[string]int, len(data))
     for key, value := range data {
@@ -453,9 +453,9 @@ func processHotPath(data map[string]int) map[string]int {
 }
 ```
 
-### 3. 🔧 Handle Edge Cases
+### 3. Handle Edge Cases
 ```go
-// ✅ Good: Handle empty maps
+// Good: Handle empty maps
 func safeFilter(data map[string]int, predicate func(string, int) bool) map[string]int {
     if len(data) == 0 {
         return make(map[string]int)
@@ -463,7 +463,7 @@ func safeFilter(data map[string]int, predicate func(string, int) bool) map[strin
     return maps.Filter(data, predicate)
 }
 
-// ✅ Good: Validate inputs
+// Good: Validate inputs
 func processUserData(users map[int]User) map[int]string {
     if users == nil {
         return make(map[int]string)
@@ -477,7 +477,7 @@ func processUserData(users map[int]User) map[int]string {
 }
 ```
 
-## 🚀 Quick Reference
+## Quick Reference
 
 ### Essential Operations
 ```go
@@ -498,4 +498,4 @@ maps.Invert(m)                                  // Swap keys/values
 maps.Merge(m1, m2, m3)                          // Combine maps
 ```
 
-Perfect for processing configuration data, API responses, and transforming existing map data with clean, functional operations!
+Use these operations to process configuration data and API responses, and to transform existing map data with functional operations.
