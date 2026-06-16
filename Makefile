@@ -34,10 +34,12 @@ BENCH_DATA_DIR  := docs/bench
 # Nested Go modules (examples/, tools/benchreport/, …) are SEPARATE modules that
 # the root `go test ./...` never descends into — so a `make test` that only ran
 # the root module gave contributors false confidence while CI tested more (#79).
-# Discover them dynamically (any go.mod below the root; -mindepth 2 skips the
-# root's own go.mod) so new modules are picked up automatically and this can't
-# drift as modules are added.
-NESTED_MODULES := $(shell find . -mindepth 2 -name go.mod -exec dirname {} \; | sort)
+# Discover them dynamically (any nested go.mod; `-not -path ./go.mod` drops the
+# root's own) so new modules are picked up automatically and this can't drift as
+# modules are added. Prune .git and the build dir so the walk doesn't descend
+# into large/irrelevant trees on every `make` invocation.
+NESTED_MODULES := $(shell find . \( -name .git -o -path ./$(BUILD_DIR) \) -prune \
+	-o -name go.mod -not -path ./go.mod -print | xargs -r -n1 dirname | sort)
 
 # Provenance, computed once so the generator stays a pure function of its inputs.
 GIT_SHA    := $(shell git rev-parse --short HEAD 2>/dev/null)
