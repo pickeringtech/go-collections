@@ -72,11 +72,10 @@ type Searchable[T any] interface {
 	FindIndex(fn func(T) bool) int
 }
 
-// Sortable is implemented by collections that can be sorted, either into a new
-// slice or in place, using a less-than comparison.
+// Sortable is implemented by collections that can be sorted into a new slice,
+// without modifying the receiver, using a less-than comparison.
 type Sortable[T any] interface {
 	Sort(fn func(T, T) bool) []T
-	SortInPlace(fn func(T, T) bool)
 }
 
 // MutableSortable is implemented by collections that can be sorted in place.
