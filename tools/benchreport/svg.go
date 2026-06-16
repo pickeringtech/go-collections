@@ -9,14 +9,13 @@ import (
 // SVG chart geometry. SVG (not PNG) keeps the committed artifact textual, so
 // git diffs stay reviewable and the file is hand-emitted with zero dependencies.
 const (
-	svgWidth   = 760
-	svgPadX    = 16
-	svgTop     = 56 // room for the title
-	svgRowH    = 34
-	svgBarH    = 20
-	svgLabelW  = 230 // left gutter for the operation labels
-	svgValueW  = 80  // right gutter for the value text
-	svgBarPalH = 8
+	svgWidth  = 760
+	svgPadX   = 16
+	svgTop    = 74 // room for the title + environment caption
+	svgRowH   = 34
+	svgBarH   = 20
+	svgLabelW = 230 // left gutter for the operation labels
+	svgValueW = 80  // right gutter for the value text
 )
 
 // barColors cycles through a small, colour-blind-friendly palette so adjacent
@@ -24,9 +23,10 @@ const (
 var barColors = []string{"#4c78a8", "#72b7b2", "#54a24b", "#eeca3b", "#e45756", "#b279a2"}
 
 // RenderChart hand-emits an SVG horizontal bar chart of ns/op for the resolved
-// headline operations. Output is deterministic for fixed input (no timestamps,
-// no map iteration), so re-running with unchanged data is a no-op diff.
-func RenderChart(rows []headlineRow) string {
+// headline operations, captioned with the environment the numbers came from.
+// Output is deterministic for fixed input (no timestamps, no map iteration), so
+// re-running with unchanged data is a no-op diff.
+func RenderChart(rows []headlineRow, caption string) string {
 	height := svgTop + len(rows)*svgRowH + 16
 	barAreaW := svgWidth - 2*svgPadX - svgLabelW - svgValueW
 
@@ -48,13 +48,18 @@ func RenderChart(rows []headlineRow) string {
 	b.WriteString(`<style>` +
 		`text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}` +
 		`.title{font-size:15px;font-weight:600;fill:#1f2328}` +
+		`.caption{font-size:12px;fill:#57606a}` +
 		`.label{font-size:12px;fill:#1f2328}` +
 		`.value{font-size:12px;fill:#57606a}` +
 		`</style>` + "\n")
 	b.WriteString(fmt.Sprintf(`<rect width="%d" height="%d" fill="#ffffff"/>`, svgWidth, height))
 	b.WriteByte('\n')
-	b.WriteString(fmt.Sprintf(`<text class="title" x="%d" y="32">Benchmark — lower is faster (ns/op, n=1000)</text>`, svgPadX))
+	b.WriteString(fmt.Sprintf(`<text class="title" x="%d" y="30">Benchmark — lower is faster (ns/op, n=1000)</text>`, svgPadX))
 	b.WriteByte('\n')
+	if caption != "" {
+		b.WriteString(fmt.Sprintf(`<text class="caption" x="%d" y="50">%s</text>`, svgPadX, escapeXML(caption)))
+		b.WriteByte('\n')
+	}
 
 	barX := svgPadX + svgLabelW
 	for i, r := range rows {

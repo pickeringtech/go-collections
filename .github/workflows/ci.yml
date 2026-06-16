@@ -628,14 +628,24 @@ jobs:
       - name: Install benchstat (pinned)
         # Same pinned version as the PR A/B job, for a reproducible CSV format.
         run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
-      - name: Regenerate report, chart, and README preview
-        # Uses the repo's BENCH_TIME/BENCH_COUNT knobs (exported from env above)
-        # rather than the 10x smoke, so the committed numbers are meaningful.
-        run: make bench-report
+      - name: Capture CI dataset and regenerate the combined report
+        # Captures the *ci* (secondary/indicative) environment only, then
+        # re-renders the combined report from it + the committed reference
+        # dataset. Uses the repo's BENCH_TIME/BENCH_COUNT knobs (exported from
+        # env above) rather than the 10x smoke, so the numbers are meaningful.
+        run: |
+          make bench-report \
+            BENCH_ENV=ci \
+            BENCH_TIER=secondary \
+            BENCH_LABEL="CI — GitHub-hosted runner (ubuntu-latest)" \
+            BENCH_MACHINE="shared ubuntu-latest runner (noisy)"
       - name: Commit regenerated artifacts (if changed) with [skip ci]
         run: |
           set -euo pipefail
-          changed=$(git status --porcelain -- BENCHMARKS.md docs/bench.svg README.md)
+          # The reference dataset (docs/bench/reference.csv) is maintainer-owned
+          # and never touched here — only the ci dataset + the rendered outputs.
+          paths="BENCHMARKS.md docs/bench.svg docs/bench/ci.csv README.md"
+          changed=$(git status --porcelain -- $paths)
           if [ -z "$changed" ]; then
             echo "No benchmark-artifact changes — nothing to commit."
             exit 0
@@ -643,9 +653,9 @@ jobs:
           echo "Changed artifacts:"; echo "$changed"
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add BENCHMARKS.md docs/bench.svg README.md
+          git add $paths
           # [skip ci] in the subject is the recursion guard — keep it.
-          git commit -m "chore(bench): regenerate report, chart & README preview [skip ci]"
+          git commit -m "chore(bench): refresh CI benchmark dataset & report [skip ci]"
           # main may have advanced while we benchmarked; rebase and retry once.
           if ! git push origin HEAD:main; then
             echo "::warning::push rejected (main advanced); rebasing and retrying once"

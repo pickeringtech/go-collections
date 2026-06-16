@@ -50,32 +50,33 @@ Hash_Contains/size_1000-32,1,∞
 geomean,,
 `
 
-func parseSample(t *testing.T) ([]Sample, Provenance, int) {
+func loadSample(t *testing.T, base Meta) (Dataset, int) {
 	t.Helper()
-	samples, prov, skipped, err := Parse(strings.NewReader(sampleCSV), Provenance{Benchtime: "50ms", Count: "8"})
+	ds, skipped, err := LoadDataset(strings.NewReader(sampleCSV), base)
 	if err != nil {
-		t.Fatalf("Parse: %v", err)
+		t.Fatalf("LoadDataset: %v", err)
 	}
-	return samples, prov, skipped
+	return ds, skipped
 }
 
-func TestParseConformingSamples(t *testing.T) {
-	samples, prov, skipped := parseSample(t)
+func TestLoadDatasetConformingSamples(t *testing.T) {
+	ds, skipped := loadSample(t, Meta{Benchtime: "50ms", Count: "8"})
 
 	if skipped != 2 { // Comparison_Get/Hash and Tree_Get
 		t.Errorf("skipped = %d, want 2", skipped)
 	}
-	if len(samples) != 3 { // 2 Hash_Get + 1 Hash_Contains
-		t.Fatalf("len(samples) = %d, want 3", len(samples))
+	if len(ds.Samples) != 3 { // 2 Hash_Get + 1 Hash_Contains
+		t.Fatalf("len(samples) = %d, want 3", len(ds.Samples))
 	}
-	if prov.GOOS != "linux" || prov.GOARCH != "amd64" || prov.CPU != "TestCPU" {
-		t.Errorf("provenance config = %+v, want linux/amd64/TestCPU", prov)
+	m := ds.Meta
+	if m.GOOS != "linux" || m.GOARCH != "amd64" || m.CPU != "TestCPU" {
+		t.Errorf("config = %+v, want linux/amd64/TestCPU", m)
 	}
-	if len(prov.Packages) != 2 {
-		t.Errorf("packages = %v, want 2 entries", prov.Packages)
+	if len(m.Packages) != 2 {
+		t.Errorf("packages = %v, want 2 entries", m.Packages)
 	}
 
-	idx := indexSamples(samples)
+	idx := indexSamples(ds.Samples)
 	get1k, ok := idx[sampleKey{"dicts", "Hash", "Get", 1000}]
 	if !ok {
 		t.Fatal("missing dicts Hash Get size 1000")
@@ -92,26 +93,49 @@ func TestParseConformingSamples(t *testing.T) {
 	}
 }
 
-func TestParseRejectsNonConforming(t *testing.T) {
-	samples, _, _ := parseSample(t)
-	for _, s := range samples {
-		if s.Op == "" || s.Impl == "" || s.Size == 0 {
-			t.Errorf("non-conforming sample leaked through: %+v", s)
-		}
+func TestMetaPreambleRoundTrip(t *testing.T) {
+	base := Meta{
+		Env: "reference", Label: "Reference — Test Box", Tier: tierPrimary,
+		Machine: "Test Box · 128 GB", Commit: "deadbee", Date: "2026-06-16T00:00:00Z",
+		GoVersion: "go1.25.5", Benchtime: "50ms", Count: "8",
+	}
+	// A captured file is the preamble followed by the raw benchstat CSV; loading
+	// it back must recover every capture-supplied field plus the CSV config.
+	captured := metaPreamble(base) + sampleCSV
+	ds, _, err := LoadDataset(strings.NewReader(captured), Meta{})
+	if err != nil {
+		t.Fatalf("LoadDataset: %v", err)
+	}
+	got := ds.Meta
+	if got.Env != base.Env || got.Label != base.Label || got.Tier != base.Tier ||
+		got.Machine != base.Machine || got.Commit != base.Commit || got.Date != base.Date ||
+		got.GoVersion != base.GoVersion || got.Benchtime != base.Benchtime || got.Count != base.Count {
+		t.Errorf("round-trip meta mismatch:\n got %+v\nwant %+v", got, base)
+	}
+	if !got.IsPrimary() {
+		t.Error("expected primary tier to round-trip")
+	}
+	if got.GOOS != "linux" { // config still parsed from the CSV body
+		t.Errorf("GOOS = %q, want linux", got.GOOS)
+	}
+}
+
+func TestOrderDatasetsPrimaryFirst(t *testing.T) {
+	ci := Dataset{Meta: Meta{Env: "ci", Tier: tierSecondary}}
+	ref := Dataset{Meta: Meta{Env: "reference", Tier: tierPrimary}}
+	ordered := orderDatasets([]Dataset{ci, ref})
+	if !ordered[0].Meta.IsPrimary() || ordered[0].Meta.Env != "reference" {
+		t.Errorf("primary not first: %+v", ordered)
+	}
+	if primaryDataset([]Dataset{ci, ref}).Meta.Env != "reference" {
+		t.Error("primaryDataset did not pick the primary tier")
 	}
 }
 
 func TestWithThousands(t *testing.T) {
 	cases := map[string]string{
-		"0":         "0",
-		"42":        "42",
-		"999":       "999",
-		"1000":      "1,000",
-		"12345":     "12,345",
-		"1234567":   "1,234,567",
-		"-12345":    "-12,345",
-		"1234.5":    "1,234.5",
-		"65767.123": "65,767.123",
+		"0": "0", "42": "42", "999": "999", "1000": "1,000", "12345": "12,345",
+		"1234567": "1,234,567", "-12345": "-12,345", "1234.5": "1,234.5", "65767.123": "65,767.123",
 	}
 	for in, want := range cases {
 		if got := withThousands(in); got != want {
@@ -121,13 +145,7 @@ func TestWithThousands(t *testing.T) {
 }
 
 func TestFormatNsPrecision(t *testing.T) {
-	cases := map[float64]string{
-		0:        "0",
-		5.246:    "5.25",
-		40:       "40.0",
-		906.6:    "907",
-		65767.49: "65,767",
-	}
+	cases := map[float64]string{0: "0", 5.246: "5.25", 40: "40.0", 906.6: "907", 65767.49: "65,767"}
 	for in, want := range cases {
 		if got := formatNs(in); got != want {
 			t.Errorf("formatNs(%v) = %q, want %q", in, got, want)
@@ -181,14 +199,11 @@ func TestInjectRegionMissingMarkers(t *testing.T) {
 }
 
 func TestResolveHeadlinesReportsMissing(t *testing.T) {
-	samples, _, _ := parseSample(t)
-	idx := indexSamples(samples)
-	rows, missing := resolveHeadlines(idx)
+	ds, _ := loadSample(t, Meta{})
+	rows, missing := resolveHeadlines(indexSamples(ds.Samples))
 	if len(rows) == 0 {
 		t.Fatal("expected at least one resolved headline")
 	}
-	// The sample data lacks the ConcurrentHash/ConcurrentHashRW/Tree/Array
-	// headlines, so they must be reported missing rather than rendered blank.
 	if len(missing) == 0 {
 		t.Error("expected some headlines to be reported missing")
 	}
@@ -204,52 +219,60 @@ func TestRenderChartDeterministicAndSafe(t *testing.T) {
 		{"A & B <test>", 40, 0, 0},
 		{"C", 0, 0, 0}, // zero value must not divide-by-zero or vanish
 	}
-	first := RenderChart(rows)
-	second := RenderChart(rows)
+	first := RenderChart(rows, "Env & <caption>")
+	second := RenderChart(rows, "Env & <caption>")
 	if first != second {
 		t.Error("RenderChart not deterministic")
 	}
-	if !strings.Contains(first, "&amp; B &lt;test&gt;") {
-		t.Errorf("labels not XML-escaped:\n%s", first)
+	if !strings.Contains(first, "&amp; B &lt;test&gt;") || !strings.Contains(first, "Env &amp; &lt;caption&gt;") {
+		t.Errorf("labels/caption not XML-escaped:\n%s", first)
 	}
 	if !strings.HasPrefix(first, "<svg") || !strings.HasSuffix(first, "</svg>\n") {
 		t.Error("output is not a complete SVG document")
 	}
 }
 
-func TestRenderReportStructure(t *testing.T) {
-	samples, prov, _ := parseSample(t)
-	prov.Commit = "deadbee"
-	prov.Date = "2026-06-16T00:00:00Z"
-	out := RenderReport(samples, prov, "docs/bench.svg")
+func TestRenderReportTwoEnvironments(t *testing.T) {
+	ref, _ := loadSample(t, Meta{Env: "reference", Label: "Reference — Test Box", Tier: tierPrimary,
+		Commit: "deadbee", Date: "2026-06-16T00:00:00Z", Machine: "Test Box · 128 GB"})
+	ci, _ := loadSample(t, Meta{Env: "ci", Label: "CI — shared runner", Tier: tierSecondary,
+		Commit: "cafe123", Date: "2026-06-16T01:00:00Z"})
 
+	out := RenderReport([]Dataset{ci, ref}, "docs/bench.svg") // pass out of order on purpose
 	for _, want := range []string{
 		"# Benchmark report",
-		"## Provenance",
-		"`deadbee`",
+		"## Environments",
+		"### Reference — Test Box (primary)",
+		"### CI — shared runner (secondary)",
+		"Test Box · 128 GB",
 		"indicative, not authoritative",
+		"## Headlines — Reference — Test Box",
 		"![Benchmark chart](docs/bench.svg)",
-		"## Full results",
-		"### dicts",
-		"### sets",
-		"#### Get",
+		"## Full results — Reference — Test Box",
+		"## Full results — CI — shared runner (indicative)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("report missing %q", want)
 		}
 	}
+	// Reference (primary) section must precede the CI (secondary) section.
+	if strings.Index(out, "Full results — Reference") > strings.Index(out, "Full results — CI") {
+		t.Error("primary environment did not lead the full-results sections")
+	}
 }
 
 func TestRenderReadmeRegionContent(t *testing.T) {
-	samples, prov, _ := parseSample(t)
-	prov.Commit = "cafe123"
-	prov.Date = "2026-06-16T09:30:00Z"
-	region := RenderReadmeRegion(samples, prov, "docs/bench.svg", "BENCHMARKS.md")
+	ref, _ := loadSample(t, Meta{Env: "reference", Label: "Reference — Box", Tier: tierPrimary,
+		Commit: "cafe123", Date: "2026-06-16T09:30:00Z", GoVersion: "go1.25.5"})
+	ci, _ := loadSample(t, Meta{Env: "ci", Label: "CI", Tier: tierSecondary,
+		Commit: "0b87bdf", Date: "2026-06-16T10:00:00Z", GoVersion: "go1.24"})
 
+	region := RenderReadmeRegion([]Dataset{ci, ref}, "docs/bench.svg", "BENCHMARKS.md")
 	for _, want := range []string{
-		"Indicative numbers",
+		"controlled **Reference — Box** baseline",
 		"![Benchmark chart](docs/bench.svg)",
-		"Provenance: `cafe123` · 2026-06-16 ·",
+		"Reference — Box: `cafe123` · 2026-06-16 ·",
+		"CI: `0b87bdf` · 2026-06-16 ·",
 		"Full report → [BENCHMARKS.md](BENCHMARKS.md)",
 	} {
 		if !strings.Contains(region, want) {

@@ -24,20 +24,42 @@ type Sample struct {
 	AllocsOp float64
 }
 
-// Provenance is the trust header for the report: exactly what was run, where,
-// and how. The runner/CPU/package facts come from benchstat's CSV config lines;
-// the commit/date/flags are supplied by the caller (Make target or CI job).
-type Provenance struct {
+// Meta is the per-environment provenance: who ran the benchmarks, where, how,
+// and how they should be presented. The commit/date/flags/label/tier come from
+// the capture step (flags); goos/goarch/cpu/packages are discovered from the
+// benchstat CSV config lines. It is persisted as a `# benchreport-meta:`
+// preamble at the top of each committed dataset CSV so the dataset is
+// self-describing and the render step needs no side files.
+type Meta struct {
+	Env       string // short id, e.g. "reference" / "ci"
+	Label     string // display label, e.g. "Reference — Framework Desktop …"
+	Tier      string // "primary" (headline/chart) or "secondary" (indicative)
+	Machine   string // optional one-line machine description
 	Commit    string
-	Date      string // ISO-8601 UTC, supplied by the caller
+	Date      string // ISO-8601 UTC
 	GoVersion string
+	Benchtime string
+	Count     string
 	GOOS      string
 	GOARCH    string
 	CPU       string
-	Benchtime string
-	Count     string
 	Packages  []string // full import paths, in first-seen order
 }
+
+// IsPrimary reports whether this dataset drives the headline table and chart.
+func (m Meta) IsPrimary() bool { return m.Tier == tierPrimary }
+
+// Dataset couples one environment's provenance with its samples.
+type Dataset struct {
+	Meta    Meta
+	Samples []Sample
+}
+
+const (
+	tierPrimary   = "primary"
+	tierSecondary = "secondary"
+	metaPrefix    = "# benchreport-meta:"
+)
 
 // benchstat emits benchmark names without the "Benchmark" prefix and with a
 // trailing "-<GOMAXPROCS>". The standardized suite is "<Impl>_<Op>/size_<N>";
@@ -60,15 +82,14 @@ type cell struct {
 	ns, bytes, allocs float64
 }
 
-// Parse reads benchstat -format=csv output and returns the conforming samples
-// plus the provenance facts discoverable from the CSV. Non-conforming benchmark
-// names are skipped; the count of skipped names is returned for logging.
-//
-// The CSV is a sequence of per-config blocks (one per package, since the config
-// key includes pkg). Each block holds three unit tables (sec/op, B/op,
-// allocs/op). Config lines ("goos: …", "pkg: …") carry no comma; table header
-// rows start with a comma; data rows are "<name>,<value>,<CI>".
-func Parse(r io.Reader, prov Provenance) ([]Sample, Provenance, int, error) {
+// LoadDataset reads a committed dataset CSV — an optional `# benchreport-meta:`
+// preamble followed by benchstat -format=csv output — into a Dataset. The
+// provided base Meta (from capture-step flags) supplies fields the CSV can't
+// carry; preamble lines, when present, override it; and the benchstat config
+// lines fill in goos/goarch/cpu/packages. Returns the count of skipped
+// non-conforming benchmark names for logging.
+func LoadDataset(r io.Reader, base Meta) (Dataset, int, error) {
+	meta := base
 	cells := map[string]map[string]*cell{} // pkgPath -> name -> metrics
 	var pkgOrder []string
 
@@ -92,6 +113,11 @@ func Parse(r io.Reader, prov Provenance) ([]Sample, Provenance, int, error) {
 			continue
 		}
 
+		if rest, ok := strings.CutPrefix(line, metaPrefix); ok {
+			applyMetaLine(&meta, strings.TrimSpace(rest))
+			continue
+		}
+
 		if !strings.Contains(line, ",") {
 			// Config line "key: value" (goos/goarch/pkg/cpu), or a stray token.
 			key, val, ok := strings.Cut(line, ":")
@@ -102,11 +128,11 @@ func Parse(r io.Reader, prov Provenance) ([]Sample, Provenance, int, error) {
 			val = strings.TrimSpace(val)
 			switch key {
 			case "goos":
-				prov.GOOS = val
+				meta.GOOS = val
 			case "goarch":
-				prov.GOARCH = val
+				meta.GOARCH = val
 			case "cpu":
-				prov.CPU = val
+				meta.CPU = val
 			case "pkg":
 				currentPkg = val
 				addPkg(val)
@@ -150,10 +176,10 @@ func Parse(r io.Reader, prov Provenance) ([]Sample, Provenance, int, error) {
 		}
 	}
 	if err := sc.Err(); err != nil {
-		return nil, prov, 0, fmt.Errorf("reading benchstat csv: %w", err)
+		return Dataset{}, 0, fmt.Errorf("reading dataset csv: %w", err)
 	}
 
-	prov.Packages = pkgOrder
+	meta.Packages = pkgOrder
 
 	var samples []Sample
 	skipped := 0
@@ -183,5 +209,56 @@ func Parse(r io.Reader, prov Provenance) ([]Sample, Provenance, int, error) {
 		}
 	}
 
-	return samples, prov, skipped, nil
+	return Dataset{Meta: meta, Samples: samples}, skipped, nil
+}
+
+// applyMetaLine parses one "key=value" provenance field from the preamble.
+func applyMetaLine(m *Meta, kv string) {
+	key, val, ok := strings.Cut(kv, "=")
+	if !ok {
+		return
+	}
+	switch strings.TrimSpace(key) {
+	case "env":
+		m.Env = val
+	case "label":
+		m.Label = val
+	case "tier":
+		m.Tier = val
+	case "machine":
+		m.Machine = val
+	case "commit":
+		m.Commit = val
+	case "date":
+		m.Date = val
+	case "goversion":
+		m.GoVersion = val
+	case "benchtime":
+		m.Benchtime = val
+	case "count":
+		m.Count = val
+	}
+}
+
+// metaPreamble serializes a Meta into the deterministic `# benchreport-meta:`
+// preamble written at the top of a captured dataset CSV. Only the
+// capture-supplied fields are written; goos/goarch/cpu/packages stay in the
+// benchstat body below it.
+func metaPreamble(m Meta) string {
+	var b strings.Builder
+	write := func(k, v string) {
+		if v != "" {
+			fmt.Fprintf(&b, "%s %s=%s\n", metaPrefix, k, v)
+		}
+	}
+	write("env", m.Env)
+	write("label", m.Label)
+	write("tier", m.Tier)
+	write("machine", m.Machine)
+	write("commit", m.Commit)
+	write("date", m.Date)
+	write("goversion", m.GoVersion)
+	write("benchtime", m.Benchtime)
+	write("count", m.Count)
+	return b.String()
 }
