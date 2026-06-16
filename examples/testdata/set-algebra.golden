@@ -1,0 +1,8 @@
+A = {apple, banana, cherry, date}
+B = {banana, date, fig}
+A union B        = {apple, banana, cherry, date, fig}
+A intersect B    = {banana, date}
+A minus B        = {apple, cherry}
+B minus A        = {fig}
+A subset of B    = false
+A disjoint with B = false
