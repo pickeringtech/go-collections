@@ -19,8 +19,13 @@ N/A.
 
 ## Testing & Tooling
 
-- **Testing:** standard library `testing` — table-driven tests, godoc `Example` functions, and `Benchmark` functions (scaling ladder). Run with `-race` for concurrent types.
+- **Testing:** standard library `testing` — table-driven tests, godoc `Example` functions, `Benchmark` functions (scaling ladder), and fuzz targets (`testing.F`). Run with `-race` for concurrent types.
 - **Formatting / vetting:** `gofmt`, `go vet` (standard Go toolchain).
+
+These are development/CI dependencies only — they do not affect the zero **runtime** dependency guarantee:
+
+- **Linting / static analysis:** `golangci-lint` (bundles staticcheck, cyclop, gocognit, etc.).
+- **Security:** `govulncheck` (vulnerability scanning), `gosec` (security lint).
 
 ## Distribution & Docs
 
@@ -29,5 +34,6 @@ N/A.
 
 ## Planned (not yet in repo)
 
-- **CI:** GitHub Actions to run tests and benchmarks (with `-race`) on push/PR.
-- **Linting:** `golangci-lint` configuration for development.
+- **CI:** GitHub Actions running build, test (`-race`), lint, complexity, fuzz, and vulnerability checks on push/PR (#7).
+- **Linting:** committed `.golangci.yml` configuration for development.
+- **Fuzzing:** `testing.F` fuzz targets across the collections and utility packages (#10).
