@@ -8,9 +8,10 @@ name: CI
 #                  (race + shuffle) across the OS × Go-version matrix below,
 #                  coverage floor, gofmt, go vet, govulncheck, golangci-lint
 #                  (incl. cyclop/gocognit complexity) and gosec.
-#   - Report-only: Go tip, cross-arch (386/arm64/s390x) build+test, fuzz and
-#                  benchmarks. These print findings/early warnings but do not
-#                  fail the build (per #7's gating policy).
+#   - Report-only: Go tip; cross-arch (386 build+vet+test, arm64/s390x
+#                  build+vet only); fuzz and benchmarks. These print
+#                  findings/early warnings but do not fail the build (per #7's
+#                  gating policy).
 #
 # Test matrix (see #33): the `test` job gates Linux/macOS/Windows on the primary
 # (go.mod) Go version, plus the previous minor on Linux — 4 cells, kept small to
