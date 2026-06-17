@@ -88,18 +88,26 @@ func NewBoundedConcurrentRWDeque[T any](capacity int, policy deques.OverflowPoli
 	return deques.NewBoundedConcurrentRWRingBuffer[T](capacity, policy, values...)
 }
 
-// NewDict creates a Dict backed by a hash map with the given entries.
-func NewDict[K comparable, V any](entries ...dicts.Pair[K, V]) dicts.Dict[K, V] {
+// NewDict creates a Dict backed by a hash map with the given entries. It returns
+// the MutableDict interface so the in-place operations (PutInPlace,
+// UpdateInPlace, ...) are reachable; MutableDict embeds Dict, so the immutable
+// API remains available too.
+func NewDict[K comparable, V any](entries ...dicts.Pair[K, V]) dicts.MutableDict[K, V] {
 	return dicts.NewHash[K, V](entries...)
 }
 
-// NewConcurrentDict creates a thread-safe Dict (mutex-guarded) with the given entries.
-func NewConcurrentDict[K comparable, V any](entries ...dicts.Pair[K, V]) dicts.Dict[K, V] {
+// NewConcurrentDict creates a thread-safe Dict (mutex-guarded) with the given
+// entries. It returns the MutableDict interface so the in-place operations are
+// reachable; use UpdateInPlace for race-free read-modify-write (e.g. counters).
+func NewConcurrentDict[K comparable, V any](entries ...dicts.Pair[K, V]) dicts.MutableDict[K, V] {
 	return dicts.NewConcurrentHash[K, V](entries...)
 }
 
-// NewConcurrentRWDict creates a thread-safe Dict optimised for concurrent reads (RWMutex-guarded) with the given entries.
-func NewConcurrentRWDict[K comparable, V any](entries ...dicts.Pair[K, V]) dicts.Dict[K, V] {
+// NewConcurrentRWDict creates a thread-safe Dict optimised for concurrent reads
+// (RWMutex-guarded) with the given entries. It returns the MutableDict interface
+// so the in-place operations are reachable; use UpdateInPlace for race-free
+// read-modify-write (e.g. counters).
+func NewConcurrentRWDict[K comparable, V any](entries ...dicts.Pair[K, V]) dicts.MutableDict[K, V] {
 	return dicts.NewConcurrentHashRW[K, V](entries...)
 }
 
