@@ -108,3 +108,17 @@ func TestArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 		}
 	})
 }
+
+// TestNewArray_CopiesCallerSlice verifies that NewArray copies the caller's
+// variadic backing array, so a later mutation of the source slice does not
+// reach into the list's backing array.
+func TestNewArray_CopiesCallerSlice(t *testing.T) {
+	src := []int{1, 2, 3}
+	a := lists.NewArray(src...)
+
+	src[0] = 99
+
+	if got := a.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+		t.Errorf("list = %v, want [1 2 3] (constructor aliased the caller's slice)", got)
+	}
+}

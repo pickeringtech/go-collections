@@ -41,10 +41,13 @@ bounded two ways (`.github/workflows/mutation.yml`):
 | Job      | Trigger                                  | Scope                          |
 |----------|------------------------------------------|--------------------------------|
 | `full`   | Weekly (Mon 04:00 UTC) + `workflow_dispatch` | Whole module                |
-| `scoped` | Every pull request                       | Only lines the PR changed (`gremlins --diff`) |
+| `scoped` | Per merge (the merge queue, `merge_group`) | Only lines the merge changes (`gremlins --diff`) |
 
 Both publish a machine-readable `mutation-report.json` artifact. The `scoped`
-job no-ops when a PR touches no non-test Go source.
+job no-ops when a merge touches no non-test Go source. It runs once per merge in
+the merge queue rather than on every PR push (issue #150): installing gremlins
+fetches a newer Go toolchain, so paying that per push was waste — once per merge
+keeps the signal at a fraction of the cost.
 
 ## Gating policy (report-only → ratchet)
 
