@@ -49,7 +49,10 @@ make help             # list the developer entry points
 (golangci-lint, govulncheck, gosec), so a green local run predicts a green PR.
 Each gate is also a standalone target (`make lint`, `make security`,
 `make cover`, `make cross-arch`, `make fuzz`, `make hygiene`) so you can
-reproduce a single failing job.
+reproduce a single failing job. For a full reference of every target and
+variable — including the benchmark pipeline (`make bench`, `make bench-report`)
+and how to refresh the reference baseline — see
+[docs/makefile.md](docs/makefile.md).
 
 ### Multi-module layout
 
