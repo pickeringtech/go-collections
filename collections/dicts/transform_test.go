@@ -90,6 +90,76 @@ func TestMap_CollidingKeysCollapse(t *testing.T) {
 	}
 }
 
+func ExampleMapSorted() {
+	d := dicts.NewHash(
+		dicts.Pair[string, int]{Key: "c", Value: 3},
+		dicts.Pair[string, int]{Key: "a", Value: 1},
+		dicts.Pair[string, int]{Key: "b", Value: 2},
+	)
+	// Key by value (an Ordered type); the result iterates in ascending key order.
+	byValue := dicts.MapSorted(d, func(k string, v int) (int, string) {
+		return v, k
+	})
+	for k, v := range byValue.All() {
+		fmt.Printf("%d=%s\n", k, v)
+	}
+
+	// Output:
+	// 1=a
+	// 2=b
+	// 3=c
+}
+
+func TestMapSorted_PreservesAscendingKeyOrder(t *testing.T) {
+	// A Hash input (unordered) mapped to ordered keys must come out sorted.
+	d := dicts.NewHash(
+		dicts.Pair[string, int]{Key: "c", Value: 3},
+		dicts.Pair[string, int]{Key: "a", Value: 1},
+		dicts.Pair[string, int]{Key: "b", Value: 2},
+	)
+	got := dicts.MapSorted(d, func(k string, v int) (string, int) {
+		return k, v * v
+	})
+
+	var keys []string
+	got.ForEachKey(func(k string) {
+		keys = append(keys, k)
+	})
+	want := []string{"a", "b", "c"}
+	if fmt.Sprint(keys) != fmt.Sprint(want) {
+		t.Errorf("MapSorted() key order = %v, want %v", keys, want)
+	}
+	if v, _ := got.Get("c", 0); v != 9 {
+		t.Errorf("MapSorted()[c] = %d, want 9", v)
+	}
+}
+
+func TestMapSorted_EmptyInputYieldsNonNilEmptySortedDict(t *testing.T) {
+	d := dicts.NewHash[string, int]()
+	got := dicts.MapSorted(d, func(k string, v int) (int, int) {
+		return v, v
+	})
+	if got == nil {
+		t.Fatal("MapSorted() returned nil, want non-nil empty SortedDict")
+	}
+	if !got.IsEmpty() {
+		t.Errorf("MapSorted() = %v, want empty", got.AsMap())
+	}
+}
+
+func TestMapSorted_CollidingKeysCollapse(t *testing.T) {
+	d := dicts.NewHash(
+		dicts.Pair[string, int]{Key: "a", Value: 1},
+		dicts.Pair[string, int]{Key: "b", Value: 2},
+	)
+	got := dicts.MapSorted(d, func(k string, v int) (string, int) {
+		return "same", v
+	})
+	if got.Length() != 1 {
+		t.Errorf("MapSorted() length = %d, want 1", got.Length())
+	}
+}
+
 func TestReduce(t *testing.T) {
 	d := dicts.NewHash(
 		dicts.Pair[string, int]{Key: "a", Value: 1},
