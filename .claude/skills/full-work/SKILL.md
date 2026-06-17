@@ -40,19 +40,25 @@ this pipeline later needs heavy parallel fan-out, promote the phase loop to a
 Defaults below; override per-run via the flags above. Route mechanical phases to
 cheaper/faster models and reserve the strongest model for judgement.
 
-| Phase | Reuses | Default model | Fork |
-|-------|--------|---------------|------|
-| 1. Understand | `Explore` agent | Sonnet | yes |
-| 2. Design | `Plan` agent / `agent-os:shape-spec` | **Opus** | yes |
-| 3. Implement | **`/code`** | Sonnet | yes — **worktree** |
-| 4. Test | Makefile targets | Haiku | yes |
-| 5. Verify | `/verify` | Sonnet | yes |
-| 6. Review/cleanup | `/code-review`, `/simplify` | **Opus** | yes |
-| 7. PR | `/pr`, `/pr-watch` | Sonnet | yes |
+Every phase is its **own slash command** and is usable standalone — the
+orchestrator just sequences them and threads the handoff. The command does the
+work; the agent/model column is *how* the orchestrator forks it.
 
-When you spawn a phase with the `Agent` tool, pass `model:` per this table (or
-the override) and `subagent_type` where one fits (`Explore` for phase 1, `Plan`
-for phase 2). The implement phase passes `isolation: "worktree"`.
+| Phase | Command | Forked as | Default model | Fork |
+|-------|---------|-----------|---------------|------|
+| 1. Understand | [`/understand`](../understand/SKILL.md) | `Explore` agent | Sonnet | yes |
+| 2. Design | [`/design`](../design/SKILL.md) | `Plan` agent / `agent-os:shape-spec` | **Opus** | yes |
+| 3. Implement | [`/code`](../code/SKILL.md) | subagent, **worktree** | Sonnet | yes — **worktree** |
+| 4. Test | [`/test`](../test/SKILL.md) | subagent | Haiku | yes |
+| 5. Verify | `/verify` | subagent | Sonnet | yes |
+| 6. Review/cleanup | `/code-review`, `/simplify` | subagent | **Opus** | yes |
+| 7. PR | `/pr`, `/pr-watch` | subagent | Sonnet | yes |
+
+When you spawn a phase, invoke its command inside a forked subagent, passing
+`model:` per this table (or the override) and `subagent_type` where one fits
+(`Explore` for phase 1, `Plan` for phase 2). The implement phase passes
+`isolation: "worktree"`. Each command returns its own compact artifact; the
+orchestrator merges that into the shared handoff below.
 
 ## Handoff artifact
 
@@ -81,17 +87,17 @@ returns an updated copy — keep it small (no diffs, no logs):
 Run in order. Each is a forked subagent; feed it the current handoff, get back
 the updated handoff. Honour the gates between phases.
 
-### 1. Understand — *(Explore, Sonnet)*
-Read the issue and any linked issues/PRs (`gh issue view <#> --comments`),
-locate the relevant code, and **restate scope + acceptance criteria**. Return
-`scope`. **Scope guard:** if the issue is too big/vague for an autonomous run,
-say so here and stop at the post-design gate with a "needs decomposition"
-verdict.
+### 1. Understand — *([`/understand`](../understand/SKILL.md), Explore, Sonnet)*
+Run `/understand <issue#>` to read the issue + linked issues/PRs, locate the
+relevant code, and **restate scope + acceptance criteria**. Merge its `scope`,
+`acceptance`, and `touches` into the handoff. **Scope guard:** a
+`too_big`/`needs_clarification` verdict stops at a human gate.
 
-### 2. Design — *(Plan / agent-os:shape-spec, Opus)*
-Produce an implementation plan: ordered steps, the exact `files` to touch,
-`risks`, and any **decisions that need a human**. This is the judgement phase —
-use the strongest model. Return `plan`, `files`, `risks`.
+### 2. Design — *([`/design`](../design/SKILL.md), Plan / agent-os:shape-spec, Opus)*
+Run `/design` on the scope artifact to produce an implementation plan: ordered
+steps, the exact `files` to touch, `risks`, and any **decisions that need a
+human**. This is the judgement phase — use the strongest model. Merge `plan`,
+`files`, `risks` into the handoff.
 
 > **GATE — design approval (default ON).** Present the plan and acceptance
 > criteria to the user and wait for approval before implementing. Skip only if
@@ -106,15 +112,11 @@ code + tests to the repo standards and returns a compact summary. Thread its
 `branch`, `worktree`, and `files_changed` back into the handoff. If `/code`
 returns `needs_human`, escalate to a gate.
 
-### 4. Test — *(Makefile, Haiku)*
-In the implementation worktree, run the suite and summarize pass/fail only
-(no logs in the parent):
-```bash
-go test ./...        # root + Examples
-make test            # root + nested modules, -shuffle=on (CI parity)
-go vet ./... && gofmt -l .
-```
-Return a one-line `test` verdict. On failure → Fix loop.
+### 4. Test — *([`/test`](../test/SKILL.md), Haiku)*
+Run `/test` in the implementation worktree (CI parity: `make test`, `go vet`,
+`gofmt -l`, `make cover`). It returns a compact `result: PASS|FAIL` verdict with
+one-line failure causes — no logs in the parent. Merge into `test`. On `FAIL` →
+Fix loop.
 
 ### 5. Verify — *(`/verify`, Sonnet)*
 Run `/verify` to confirm the change actually does what the
