@@ -87,8 +87,10 @@ func TestArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 		pushed := a.Push(9)
 		a.PushInPlace(7) // appends into the shared spare slot under a plain append
 
-		if want := []int{1, 2, 3, 9}; !reflect.DeepEqual(pushed.AsSlice(), want) {
-			t.Errorf("Push result = %v, want %v (returned slice aliased the receiver's spare capacity)", pushed.AsSlice(), want)
+		got := pushed.AsSlice()
+		want := []int{1, 2, 3, 9}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Push result = %v, want %v (returned slice aliased the receiver's spare capacity)", got, want)
 		}
 	})
 
@@ -99,8 +101,10 @@ func TestArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 		enqueued := a.Enqueue(9)
 		a.EnqueueInPlace(7) // appends into the shared spare slot under a plain append
 
-		if want := []int{1, 2, 3, 9}; !reflect.DeepEqual(enqueued.AsSlice(), want) {
-			t.Errorf("Enqueue result = %v, want %v (returned slice aliased the receiver's spare capacity)", enqueued.AsSlice(), want)
+		got := enqueued.AsSlice()
+		want := []int{1, 2, 3, 9}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("Enqueue result = %v, want %v (returned slice aliased the receiver's spare capacity)", got, want)
 		}
 	})
 }
