@@ -18,6 +18,10 @@ var present = struct{}{}
 // Elements must implement constraints.Ordered (integers, floats, strings). Use
 // TreeSet when you need sorted iteration or range queries; prefer Hash for
 // unordered membership testing at O(1).
+//
+// Backed by dicts.Tree, TreeSet inherits its float key contract: all NaN
+// elements collapse to a single element that sorts as the minimum (ahead of
+// -Inf), and -0.0 and +0.0 are the same element. See dicts.Tree for details.
 type TreeSet[T constraints.Ordered] struct {
 	tree *dicts.Tree[T, struct{}]
 }
