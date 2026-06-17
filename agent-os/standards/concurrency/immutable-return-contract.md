@@ -9,10 +9,14 @@ Operating on a thread-safe collection yields a thread-safe result.
 // Correct: ConcurrentHashRW.Filter returns another ConcurrentHashRW
 func (ch *ConcurrentHashRW[T]) Filter(fn func(T) bool) Set[T] {
 	ch.lock.RLock()
-	defer ch.lock.RUnlock()
+	elements := make([]T, 0, len(ch.data))
+	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.RUnlock() // released before the predicate runs — see callback-reentrancy
 
 	result := NewConcurrentHashRW[T]()
-	for element := range ch.data {
+	for _, element := range elements {
 		if fn(element) {
 			result.data[element] = struct{}{}
 		}
@@ -23,5 +27,6 @@ func (ch *ConcurrentHashRW[T]) Filter(fn func(T) bool) Set[T] {
 
 - Principle of least surprise: thread-safe in → thread-safe out. Never downgrade to a plain (non-thread-safe) type like `Hash[T]`.
 - Returning a fresh instance keeps the result independent of the receiver's lock.
+- The predicate `fn` is a user callback, so it runs **outside** the lock against a snapshot — see [[callback-reentrancy]].
 
 > Gap: existing concurrent `Filter`/etc. currently return the plain type (e.g. `Hash[T]`). These should be migrated to return the same concurrent type.
