@@ -87,12 +87,12 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Install gremlins (pinned)
-        env:
-          GOTOOLCHAIN: auto
-        run: go install "github.com/go-gremlins/gremlins/cmd/gremlins@${GREMLINS_VERSION}"
-      - name: Unleash gremlins on lines changed by this PR
-        continue-on-error: true   # report-only — see gating policy at top of file
+      - name: Determine whether this PR changes non-test Go source
+        id: changed
+        # Decide BEFORE installing gremlins (issue #146): the install fetches a
+        # newer Go toolchain (GOTOOLCHAIN=auto) to *build* the tool, which is the
+        # expensive part. A docs-only / tests-only PR has nothing to mutate, so
+        # skipping the install (and the run) here saves that whole cost.
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
@@ -107,10 +107,24 @@ jobs:
                     | { grep -vE '_test\.go$' || true; })
           if [ -z "$changed" ]; then
             echo "No non-test Go source changed by this PR — nothing to mutate."
-            exit 0
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Changed Go source (mutants will be restricted to these diffs):"
+            echo "$changed"
+            echo "run=true" >> "$GITHUB_OUTPUT"
           fi
-          echo "Changed Go source (mutants restricted to these diffs):"
-          echo "$changed"
+      - name: Install gremlins (pinned)
+        if: steps.changed.outputs.run == 'true'
+        env:
+          GOTOOLCHAIN: auto
+        run: go install "github.com/go-gremlins/gremlins/cmd/gremlins@${GREMLINS_VERSION}"
+      - name: Unleash gremlins on lines changed by this PR
+        if: steps.changed.outputs.run == 'true'
+        continue-on-error: true   # report-only — see gating policy at top of file
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
           gremlins unleash . \
             --diff "origin/${BASE_REF}" \
             --output mutation-report.json \
