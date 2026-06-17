@@ -19,7 +19,7 @@ func TestLinked_InsertInPlace(t *testing.T) {
 		{name: "in middle", initial: []int{1, 2, 3}, index: 1, elements: []int{9, 8}, want: []int{1, 9, 8, 2, 3}},
 		{name: "before tail", initial: []int{1, 2, 3}, index: 2, elements: []int{7}, want: []int{1, 2, 7, 3}},
 		{name: "at end", initial: []int{1, 2, 3}, index: 3, elements: []int{4}, want: []int{1, 2, 3, 4}},
-		{name: "beyond end appends", initial: []int{1, 2, 3}, index: 10, elements: []int{4}, want: []int{1, 2, 3, 4}},
+		{name: "beyond end leaves list unchanged", initial: []int{1, 2, 3}, index: 10, elements: []int{4}, want: []int{1, 2, 3}},
 		{name: "negative index ignored", initial: []int{1, 2, 3}, index: -1, elements: []int{4}, want: []int{1, 2, 3}},
 		{name: "into empty at head", initial: nil, index: 0, elements: []int{1, 2}, want: []int{1, 2}},
 	}
