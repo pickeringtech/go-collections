@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pickeringtech/go-collections/channels"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -94,5 +95,33 @@ func TestMapCancellation(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("Map() goroutine did not exit after cancellation")
+	}
+}
+
+// TestMapCancellationWhileSending covers the other cancellation path: the goroutine
+// has read a value and is blocked trying to deliver the result downstream (the
+// output is unbuffered and unread). Cancelling unblocks that send, so the goroutine
+// abandons the value and exits rather than leaking.
+func TestMapCancellationWhileSending(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	input := make(chan int, 1)
+	input <- 1 // a value is ready, so the goroutine proceeds to the send
+
+	output := channels.Map(ctx, input, func(i int) int { return i * 2 })
+
+	// Yield generously so the goroutine consumes the input (context still live, so
+	// the read wins the select) and parks in the blocked send before we cancel.
+	for i := 0; i < 1000; i++ {
+		runtime.Gosched()
+	}
+	cancel()
+
+	select {
+	case v, ok := <-output:
+		if ok {
+			t.Fatalf("Map() delivered %d after cancellation, want closed channel", v)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Map() goroutine did not exit after cancellation while sending")
 	}
 }

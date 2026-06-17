@@ -172,3 +172,25 @@ func TestFromMap(t *testing.T) {
 		})
 	}
 }
+
+// TestFromMapCancellation asserts that an already-cancelled context stops the
+// producing goroutine before it emits anything: the first send short-circuits,
+// so the goroutine closes the output and returns rather than leaking.
+func TestFromMapCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	output := channels.FromMap(ctx, map[int]string{1: "one", 2: "two", 3: "three"})
+
+	done := make(chan struct{})
+	go func() {
+		for range output {
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("FromMap() goroutine did not exit after cancellation")
+	}
+}

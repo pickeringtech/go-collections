@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pickeringtech/go-collections/channels"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -94,5 +95,33 @@ func TestFilterCancellation(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("Filter() goroutine did not exit after cancellation")
+	}
+}
+
+// TestFilterCancellationWhileSending covers the other cancellation path: a value
+// passes the predicate and the goroutine is blocked trying to deliver it (the
+// output is unbuffered and unread). Cancelling unblocks that send, so the goroutine
+// abandons the value and exits rather than leaking.
+func TestFilterCancellationWhileSending(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	input := make(chan int, 1)
+	input <- 1 // passes the predicate below, so the goroutine proceeds to the send
+
+	output := channels.Filter(ctx, input, func(int) bool { return true })
+
+	// Yield generously so the goroutine consumes the input (context still live, so
+	// the read wins the select) and parks in the blocked send before we cancel.
+	for i := 0; i < 1000; i++ {
+		runtime.Gosched()
+	}
+	cancel()
+
+	select {
+	case v, ok := <-output:
+		if ok {
+			t.Fatalf("Filter() delivered %d after cancellation, want closed channel", v)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Filter() goroutine did not exit after cancellation while sending")
 	}
 }
