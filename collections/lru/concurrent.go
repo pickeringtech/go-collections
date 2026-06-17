@@ -13,7 +13,7 @@ import (
 // O(1) costs and recency ordering are exactly those of LRU.
 type ConcurrentLRU[K comparable, V any] struct {
 	inner *LRU[K, V]
-	lock  *sync.Mutex
+	lock  sync.Mutex
 }
 
 // Interface guards: a pointer to ConcurrentLRU satisfies both cache contracts.
@@ -26,7 +26,6 @@ var _ MutableCache[string, int] = &ConcurrentLRU[string, int]{}
 func NewConcurrentLRU[K comparable, V any](capacity int, opts ...Option[K, V]) *ConcurrentLRU[K, V] {
 	return &ConcurrentLRU[K, V]{
 		inner: NewLRU[K, V](capacity, opts...),
-		lock:  &sync.Mutex{},
 	}
 }
 
@@ -133,7 +132,7 @@ func (c *ConcurrentLRU[K, V]) Put(key K, value V) Cache[K, V] {
 	defer c.lock.Unlock()
 	dup := c.inner.clone()
 	dup.putInPlace(key, value)
-	return &ConcurrentLRU[K, V]{inner: dup, lock: &sync.Mutex{}}
+	return &ConcurrentLRU[K, V]{inner: dup}
 }
 
 // PutInPlace sets key to value and promotes it to most-recently-used, evicting
@@ -151,7 +150,7 @@ func (c *ConcurrentLRU[K, V]) Remove(key K) Cache[K, V] {
 	defer c.lock.Unlock()
 	dup := c.inner.clone()
 	dup.removeInPlace(key)
-	return &ConcurrentLRU[K, V]{inner: dup, lock: &sync.Mutex{}}
+	return &ConcurrentLRU[K, V]{inner: dup}
 }
 
 // RemoveInPlace removes key, returning the removed value and true if it was

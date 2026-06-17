@@ -11,6 +11,11 @@ import "iter"
 // Elements are stored in buf with the front at index head and the remaining
 // size-1 elements following at successive indices modulo len(buf), wrapping
 // around the end. The logical element at index i lives at buf[(head+i)%len(buf)].
+//
+// Zero value: a RingBuffer{} is a valid, empty, unbounded deque ready for use;
+// ensureCapacity grows the buffer from zero on the first push. NewRingBuffer (or
+// NewBoundedRingBuffer) remains the recommended constructor, especially to seed
+// elements or set a bounded capacity and overflow policy.
 type RingBuffer[T any] struct {
 	buf      []T
 	head     int
