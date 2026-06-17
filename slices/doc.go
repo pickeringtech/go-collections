@@ -6,15 +6,19 @@
 //
 //	import "github.com/pickeringtech/go-collections/slices"
 //
-//	// Transform data with functional style
+//	// Transform data with functional style.
 //	numbers := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 //
-//	// Chain operations elegantly
-//	result := slices.Filter(numbers, func(n int) bool { return n%2 == 0 }).
-//		Map(func(n int) int { return n * n }).
-//		Reduce(0, func(acc, n int) int { return acc + n })
+//	// Each operation is a standalone function that takes a slice and returns a
+//	// new one, so compose them by nesting the calls.
+//	evens := slices.Filter(numbers, func(n int) bool { return n%2 == 0 })
+//	squares := slices.Map(evens, func(n int) int { return n * n })
+//	sum := slices.Reduce(squares, func(acc, n int) int { return acc + n })
 //
-//	// Result: sum of squares of even numbers = 220
+//	// sum of the squares of the even numbers = 220
+//
+// This Quick Start is compiled and run as Example_quickStart in the package's
+// test suite, so it is guaranteed to track the real API.
 //
 // # Why Use Slices Package?
 //
@@ -38,32 +42,35 @@
 //		sum += n
 //	}
 //
-// Slices package enables elegant functional style:
+// The slices package collapses each loop into a named operation:
 //
 //	// Functional approach - clean and expressive
-//	sum := slices.Filter(numbers, isEven).
-//		Map(square).
-//		Reduce(0, add)
+//	evens := slices.Filter(numbers, isEven)
+//	squares := slices.Map(evens, square)
+//	sum := slices.Reduce(squares, add)
 //
 // # Core Operations
 //
-// Transform Operations:
-//   - Map: Transform each element
-//   - Filter: Keep elements matching condition
-//   - Reduce: Combine elements into single value
-//   - FlatMap: Transform and flatten nested structures
+// Transform operations (each returns a new slice or value):
+//   - Map: transform each element into a new slice
+//   - Filter: keep only the elements matching a predicate
+//   - Reduce: fold the elements into a single value
+//   - Reverse: reverse the slice order
 //
-// Search Operations:
-//   - Find: Get first matching element
-//   - FindIndex: Get index of first match
-//   - Contains: Check if element exists
-//   - All/Any: Check conditions across elements
+// Search operations:
+//   - Find / FindLast: get the first (or last) matching element
+//   - FindIndex / FindLastIndex / IndexOf: locate a match by index
+//   - Includes: check whether an element is present
+//   - AllMatch / AnyMatch: check a predicate across the slice
 //
-// Utility Operations:
-//   - Reverse: Reverse slice order
-//   - Unique: Remove duplicates
-//   - Chunk: Split into smaller slices
-//   - Zip: Combine multiple slices
+// Access and structure:
+//   - First / PeekFront / PeekEnd / Get: read elements safely
+//   - SubSlice / Paginate: take a window of elements
+//   - Push / Pop / PushFront / PopFront / Insert / Delete: grow or shrink
+//   - Concatenate / Copy / Fill / JoinToString: combine and format
+//
+// Numeric helpers:
+//   - Sum / Avg / Min / Max and the SortOrdered* family
 //
 // # Common Patterns
 //
@@ -71,45 +78,49 @@
 //
 //	users := []User{...}
 //
-//	// Find active adult users and get their emails
-//	emails := slices.Filter(users, func(u User) bool {
+//	// Find active adult users and get their emails.
+//	adults := slices.Filter(users, func(u User) bool {
 //		return u.Active && u.Age >= 18
-//	}).Map(func(u User) string {
+//	})
+//	emails := slices.Map(adults, func(u User) string {
 //		return u.Email
 //	})
 //
-// Configuration Processing:
+// Building a Map by Reduction:
 //
 //	configs := []string{"key1=value1", "key2=value2", "invalid"}
 //
-//	// Parse valid configs into map
-//	configMap := slices.Filter(configs, func(s string) bool {
+//	// Parse valid "key=value" configs into a map.
+//	valid := slices.Filter(configs, func(s string) bool {
 //		return strings.Contains(s, "=")
-//	}).Map(func(s string) Pair {
-//		parts := strings.Split(s, "=")
-//		return Pair{Key: parts[0], Value: parts[1]}
-//	}).Reduce(make(map[string]string), func(acc map[string]string, p Pair) map[string]string {
-//		acc[p.Key] = p.Value
+//	})
+//	configMap := slices.Reduce(valid, func(acc map[string]string, s string) map[string]string {
+//		if acc == nil {
+//			acc = map[string]string{}
+//		}
+//		parts := strings.SplitN(s, "=", 2)
+//		acc[parts[0]] = parts[1]
 //		return acc
 //	})
 //
-// Log Processing:
+// Grouping by Reduction:
 //
 //	logs := []LogEntry{...}
 //
-//	// Find error logs from last hour
+//	// Find error logs from the last hour.
 //	recentErrors := slices.Filter(logs, func(log LogEntry) bool {
 //		return log.Level == "ERROR" &&
-//			   time.Since(log.Timestamp) < time.Hour
+//			time.Since(log.Timestamp) < time.Hour
 //	})
 //
-//	// Group by error type
-//	errorCounts := slices.Reduce(recentErrors,
-//		make(map[string]int),
-//		func(acc map[string]int, log LogEntry) map[string]int {
-//			acc[log.ErrorType]++
-//			return acc
-//		})
+//	// Count them by error type.
+//	errorCounts := slices.Reduce(recentErrors, func(acc map[string]int, log LogEntry) map[string]int {
+//		if acc == nil {
+//			acc = map[string]int{}
+//		}
+//		acc[log.ErrorType]++
+//		return acc
+//	})
 //
 // # Performance Considerations
 //
@@ -120,11 +131,6 @@
 //   - Clearer, more maintainable code
 //   - Easier testing and reasoning
 //   - Composable operations
-//
-// Benchmark comparison:
-//
-//	BenchmarkManualLoop-16     100M    12.3 ns/op    0 B/op
-//	BenchmarkFunctional-16      50M    24.7 ns/op   32 B/op
 //
 // Use functional style for:
 //   - Business logic and data transformation
@@ -138,21 +144,21 @@
 //
 // # Integration with Collections
 //
-// Slices package works seamlessly with collections:
+// The slices package works seamlessly with collections:
 //
-//	// Process data and store in collections
+//	// Process data and store it in collections.
 //	users := []User{...}
 //
-//	activeEmails := slices.Filter(users, isActive).
-//		Map(getEmail)
+//	active := slices.Filter(users, isActive)
+//	activeEmails := slices.Map(active, getEmail)
 //
 //	emailSet := collections.NewSet(activeEmails...)
 //	emailDict := collections.NewDict(
 //		slices.Map(activeEmails, func(email string) collections.Pair[string, bool] {
 //			return collections.Pair[string, bool]{Key: email, Value: true}
-//		})...
+//		})...,
 //	)
 //
-// Start with simple operations like Filter and Map, then explore advanced
-// patterns like Reduce and FlatMap as you become comfortable with functional programming.
+// Start with simple operations like Filter and Map, then reach for Reduce to
+// fold a slice into a single value as you become comfortable with the style.
 package slices

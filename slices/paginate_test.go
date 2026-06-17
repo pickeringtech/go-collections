@@ -63,6 +63,24 @@ func TestPaginate(t *testing.T) {
 			want: nil,
 		},
 		{
+			name: "provides nil results when page size is zero",
+			args: args[int]{
+				slice:     []int{1, 2, 3, 4, 5},
+				pageIndex: 0,
+				pageSize:  0,
+			},
+			want: nil,
+		},
+		{
+			name: "provides nil results when page size is negative",
+			args: args[int]{
+				slice:     []int{1, 2, 3, 4, 5},
+				pageIndex: 1,
+				pageSize:  -2,
+			},
+			want: nil,
+		},
+		{
 			name: "provides nil results when page is entirely beyond slice length",
 			args: args[int]{
 				slice:     []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},

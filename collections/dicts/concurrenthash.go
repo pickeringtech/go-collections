@@ -7,16 +7,20 @@ import (
 
 // ConcurrentHash is a thread-safe dictionary implementation using Go's built-in map
 // with a mutex for synchronization. All operations are protected by a single mutex.
+//
+// Zero value: always construct with NewConcurrentHash. The embedded mutex is a
+// value, so a bare &ConcurrentHash{} is at least lock-safe, but its backing map
+// is nil until the constructor runs, so writes (PutInPlace) panic. Reads on the
+// zero value return empty results.
 type ConcurrentHash[K comparable, V any] struct {
 	data map[K]V
-	lock *sync.Mutex
+	lock sync.Mutex
 }
 
 // NewConcurrentHash creates a new ConcurrentHash dictionary with the given key-value pairs.
 func NewConcurrentHash[K comparable, V any](entries ...Pair[K, V]) *ConcurrentHash[K, V] {
 	m := &ConcurrentHash[K, V]{
 		data: make(map[K]V),
-		lock: &sync.Mutex{},
 	}
 	for _, entry := range entries {
 		m.data[entry.Key] = entry.Value
@@ -295,6 +299,10 @@ func (ch *ConcurrentHash[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 // Values are compared with reflect.DeepEqual, matching the equality semantics
 // used by list removal. This supports non-comparable value types (slices, maps,
 // funcs) without panicking.
+//
+// This is the deliberate counterpart to maps.ContainsValue, which uses == and
+// requires a comparable V: dicts trades that speed for the ability to compare
+// nested and non-comparable values structurally.
 func (ch *ConcurrentHash[K, V]) ContainsValue(value V) bool {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
@@ -401,6 +409,22 @@ func (ch *ConcurrentHash[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 	for _, pair := range pairs {
 		ch.data[pair.Key] = pair.Value
 	}
+}
+
+// UpdateInPlace atomically reads the value at key, applies fn to it, and stores
+// the result back under key, returning the new value. fn receives the current
+// value (the zero value if the key is absent) and whether the key existed. The
+// whole read-modify-write runs under a single lock acquisition, so concurrent
+// updates compose without losing writes. fn must not call back into the
+// dictionary, which would deadlock on the held lock.
+func (ch *ConcurrentHash[K, V]) UpdateInPlace(key K, fn func(old V, existed bool) V) V {
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
+
+	old, existed := ch.data[key]
+	newValue := fn(old, existed)
+	ch.data[key] = newValue
+	return newValue
 }
 
 // Remove creates a new dictionary with the given key removed.
