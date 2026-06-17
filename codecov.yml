@@ -6,7 +6,7 @@
 #
 # Gating policy (matches .github/workflows/ci.yml):
 #   - The coverage floor is enforced in CI by `go tool cover` against
-#     COVERAGE_MIN (currently 90%; actual is ~99%). That check is the
+#     COVERAGE_MIN (currently 100%; actual is 100%). That check is the
 #     single source of truth and it BLOCKS.
 #   - Codecov here is INFORMATIONAL only (`informational: true`): it posts
 #     a status and a PR comment for visibility but never fails a build.
@@ -19,20 +19,20 @@ coverage:
   # `go tool cover -func | tail -1` total CI prints (e.g. 99.12%).
   precision: 2
   round: down
-  range: "90...100"
+  range: "100...100"
 
   status:
     project:
       default:
-        # Align with the CI floor; actual is ~99% so this leaves headroom.
-        target: 90%
+        # Align with the CI floor (100%); actual total is 100%.
+        target: 100%
         # Allow a small dip from the parent commit without flagging red.
         threshold: 1%
         informational: true
     patch:
       default:
         # New/changed lines should themselves clear the floor.
-        target: 90%
+        target: 100%
         threshold: 1%
         informational: true
 
