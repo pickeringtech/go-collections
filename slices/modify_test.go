@@ -945,22 +945,49 @@ func TestInsert(t *testing.T) {
 			want: []int{1, 2, 10, 11, 12, 3, 4, 5},
 		},
 		{
-			name: "empty input results in nil",
+			name: "index equal to length appends",
+			args: args[int]{
+				input:    []int{1, 2, 3, 4, 5},
+				startIdx: 5,
+				elements: []int{10, 11},
+			},
+			want: []int{1, 2, 3, 4, 5, 10, 11},
+		},
+		{
+			name: "empty input appends the elements",
 			args: args[int]{
 				input:    []int{},
 				startIdx: 0,
 				elements: []int{10, 11, 12},
 			},
-			want: nil,
+			want: []int{10, 11, 12},
 		},
 		{
-			name: "nil input results in nil",
+			name: "nil input appends the elements",
 			args: args[int]{
 				input:    nil,
 				startIdx: 0,
 				elements: []int{10, 11, 12},
 			},
-			want: nil,
+			want: []int{10, 11, 12},
+		},
+		{
+			name: "index beyond length leaves input unchanged",
+			args: args[int]{
+				input:    []int{1, 2, 3},
+				startIdx: 5,
+				elements: []int{10, 11, 12},
+			},
+			want: []int{1, 2, 3},
+		},
+		{
+			name: "negative index leaves input unchanged",
+			args: args[int]{
+				input:    []int{1, 2, 3},
+				startIdx: -1,
+				elements: []int{10, 11, 12},
+			},
+			want: []int{1, 2, 3},
 		},
 	}
 	for _, tt := range tests {

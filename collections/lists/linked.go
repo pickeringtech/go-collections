@@ -392,7 +392,9 @@ func (l *Linked[T]) AsSlice() []T {
 	return result
 }
 
-// Insert creates a new slice with elements inserted at the given index.
+// Insert creates a new slice with elements inserted at the given index. The
+// index may range over 0 <= index <= Length(): an index equal to the length
+// appends. An out-of-range index leaves the list's elements unchanged.
 func (l *Linked[T]) Insert(index int, elements ...T) []T {
 	slice := l.AsSlice()
 	if index < 0 || index > len(slice) {
@@ -406,7 +408,9 @@ func (l *Linked[T]) Insert(index int, elements ...T) []T {
 	return result
 }
 
-// InsertInPlace inserts elements at the given index.
+// InsertInPlace inserts elements at the given index. The index may range over
+// 0 <= index <= Length(): an index equal to the length appends. An out-of-range
+// index leaves the list untouched.
 func (l *Linked[T]) InsertInPlace(index int, elements ...T) {
 	if index < 0 {
 		return
@@ -423,10 +427,9 @@ func (l *Linked[T]) InsertInPlace(index int, elements ...T) {
 		return // Invalid index in circular list — leave the list untouched.
 	}
 	if current == nil {
-		// Index beyond list, append to end.
-		for _, element := range elements {
-			l.insertAtEnd(element)
-		}
+		// Index is beyond the end of the list (index > len): out of range, so
+		// leave the list untouched. Appending here is reserved for index == len,
+		// which resolves to the tail node and falls through to insertAfter below.
 		return
 	}
 

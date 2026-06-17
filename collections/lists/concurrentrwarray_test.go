@@ -889,31 +889,49 @@ func TestConcurrentRWArray_Insert(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "inserting into empty ConcurrentRWArray yields nil output",
+			name: "index equal to length appends",
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
+			args: args[int]{
+				index:    5,
+				elements: []int{6, 7, 8},
+			},
+			want: []int{1, 2, 3, 4, 5, 6, 7, 8},
+		},
+		{
+			name: "inserting into empty ConcurrentRWArray yields the elements",
 			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    0,
 				elements: []int{6, 7, 8},
 			},
-			want: nil,
+			want: []int{6, 7, 8},
 		},
 		{
-			name: "empty ConcurrentRWArray and empty elements slice yields nil output",
+			name: "index beyond length leaves elements unchanged",
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3),
+			args: args[int]{
+				index:    5,
+				elements: []int{6, 7, 8},
+			},
+			want: []int{1, 2, 3},
+		},
+		{
+			name: "negative index leaves elements unchanged",
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3),
+			args: args[int]{
+				index:    -1,
+				elements: []int{6, 7, 8},
+			},
+			want: []int{1, 2, 3},
+		},
+		{
+			name: "out-of-range index on empty ConcurrentRWArray yields non-nil empty output",
 			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    2,
-				elements: []int{},
+				elements: []int{6, 7, 8},
 			},
-			want: nil,
-		},
-		{
-			name: "empty ConcurrentRWArray and nil elements slice yields nil output",
-			a:    lists.NewConcurrentRWArray[int](),
-			args: args[int]{
-				index:    2,
-				elements: nil,
-			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -966,29 +984,38 @@ func TestConcurrentRWArray_InsertInPlace(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "inserting into empty ConcurrentRWArray yields non-nil empty output",
+			name: "index equal to length appends",
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3, 4, 5),
+			args: args[int]{
+				index:    5,
+				elements: []int{6, 7, 8},
+			},
+			want: []int{1, 2, 3, 4, 5, 6, 7, 8},
+		},
+		{
+			name: "inserting into empty ConcurrentRWArray yields the elements",
 			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    0,
 				elements: []int{6, 7, 8},
 			},
-			want: []int{},
+			want: []int{6, 7, 8},
 		},
 		{
-			name: "empty ConcurrentRWArray and empty elements slice yields non-nil empty output",
-			a:    lists.NewConcurrentRWArray[int](),
+			name: "index beyond length leaves elements unchanged",
+			a:    lists.NewConcurrentRWArray[int](1, 2, 3),
 			args: args[int]{
-				index:    2,
-				elements: []int{},
+				index:    5,
+				elements: []int{6, 7, 8},
 			},
-			want: []int{},
+			want: []int{1, 2, 3},
 		},
 		{
-			name: "empty ConcurrentRWArray and nil elements slice yields non-nil empty output",
+			name: "out-of-range index on empty ConcurrentRWArray yields non-nil empty output",
 			a:    lists.NewConcurrentRWArray[int](),
 			args: args[int]{
 				index:    2,
-				elements: nil,
+				elements: []int{6, 7, 8},
 			},
 			want: []int{},
 		},
