@@ -72,4 +72,35 @@ func TestArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 			t.Errorf("receiver mutated by immutable Enqueue: %v, want [1 2 3]", got)
 		}
 	})
+
+	// The subtests below exercise the shared-capacity aliasing path the issue
+	// flagged: when the receiver's backing array has spare capacity, a plain
+	// append (slices.Push) writes the new element into that spare slot, so the
+	// returned List aliases the receiver. PopInPlace shrinks the length while
+	// keeping the capacity, manufacturing that spare slot; a subsequent in-place
+	// append must not corrupt the previously returned immutable result. These
+	// would fail if Push/Enqueue used slices.Push instead of slices.PushCopy.
+	t.Run("Push does not alias receiver spare capacity", func(t *testing.T) {
+		a := lists.NewArray(1, 2, 3, 4)
+		a.PopInPlace() // a.elements = [1 2 3] with spare capacity for one more
+
+		pushed := a.Push(9)
+		a.PushInPlace(7) // appends into the shared spare slot under a plain append
+
+		if want := []int{1, 2, 3, 9}; !reflect.DeepEqual(pushed.AsSlice(), want) {
+			t.Errorf("Push result = %v, want %v (returned slice aliased the receiver's spare capacity)", pushed.AsSlice(), want)
+		}
+	})
+
+	t.Run("Enqueue does not alias receiver spare capacity", func(t *testing.T) {
+		a := lists.NewArray(1, 2, 3, 4)
+		a.PopInPlace() // a.elements = [1 2 3] with spare capacity for one more
+
+		enqueued := a.Enqueue(9)
+		a.EnqueueInPlace(7) // appends into the shared spare slot under a plain append
+
+		if want := []int{1, 2, 3, 9}; !reflect.DeepEqual(enqueued.AsSlice(), want) {
+			t.Errorf("Enqueue result = %v, want %v (returned slice aliased the receiver's spare capacity)", enqueued.AsSlice(), want)
+		}
+	})
 }
