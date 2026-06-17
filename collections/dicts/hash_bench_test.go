@@ -56,20 +56,30 @@ func BenchmarkHash_PutInPlace(b *testing.B) {
 
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
-			b.ResetTimer()
+			// Build the fixture once, then in the loop insert one new key and
+			// immediately remove it, so the map stays at `size` and each
+			// iteration measures a put+remove round-trip at that size.
+			//
+			// Why a round-trip and not a single timed put with an untimed undo:
+			// the op is ns-cheap, so -benchtime drives b.N into the millions, and
+			// a per-iteration b.StopTimer() (to exclude the undo) reads memstats
+			// under -benchmem — ~20µs each — making wall-time explode (issue #112,
+			// where the old per-iteration O(size) rebuild blew up the same way).
+			// Timing the cheap inverse instead keeps wall-time bounded and the
+			// cost comparable across the size ladder; put and remove share a
+			// complexity class, so the scaling shape is exact.
+			pairs := make([]dicts.Pair[int, string], size)
+			for j := 0; j < size; j++ {
+				pairs[j] = dicts.Pair[int, string]{Key: j, Value: fmt.Sprintf("value_%d", j)}
+			}
+			h := dicts.NewHash(pairs...)
+
 			b.ReportAllocs()
+			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				b.StopTimer()
-				// Setup fresh hash for each iteration
-				pairs := make([]dicts.Pair[int, string], size)
-				for j := 0; j < size; j++ {
-					pairs[j] = dicts.Pair[int, string]{Key: j, Value: fmt.Sprintf("value_%d", j)}
-				}
-				h := dicts.NewHash(pairs...)
-				b.StartTimer()
-
-				h.PutInPlace(size+i, fmt.Sprintf("new_value_%d", i))
+				h.PutInPlace(size, "new_value")
+				h.RemoveInPlace(size)
 			}
 		})
 	}
@@ -103,21 +113,24 @@ func BenchmarkHash_RemoveInPlace(b *testing.B) {
 
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
-			b.ResetTimer()
+			// Remove an existing key and immediately re-insert it, so the map
+			// stays at `size` and each iteration measures a remove+put round-trip
+			// at that size. See BenchmarkHash_PutInPlace for why the inverse is
+			// timed rather than excluded with a per-iteration b.StopTimer()
+			// (memstats reads under -benchmem make that explode — issue #112).
+			pairs := make([]dicts.Pair[int, string], size)
+			for j := 0; j < size; j++ {
+				pairs[j] = dicts.Pair[int, string]{Key: j, Value: fmt.Sprintf("value_%d", j)}
+			}
+			h := dicts.NewHash(pairs...)
+			target := size / 2
+
 			b.ReportAllocs()
+			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				b.StopTimer()
-				// Setup fresh hash for each iteration
-				pairs := make([]dicts.Pair[int, string], size)
-				for j := 0; j < size; j++ {
-					pairs[j] = dicts.Pair[int, string]{Key: j, Value: fmt.Sprintf("value_%d", j)}
-				}
-				h := dicts.NewHash(pairs...)
-				b.StartTimer()
-
-				key := i % size
-				_, _ = h.RemoveInPlace(key)
+				v, _ := h.RemoveInPlace(target)
+				h.PutInPlace(target, v)
 			}
 		})
 	}

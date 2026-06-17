@@ -80,27 +80,36 @@ env:
   GORELEASE_VERSION: "v0.0.0-20260611194520-c48552f49976"
   # golang.org/x/perf ships only pseudo-versions (no semver tags); pin one.
   BENCHSTAT_VERSION: "v0.0.0-20260615155930-9e4b9ddef5b6"
-  # Benchmark knobs. Two distinct per-sample budgets, by job:
+  # Benchmark knobs. Wall time ≈ (sub-benchmarks) × per-sample-time × count ×
+  # branches. A *duration* budget (not a count-based -benchtime=Nx) is the RIGHT
+  # lever for this suite: many benchmarks do O(size) work per op at sizes up to
+  # 1,000,000, and a duration auto-scales b.N down for them — a count forces
+  # b.N=N and makes the 1M cells ~150× slower (issue #112).
   #
-  #   BENCH_TIME (duration) — used by the main-only `bench-report` job, where we
-  #   want stable ns/op for the canonical report + trend store. The wall-time
-  #   formula ≈ (sub-benchmarks) × BENCH_TIME × BENCH_COUNT × 2 only holds for
-  #   benchmarks whose whole body is inside the timed loop; it badly
-  #   underestimates any benchmark using b.StopTimer()/b.StartTimer() for
-  #   per-iteration setup, because Go drives b.N up until *timed* work reaches
-  #   BENCH_TIME while the untimed setup runs b.N times uncapped (issue #112).
+  # The formula only holds when each benchmark's whole body is timed. It does
+  # NOT bound a benchmark that does cheap (ns) timed work but O(size) per-
+  # iteration b.StopTimer() setup: Go drives b.N up until the *timed* work
+  # reaches the budget while the untimed setup runs b.N times uncapped, so
+  # wall ≈ b.N × setup_cost. Those 9 benchmarks were the hour-plus blow-up of
+  # issue #112; they've been restructured to build their fixture once and time a
+  # balanced op+inverse round-trip (no per-iteration b.StopTimer(), which also
+  # reads memstats under -benchmem and explodes at ns-scale b.N). Keep new
+  # benchmarks self-contained-per-op so this budget stays honest.
   #
-  #   BENCH_AB_TIME (count, "NNNNx") — used by the PR A/B `benchmarks` job. A
-  #   fixed iteration count caps b.N — and thus any per-iteration StopTimer
-  #   setup — to a constant, so wall time is predictable regardless of how a
-  #   benchmark is written. This is what keeps the A/B job from ballooning past
-  #   an hour (issue #112). Same trick the fuzz job uses (-fuzztime=NNNNx).
-  #
-  # More samples (count) beats longer per-sample budgets for fighting runner
-  # noise, so prefer raising BENCH_COUNT. Tune here if CI time drifts.
-  BENCH_TIME: "50ms"     # per-sample duration for the canonical (main-only) report
-  BENCH_AB_TIME: "2000x" # per-sample iteration count for the PR A/B regression job (issue #112)
-  BENCH_COUNT: "8"       # benchstat samples per benchmark (issue #31 suggests 6–10)
+  # Two budgets, because the suite is large (~900 sub-benchmarks):
+  #   BENCH_TIME / BENCH_COUNT — the main-only canonical report (bench-report
+  #     job), where stable ns/op and trend comparability matter; full ladder.
+  #   BENCH_AB_TIME / BENCH_AB_COUNT — the PR A/B regression job, which runs the
+  #     whole suite twice (base + head). With ~900 sub-benchmarks even 50ms×8
+  #     would be ~20 min, so the A/B job uses a short per-sample budget and
+  #     leans on samples (count) over per-sample time for noise resistance, the
+  #     way benchstat prefers. Giant cells (100k/1M) are too noisy on shared
+  #     runners to gate on anyway, so a short sample there costs little signal.
+  # Tune here if CI time drifts.
+  BENCH_TIME: "50ms"     # canonical-report per-sample duration (millions of ns-scale iters)
+  BENCH_COUNT: "8"       # canonical-report benchstat samples (issue #31 suggests 6–10)
+  BENCH_AB_TIME: "2ms"   # PR A/B per-sample duration — keeps both passes ≈ a few min (issue #112)
+  BENCH_AB_COUNT: "6"    # PR A/B benchstat samples (kept at the 6–10 floor; count beats time for noise)
 
 jobs:
   build:
@@ -579,11 +588,17 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -uo pipefail
-          # Count-based -benchtime (BENCH_AB_TIME, "NNNNx") caps b.N to a constant
-          # so per-iteration b.StopTimer() setup can't balloon wall time (#112).
+          # Short duration budget + samples-over-time (BENCH_AB_*), because this
+          # job benchmarks the whole ~900-sub-benchmark suite twice (issue #112).
+          # Each pass is also hard-capped with `timeout` as a belt-and-braces
+          # guarantee on wall time: go test streams one result line per benchmark,
+          # so a truncated pass still leaves a partial table for benchstat to diff
+          # (report-only, so partial is fine). Tune AB_PASS_TIMEOUT with the knobs.
+          AB_PASS_TIMEOUT="${AB_PASS_TIMEOUT:-150}"
           bench() {
-            go test -run='^$' -bench=. -benchmem \
-              -benchtime="$BENCH_AB_TIME" -count="$BENCH_COUNT" ./...
+            timeout --preserve-status "$AB_PASS_TIMEOUT" \
+              go test -run='^$' -bench=. -benchmem \
+              -benchtime="$BENCH_AB_TIME" -count="$BENCH_AB_COUNT" ./...
           }
 
           # The PR head is already checked out. Bench it first, then detach to
@@ -618,7 +633,7 @@ jobs:
             echo "$MARKER"
             echo "## Benchmark delta vs \`$BASE_REF\` (report-only)"
             echo
-            echo "Base \`${BASE_SHA:0:12}\` → PR head \`${HEAD_SHA:0:12}\` · \`-benchtime=$BENCH_AB_TIME -count=$BENCH_COUNT -benchmem\`"
+            echo "Base \`${BASE_SHA:0:12}\` → PR head \`${HEAD_SHA:0:12}\` · \`-benchtime=$BENCH_AB_TIME -count=$BENCH_AB_COUNT -benchmem\`"
             echo
             echo "> GitHub-hosted runners are shared and noisy, so **trust benchstat's significance, not raw numbers**: \`~\` means the change is within noise, and a delta only matters with a low \`p\`-value. This check never fails the build."
             echo

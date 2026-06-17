@@ -30,12 +30,6 @@ var ladder = []struct {
 	{"1_000_000 elements", 1_000_000},
 }
 
-// mutateLadder caps the matrix for benchmarks that rebuild their input map under
-// StopTimer every iteration (Clear). The rebuild is wall-clock the framework
-// can't amortise, so the larger cells would dominate CI time for little signal
-// — mirroring the cap used by the collections mutate benchmarks.
-var mutateLadder = ladder[:4]
-
 // intMap returns a map of n entries keyed 0..n-1 with the value mirroring the
 // key, so benchmarks have deterministic, comparably-sized input at every size.
 func intMap(n int) map[int]int {
@@ -63,14 +57,25 @@ func BenchmarkFromKeys(b *testing.B) {
 }
 
 func BenchmarkClear(b *testing.B) {
-	for _, bm := range mutateLadder {
+	for _, bm := range ladder {
+		// Build the map once per size cell, then each iteration clears it and
+		// refills it (reusing the map's retained capacity, so no reallocation),
+		// measuring a clear+refill cycle. The old code rebuilt the map under
+		// StopTimer every iteration; a fresh make+populate costs far more than the
+		// delete loop (especially at small sizes), so wall-time ≈ b.N × O(size)
+		// and blew up CI — the hour-plus of issue #112, which is also why this had
+		// to cap at 1000. Clear has no O(1) inverse, but both halves of the cycle
+		// are O(size), so the full ladder is back and the linear scaling is
+		// faithful; the refill is timed rather than excluded with a per-iteration
+		// b.StopTimer() because that reads memstats under -benchmem and, at the
+		// millions of iterations the small cells reach, would itself blow up.
+		m := intMap(bm.n)
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				b.StopTimer()
-				m := intMap(bm.n)
-				b.StartTimer()
-
 				maps.Clear(m)
+				for k := 0; k < bm.n; k++ {
+					m[k] = k
+				}
 			}
 		})
 	}

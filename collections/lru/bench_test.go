@@ -63,14 +63,24 @@ func BenchmarkLRU_PutInPlace(b *testing.B) {
 
 func BenchmarkLRU_RemoveInPlace(b *testing.B) {
 	for _, size := range ladder {
+		// Build the cache once per size cell (outside b.Run) and reuse it across
+		// the b.N ramp and -count samples: each iteration removes `target` then
+		// re-inserts it, so the cache is always restored to `size` entries with
+		// no eviction, measuring a remove+put round-trip at that size. The old
+		// code rebuilt the whole cache under StopTimer every iteration —
+		// wall-time ≈ b.N × O(size), unbounded by -benchtime and the worst single
+		// contributor to issue #112 (this benchmark ran the full ladder up to
+		// 1,000,000). The cheap O(1) inverse is timed rather than excluded with a
+		// per-iteration b.StopTimer(), which reads memstats under -benchmem and
+		// would re-introduce the blow-up at the ns scale these ops run at.
+		cache := buildLRU(size)
+		target := size / 2
 		b.Run(fmt.Sprintf("%d_elements", size), func(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				b.StopTimer()
-				cache := buildLRU(size)
-				b.StartTimer()
-				cache.RemoveInPlace(i % size)
+				v, _ := cache.RemoveInPlace(target)
+				cache.PutInPlace(target, v)
 			}
 		})
 	}
