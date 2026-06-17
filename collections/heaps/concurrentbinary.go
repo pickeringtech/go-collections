@@ -11,6 +11,11 @@ import (
 // is guarded by a single mutex. Immutable operations (Push, PushMany, Pop)
 // return another ConcurrentBinary, so a thread-safe heap in yields a
 // thread-safe heap out.
+//
+// Zero value: always construct with NewConcurrent (or NewConcurrentMin /
+// NewConcurrentMax). The embedded mutex is a value, so a bare &ConcurrentBinary{}
+// is at least lock-safe, but its inner heap is nil until the constructor runs, so
+// any operation — reads included — dereferences a nil pointer and panics.
 type ConcurrentBinary[T any] struct {
 	inner *Binary[T]
 	lock  sync.Mutex

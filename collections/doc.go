@@ -134,9 +134,21 @@
 // until the constructor runs, so a write to a bare CollectionType{} panics.
 //
 // Concurrent types embed their sync.Mutex / sync.RWMutex by value rather than by
-// pointer, so the lock alone is always safe to take and reads on the zero value
-// return empty results. They do not initialize the backing data, though, so the
-// constructor is still required before writing.
+// pointer, so the lock alone is always safe to take. They do not initialize the
+// backing data, though, so the constructor is still required before writing.
+//
+// Zero-value reads split into two groups by how a type stores its data. The map-
+// and slice-backed concurrent types — ConcurrentHash (dicts and sets) and
+// ConcurrentArray (lists), plus their RW variants — treat a nil backing map or
+// slice as empty, so reads on their zero value return empty results. Every other
+// concurrent type wraps an inner collection by pointer: the linked lists
+// (ConcurrentLinked, ConcurrentDoublyLinked), the tree-backed dicts and sets
+// (ConcurrentTree, ConcurrentTreeSet), the heaps (ConcurrentBinary), the ring
+// buffers (ConcurrentRingBuffer), the LRU caches (ConcurrentLRU) and all their RW
+// variants. Their inner pointer is nil until the constructor runs, so any
+// operation — reads included — dereferences a nil pointer and panics. Construct
+// those with their New* constructor before use; each type's own documentation
+// repeats the warning.
 //
 // A few types document a usable zero value as part of their contract — for
 // example deques.RingBuffer (a valid empty, unbounded deque) and dicts.Tree (a

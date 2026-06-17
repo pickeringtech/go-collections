@@ -9,6 +9,13 @@ import (
 // that is safe for concurrent use, guarded by a sync.RWMutex. Read-only
 // operations take a read lock so they can proceed concurrently; mutations take
 // the full lock. Favour it over ConcurrentRingBuffer for read-heavy workloads.
+//
+// Zero value: always construct with NewConcurrentRWRingBuffer (or
+// NewBoundedConcurrentRWRingBuffer). Unlike the plain RingBuffer, whose zero
+// value is a valid empty deque, the concurrent wrapper holds its RingBuffer by
+// pointer. The embedded mutex is a value, so a bare &ConcurrentRWRingBuffer{} is
+// at least lock-safe, but its inner buffer is nil until the constructor runs, so
+// any operation — reads included — dereferences a nil pointer and panics.
 type ConcurrentRWRingBuffer[T any] struct {
 	inner *RingBuffer[T]
 	lock  sync.RWMutex

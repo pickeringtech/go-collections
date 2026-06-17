@@ -14,6 +14,12 @@ import (
 //
 // Immutable operations (Push, PushMany, Pop) return another ConcurrentRWBinary,
 // honouring the thread-safe-in / thread-safe-out contract.
+//
+// Zero value: always construct with NewConcurrentRW (or NewConcurrentRWMin /
+// NewConcurrentRWMax). The embedded mutex is a value, so a bare
+// &ConcurrentRWBinary{} is at least lock-safe, but its inner heap is nil until
+// the constructor runs, so any operation — reads included — dereferences a nil
+// pointer and panics.
 type ConcurrentRWBinary[T any] struct {
 	inner *Binary[T]
 	lock  sync.RWMutex
