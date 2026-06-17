@@ -200,18 +200,18 @@ func TestArray_Dequeue(t *testing.T) {
 			wantSli: []int{2, 3, 4, 5},
 		},
 		{
-			name:    "dequeueing last element returns true, but nil slice",
+			name:    "dequeueing last element returns true, but empty (non-nil) slice",
 			a:       lists.NewArray[int](1),
 			want:    1,
 			wantOK:  true,
-			wantSli: nil,
+			wantSli: []int{},
 		},
 		{
-			name:    "dequeueing empty input returns false, and nil slice",
+			name:    "dequeueing empty input returns false, and empty (non-nil) slice",
 			a:       lists.NewArray[int](),
 			want:    0,
 			wantOK:  false,
-			wantSli: nil,
+			wantSli: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -957,7 +957,7 @@ func TestArray_Insert(t *testing.T) {
 				index:    2,
 				elements: []int{6, 7, 8},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -1222,11 +1222,11 @@ func TestArray_Pop(t *testing.T) {
 			wantSli: []int{1, 2, 3, 4},
 		},
 		{
-			name:    "empty array yields zero value output and nil slice",
+			name:    "empty array yields zero value output and empty (non-nil) slice",
 			a:       lists.NewArray[int](),
 			want:    0,
 			wantOK:  false,
-			wantSli: nil,
+			wantSli: []int{},
 		},
 	}
 	for _, tt := range tests {
