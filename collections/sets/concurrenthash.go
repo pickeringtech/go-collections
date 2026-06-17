@@ -50,25 +50,37 @@ func (ch *ConcurrentHash[T]) IsEmpty() bool {
 	return len(ch.data) == 0
 }
 
-// ForEach executes the given function for each element.
+// ForEach executes the given function for each element. fn is invoked after the
+// lock is released, against a point-in-time snapshot taken under the lock, so fn
+// may safely call back into the collection.
 func (ch *ConcurrentHash[T]) ForEach(fn func(element T)) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.Unlock()
+
+	for _, element := range elements {
 		fn(element)
 	}
 }
 
 // Filter returns a new set containing only the elements
 // that satisfy the given predicate function. The returned set is a new
-// thread-safe ConcurrentHash, independent of the receiver.
+// thread-safe ConcurrentHash, independent of the receiver. The predicate is
+// evaluated after the lock is released, against a point-in-time snapshot taken
+// under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentHash[T]) Filter(fn func(element T) bool) Set[T] {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
+	elements := make([]T, 0, len(ch.data))
+	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.Unlock()
 
 	result := NewConcurrentHash[T]()
-	for element := range ch.data {
+	for _, element := range elements {
 		if fn(element) {
 			result.data[element] = struct{}{}
 		}
@@ -77,25 +89,45 @@ func (ch *ConcurrentHash[T]) Filter(fn func(element T) bool) Set[T] {
 }
 
 // FilterInPlace removes all elements that do not satisfy
-// the given predicate function, modifying the set in place.
+// the given predicate function, modifying the set in place. The predicate is
+// evaluated after the lock is released, against a point-in-time snapshot taken
+// under the lock, so it may safely call back into the collection. Modifications
+// made concurrently with evaluation are not reflected in the retained set.
 func (ch *ConcurrentHash[T]) FilterInPlace(fn func(element T) bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.Unlock()
+
+	var toRemove []T
+	for _, element := range elements {
 		if !fn(element) {
-			delete(ch.data, element)
+			toRemove = append(toRemove, element)
 		}
 	}
+
+	ch.lock.Lock()
+	for _, element := range toRemove {
+		delete(ch.data, element)
+	}
+	ch.lock.Unlock()
 }
 
 // Find returns the first element that satisfies the given predicate.
-// Returns the element and true if found; zero value and false otherwise.
+// Returns the element and true if found; zero value and false otherwise. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentHash[T]) Find(fn func(element T) bool) (T, bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.Unlock()
+
+	for _, element := range elements {
 		if fn(element) {
 			return element, true
 		}
@@ -104,12 +136,18 @@ func (ch *ConcurrentHash[T]) Find(fn func(element T) bool) (T, bool) {
 	return zero, false
 }
 
-// AllMatch returns true if all elements satisfy the given predicate.
+// AllMatch returns true if all elements satisfy the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentHash[T]) AllMatch(fn func(element T) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.Unlock()
+
+	for _, element := range elements {
 		if !fn(element) {
 			return false
 		}
@@ -117,12 +155,18 @@ func (ch *ConcurrentHash[T]) AllMatch(fn func(element T) bool) bool {
 	return true
 }
 
-// AnyMatch returns true if any element satisfies the given predicate.
+// AnyMatch returns true if any element satisfies the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentHash[T]) AnyMatch(fn func(element T) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.Unlock()
+
+	for _, element := range elements {
 		if fn(element) {
 			return true
 		}
@@ -130,12 +174,18 @@ func (ch *ConcurrentHash[T]) AnyMatch(fn func(element T) bool) bool {
 	return false
 }
 
-// NoneMatch returns true if no element satisfies the given predicate.
+// NoneMatch returns true if no element satisfies the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentHash[T]) NoneMatch(fn func(element T) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.Unlock()
+
+	for _, element := range elements {
 		if fn(element) {
 			return false
 		}

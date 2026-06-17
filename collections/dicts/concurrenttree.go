@@ -63,83 +63,189 @@ func (ch *ConcurrentTree[K, V]) IsEmpty() bool {
 }
 
 // ForEach executes the given function for each key-value pair in sorted order.
+// fn is invoked after the lock is released, against a point-in-time snapshot
+// taken under the lock, so fn may safely call back into the collection.
 func (ch *ConcurrentTree[K, V]) ForEach(fn func(key K, value V)) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	ch.tree.ForEach(fn)
+	items := ch.tree.Items()
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		fn(item.Key, item.Value)
+	}
 }
 
-// ForEachKey executes the given function for each key in sorted order.
+// ForEachKey executes the given function for each key in sorted order. fn is
+// invoked after the lock is released, against a point-in-time snapshot taken
+// under the lock, so fn may safely call back into the collection.
 func (ch *ConcurrentTree[K, V]) ForEachKey(fn func(key K)) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	ch.tree.ForEachKey(fn)
+	items := ch.tree.Items()
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		fn(item.Key)
+	}
 }
 
 // ForEachValue executes the given function for each value in key-sorted order.
+// fn is invoked after the lock is released, against a point-in-time snapshot
+// taken under the lock, so fn may safely call back into the collection.
 func (ch *ConcurrentTree[K, V]) ForEachValue(fn func(value V)) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	ch.tree.ForEachValue(fn)
+	items := ch.tree.Items()
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		fn(item.Value)
+	}
 }
 
 // Filter returns a new dictionary containing only the key-value pairs that
 // satisfy the given predicate. The result is a new thread-safe ConcurrentTree.
+// The predicate is evaluated after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection.
 func (ch *ConcurrentTree[K, V]) Filter(fn func(key K, value V) bool) Dict[K, V] {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return wrapConcurrentTree(ch.tree.Filter(fn).(*Tree[K, V]))
+	items := ch.tree.Items()
+	ch.lock.Unlock()
+
+	var retained []Pair[K, V]
+	for _, item := range items {
+		if fn(item.Key, item.Value) {
+			retained = append(retained, item)
+		}
+	}
+	return wrapConcurrentTree(NewTree[K, V](retained...))
 }
 
 // FilterInPlace removes all key-value pairs that do not satisfy the given
-// predicate, modifying the dictionary in place.
+// predicate, modifying the dictionary in place. The predicate is evaluated
+// after the lock is released, against a point-in-time snapshot taken under the
+// lock, so it may safely call back into the collection. Modifications made
+// concurrently with evaluation are not reflected in the retained set.
 func (ch *ConcurrentTree[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	ch.tree.FilterInPlace(fn)
+	items := ch.tree.Items()
+	ch.lock.Unlock()
+
+	var toRemove []K
+	for _, item := range items {
+		if !fn(item.Key, item.Value) {
+			toRemove = append(toRemove, item.Key)
+		}
+	}
+
+	ch.lock.Lock()
+	ch.tree.RemoveManyInPlace(toRemove...)
+	ch.lock.Unlock()
 }
 
 // AllMatch returns true if every key-value pair satisfies the given predicate.
-// It is vacuously true for an empty dictionary.
+// It is vacuously true for an empty dictionary. The predicate is evaluated
+// after the lock is released, against a point-in-time snapshot taken under the
+// lock, so it may safely call back into the collection.
 func (ch *ConcurrentTree[K, V]) AllMatch(fn func(key K, value V) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return ch.tree.AllMatch(fn)
+	items := ch.tree.Items()
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		if !fn(item.Key, item.Value) {
+			return false
+		}
+	}
+	return true
 }
 
-// AnyMatch returns true if at least one key-value pair satisfies the given predicate.
+// AnyMatch returns true if at least one key-value pair satisfies the given
+// predicate. The predicate is evaluated after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection.
 func (ch *ConcurrentTree[K, V]) AnyMatch(fn func(key K, value V) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return ch.tree.AnyMatch(fn)
+	items := ch.tree.Items()
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		if fn(item.Key, item.Value) {
+			return true
+		}
+	}
+	return false
 }
 
 // NoneMatch returns true if no key-value pair satisfies the given predicate.
+// The predicate is evaluated after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection.
 func (ch *ConcurrentTree[K, V]) NoneMatch(fn func(key K, value V) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return ch.tree.NoneMatch(fn)
+	items := ch.tree.Items()
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		if fn(item.Key, item.Value) {
+			return false
+		}
+	}
+	return true
 }
 
-// Find returns the first key-value pair (in sorted order) that satisfies the predicate.
+// Find returns the first key-value pair (in sorted order) that satisfies the
+// predicate. The predicate is evaluated after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection.
 func (ch *ConcurrentTree[K, V]) Find(fn func(key K, value V) bool) (K, V, bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return ch.tree.Find(fn)
+	items := ch.tree.Items()
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		if fn(item.Key, item.Value) {
+			return item.Key, item.Value, true
+		}
+	}
+	var zeroK K
+	var zeroV V
+	return zeroK, zeroV, false
 }
 
 // FindKey returns the first key (in sorted order) that satisfies the predicate.
+// The predicate is evaluated after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection.
 func (ch *ConcurrentTree[K, V]) FindKey(fn func(key K) bool) (K, bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return ch.tree.FindKey(fn)
+	items := ch.tree.Items()
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		if fn(item.Key) {
+			return item.Key, true
+		}
+	}
+	var zeroK K
+	return zeroK, false
 }
 
-// FindValue returns the first value (in key-sorted order) that satisfies the predicate.
+// FindValue returns the first value (in key-sorted order) that satisfies the
+// predicate. The predicate is evaluated after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection.
 func (ch *ConcurrentTree[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return ch.tree.FindValue(fn)
+	items := ch.tree.Items()
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		if fn(item.Value) {
+			return item.Value, true
+		}
+	}
+	var zeroV V
+	return zeroV, false
 }
 
 // ContainsValue checks if the given value exists in the dictionary.
