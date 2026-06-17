@@ -4,6 +4,7 @@ import (
 	"iter"
 	"sync"
 
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 	"github.com/pickeringtech/go-collections/constraints"
 )
 
@@ -11,7 +12,12 @@ import (
 // for synchronization. Elements are kept in sorted order and all operations are
 // protected by a single mutex. Use it when reads and writes are balanced; prefer
 // ConcurrentTreeSetRW for read-heavy workloads.
+//
+// ConcurrentTreeSet must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentTreeSet[T constraints.Ordered] struct {
+	_    nocopy.NoCopy
 	set  *TreeSet[T]
 	lock sync.Mutex
 }

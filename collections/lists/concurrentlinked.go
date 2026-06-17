@@ -3,12 +3,18 @@ package lists
 import (
 	"sync"
 
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 	"github.com/pickeringtech/go-collections/slices"
 )
 
 // ConcurrentLinked is a thread-safe linked list implementation
 // using a mutex for synchronization. All operations are protected by a single mutex.
+//
+// ConcurrentLinked must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentLinked[T any] struct {
+	_    nocopy.NoCopy
 	data *Linked[T]
 	lock sync.Mutex
 }

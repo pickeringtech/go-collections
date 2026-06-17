@@ -4,6 +4,7 @@ import (
 	"iter"
 	"sync"
 
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 	"github.com/pickeringtech/go-collections/constraints"
 )
 
@@ -14,7 +15,12 @@ import (
 //
 // Immutable operations (Push, PushMany, Pop) return another ConcurrentRWBinary,
 // honouring the thread-safe-in / thread-safe-out contract.
+//
+// ConcurrentRWBinary must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentRWBinary[T any] struct {
+	_     nocopy.NoCopy
 	inner *Binary[T]
 	lock  sync.RWMutex
 }

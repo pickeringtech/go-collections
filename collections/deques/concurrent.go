@@ -3,13 +3,20 @@ package deques
 import (
 	"iter"
 	"sync"
+
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 )
 
 // ConcurrentRingBuffer is a ring-buffer-backed implementation of MutableDeque
 // that is safe for concurrent use. Every operation is guarded by a sync.Mutex.
 // Operating on it yields another ConcurrentRingBuffer, so thread-safe in means
 // thread-safe out.
+//
+// ConcurrentRingBuffer must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentRingBuffer[T any] struct {
+	_     nocopy.NoCopy
 	inner *RingBuffer[T]
 	lock  sync.Mutex
 }

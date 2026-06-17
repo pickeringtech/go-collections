@@ -4,6 +4,7 @@ import (
 	"iter"
 	"sync"
 
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 	"github.com/pickeringtech/go-collections/constraints"
 )
 
@@ -11,7 +12,12 @@ import (
 // is guarded by a single mutex. Immutable operations (Push, PushMany, Pop)
 // return another ConcurrentBinary, so a thread-safe heap in yields a
 // thread-safe heap out.
+//
+// ConcurrentBinary must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentBinary[T any] struct {
+	_     nocopy.NoCopy
 	inner *Binary[T]
 	lock  sync.Mutex
 }

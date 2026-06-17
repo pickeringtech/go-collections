@@ -4,6 +4,7 @@ import (
 	"iter"
 	"sync"
 
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 	"github.com/pickeringtech/go-collections/constraints"
 )
 
@@ -16,7 +17,12 @@ import (
 // value, so a bare &ConcurrentTree{} is at least lock-safe, but its inner tree
 // is nil until the constructor runs, so any operation dereferences a nil pointer
 // and panics.
+//
+// ConcurrentTree must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentTree[K constraints.Ordered, V any] struct {
+	_    nocopy.NoCopy
 	tree *Tree[K, V]
 	lock sync.Mutex
 }

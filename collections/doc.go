@@ -133,10 +133,17 @@
 // most implementations leave their backing map, tree, or wrapped collection nil
 // until the constructor runs, so a write to a bare CollectionType{} panics.
 //
-// Concurrent types embed their sync.Mutex / sync.RWMutex by value rather than by
-// pointer, so the lock alone is always safe to take and reads on the zero value
-// return empty results. They do not initialize the backing data, though, so the
-// constructor is still required before writing.
+// Concurrent types embed their sync.Mutex / sync.RWMutex by value. The lock is
+// always safe to take on the zero value and reads return empty results, but the
+// backing data is not initialized until the constructor runs, so the constructor
+// is still required before writing.
+//
+// Important: concurrent types must NOT be copied after first use. A copy
+// produces an independent lock while both values share the same backing data
+// (map, slice, inner pointer), silently breaking the thread-safety guarantee.
+// Every concurrent type embeds a nocopy sentinel so that go vet's copylocks
+// analyser reports any value-copy after construction. Always pass concurrent
+// collections by pointer.
 //
 // A few types document a usable zero value as part of their contract — for
 // example deques.RingBuffer (a valid empty, unbounded deque) and dicts.Tree (a

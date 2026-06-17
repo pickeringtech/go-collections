@@ -3,13 +3,19 @@ package lists
 import (
 	"sync"
 
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 	"github.com/pickeringtech/go-collections/slices"
 )
 
 // ConcurrentRWLinked is a thread-safe linked list implementation
 // using a read-write mutex for synchronization. Read operations use read locks for better
 // performance when there are many concurrent readers.
+//
+// ConcurrentRWLinked must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentRWLinked[T any] struct {
+	_    nocopy.NoCopy
 	data *Linked[T]
 	lock sync.RWMutex
 }

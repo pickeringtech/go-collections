@@ -1,11 +1,20 @@
 package sets
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
+)
 
 // ConcurrentHashRW is a thread-safe set implementation using Go's built-in map
 // with a read-write mutex for synchronization. Read operations use read locks for better
 // performance when there are many concurrent readers.
+//
+// ConcurrentHashRW must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentHashRW[T comparable] struct {
+	_    nocopy.NoCopy
 	data map[T]struct{}
 	lock sync.RWMutex
 }

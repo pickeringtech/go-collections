@@ -1,10 +1,19 @@
 package sets
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
+)
 
 // ConcurrentHash is a thread-safe set implementation using Go's built-in map
 // with a mutex for synchronization. All operations are protected by a single mutex.
+//
+// ConcurrentHash must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentHash[T comparable] struct {
+	_    nocopy.NoCopy
 	data map[T]struct{}
 	lock sync.Mutex
 }

@@ -3,6 +3,8 @@ package lru
 import (
 	"iter"
 	"sync"
+
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 )
 
 // ConcurrentLRURW is a thread-safe LRU cache guarded by a read-write mutex.
@@ -14,7 +16,12 @@ import (
 // Note that Get is a write here: marking an entry most-recently-used re-orders
 // the recency list. A workload dominated by Get therefore sees little benefit
 // from the RW variant; reach for Peek when a lookup need not count as a use.
+//
+// ConcurrentLRURW must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentLRURW[K comparable, V any] struct {
+	_     nocopy.NoCopy
 	inner *LRU[K, V]
 	lock  sync.RWMutex
 }

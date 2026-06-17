@@ -1,14 +1,21 @@
 package lists
 
 import (
-	"github.com/pickeringtech/go-collections/slices"
 	"sync"
+
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
+	"github.com/pickeringtech/go-collections/slices"
 )
 
 // ConcurrentRWArray is a slice-backed implementation of MutableList that is
 // safe for concurrent use. It uses a sync.RWMutex so that read-only operations
 // can proceed concurrently while mutating operations take an exclusive lock.
+//
+// ConcurrentRWArray must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentRWArray[T any] struct {
+	_        nocopy.NoCopy
 	elements []T
 	lock     sync.RWMutex
 }
