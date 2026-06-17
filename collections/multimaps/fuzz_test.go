@@ -243,22 +243,25 @@ func assertListMatchesModel(t *testing.T, name string, m multimaps.Multimap[stri
 	if m.KeyCount() != len(model) {
 		t.Fatalf("%s: KeyCount() = %d, model = %d", name, m.KeyCount(), len(model))
 	}
+	// List values must match the model in exact insertion order: the
+	// list-multimap contract guarantees per-key values come back in the order
+	// they were inserted, so the oracle compares without sorting.
 	for key, values := range model {
-		got := sortedInts(m.Get(key))
-		want := sortedInts(values)
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("%s: Get(%q) = %v, model = %v", name, key, got, want)
+		got := m.Get(key)
+		if !reflect.DeepEqual(got, values) {
+			t.Fatalf("%s: Get(%q) = %v, model = %v", name, key, got, values)
 		}
 	}
 
-	// ListMultimapFromSeq2(All) round-trips back to the same entries.
+	// ListMultimapFromSeq2(All) round-trips back to the same entries, again in
+	// insertion order.
 	rt := multimaps.ListMultimapFromSeq2(m.All())
 	if rt.Length() != m.Length() {
 		t.Fatalf("%s: FromSeq2 round-trip Length() = %d, want %d", name, rt.Length(), m.Length())
 	}
 	for key, values := range model {
-		if got, want := sortedInts(rt.Get(key)), sortedInts(values); !reflect.DeepEqual(got, want) {
-			t.Fatalf("%s: FromSeq2 round-trip Get(%q) = %v, model = %v", name, key, got, want)
+		if got := rt.Get(key); !reflect.DeepEqual(got, values) {
+			t.Fatalf("%s: FromSeq2 round-trip Get(%q) = %v, model = %v", name, key, got, values)
 		}
 	}
 }
