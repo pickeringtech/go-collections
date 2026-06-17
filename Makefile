@@ -31,19 +31,54 @@ BENCHREPORT_DIR := tools/benchreport
 BUILD_DIR       := build
 BENCH_DATA_DIR  := docs/bench
 
+# Long-term trend store (issue #51). Each push to `main` archives that run's raw
+# (multi-sample) bench output under docs/bench/history/<timestamp>_<sha>.txt so
+# drift across commits is queryable and significance is recoverable. Archiving is
+# OPT-IN (BENCH_HISTORY non-empty): only the consistent CI environment should
+# feed the store — a maintainer's ad-hoc local `make bench-report` must not
+# pollute it with numbers from a different machine. The cap bounds repo growth by
+# pruning the oldest snapshots. bench-render always *reads* the store (cheap when
+# empty), so the trend section renders for everyone.
+BENCH_HISTORY     ?=
+BENCH_HISTORY_DIR := $(BENCH_DATA_DIR)/history
+BENCH_HISTORY_CAP ?= 100
+BENCH_ALERT       := $(BUILD_DIR)/bench-alert.md
+
+# Nested Go modules (examples/, tools/benchreport/, …) are SEPARATE modules that
+# the root `go test ./...` never descends into — so a `make test` that only ran
+# the root module gave contributors false confidence while CI tested more (#79).
+# Discover them dynamically (any nested go.mod; `-not -path ./go.mod` drops the
+# root's own) so new modules are picked up automatically and this can't drift as
+# modules are added. Prune .git and the build dir so the walk doesn't descend
+# into large/irrelevant trees on every `make` invocation.
+NESTED_MODULES := $(shell find . \( -name .git -o -path ./$(BUILD_DIR) \) -prune \
+	-o -name go.mod -not -path ./go.mod -print | xargs -r -n1 dirname | sort)
+
 # Provenance, computed once so the generator stays a pure function of its inputs.
 GIT_SHA    := $(shell git rev-parse --short HEAD 2>/dev/null)
 GEN_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 GO_VERSION := $(shell go env GOVERSION)
 
-.PHONY: help test bench bench-report bench-render
+.PHONY: help test test-root test-nested bench bench-report bench-render
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
-test: ## Run the library test suite with race + shuffle
+test: test-root test-nested ## Run the full test suite — root module + every nested module
+
+test-root: ## Run the root library test suite with race + shuffle
 	go test -race -shuffle=on ./...
+
+# Run each discovered nested module in its own dir. -shuffle=on (no -race) mirrors
+# CI's examples job: those tests shell out via `go run`, so the race detector
+# can't see inside the child process anyway (see .github/workflows/ci.yml). A
+# failure in any module aborts the loop with a non-zero status.
+test-nested: ## Run the tests of every nested module (examples/, tools/benchreport, …)
+	@for dir in $(NESTED_MODULES); do \
+		echo ">> testing nested module $$dir"; \
+		(cd "$$dir" && go test -shuffle=on ./...) || exit 1; \
+	done
 
 bench: ## Run the collections benchmarks once (no report), printing results
 	go test -run='^$$' -bench=. -benchmem -benchtime=$(BENCH_TIME) -count=$(BENCH_COUNT) $(BENCH_PKGS)
@@ -74,9 +109,22 @@ bench-report: ## Benchmark this environment, capture its dataset, and regenerate
 		-goversion "$(GO_VERSION)" \
 		-benchtime "$(BENCH_TIME)" \
 		-count "$(BENCH_COUNT)"
+	@if [ -n "$(BENCH_HISTORY)" ]; then \
+		echo ">> archiving trend snapshot → $(BENCH_HISTORY_DIR) (cap $(BENCH_HISTORY_CAP))"; \
+		$(CURDIR)/$(BUILD_DIR)/benchreport history \
+			-in $(BUILD_DIR)/bench.txt \
+			-dir $(BENCH_HISTORY_DIR) \
+			-commit "$(GIT_SHA)" \
+			-date "$(GEN_DATE)" \
+			-cap $(BENCH_HISTORY_CAP); \
+	fi
 	@$(MAKE) --no-print-directory bench-render
 
 bench-render: ## Re-render BENCHMARKS.md, docs/bench.svg, and the README preview from committed datasets
 	go build -C $(BENCHREPORT_DIR) -o $(CURDIR)/$(BUILD_DIR)/benchreport .
-	@echo ">> rendering combined report from $(BENCH_DATA_DIR)/*.csv"
-	$(CURDIR)/$(BUILD_DIR)/benchreport render -dir $(BENCH_DATA_DIR)
+	@echo ">> rendering combined report from $(BENCH_DATA_DIR)/*.csv (+ trend from $(BENCH_HISTORY_DIR))"
+	@mkdir -p $(BUILD_DIR)
+	$(CURDIR)/$(BUILD_DIR)/benchreport render \
+		-dir $(BENCH_DATA_DIR) \
+		-history $(BENCH_HISTORY_DIR) \
+		-alert $(BENCH_ALERT)
