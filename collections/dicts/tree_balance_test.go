@@ -60,7 +60,7 @@ func TestTree_StaysBalancedOnSortedInsert(t *testing.T) {
 		}
 		height := checkAVL(t, tree.root)
 		if max := maxAVLHeight(n); height > max {
-			t.Fatalf("ascending inserts left tree too tall: height %d, expected <= %d", height, max)
+			t.Fatalf("ascending inserts left the tree too tall: height %d, expected <= %d", height, max)
 		}
 	})
 
@@ -71,7 +71,7 @@ func TestTree_StaysBalancedOnSortedInsert(t *testing.T) {
 		}
 		height := checkAVL(t, tree.root)
 		if max := maxAVLHeight(n); height > max {
-			t.Fatalf("descending inserts left tree too tall: height %d, expected <= %d", height, max)
+			t.Fatalf("descending inserts left the tree too tall: height %d, expected <= %d", height, max)
 		}
 	})
 }
