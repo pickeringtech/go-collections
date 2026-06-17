@@ -62,73 +62,118 @@ func (ch *ConcurrentHash[K, V]) IsEmpty() bool {
 	return len(ch.data) == 0
 }
 
-// ForEach executes the given function for each key-value pair.
+// ForEach executes the given function for each key-value pair. fn is invoked
+// after the lock is released, against a point-in-time snapshot taken under the
+// lock, so fn may safely call back into the collection.
 func (ch *ConcurrentHash[K, V]) ForEach(fn func(key K, value V)) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	items := make([]Pair[K, V], 0, len(ch.data))
 	for key, value := range ch.data {
-		fn(key, value)
+		items = append(items, Pair[K, V]{Key: key, Value: value})
+	}
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		fn(item.Key, item.Value)
 	}
 }
 
-// ForEachKey executes the given function for each key.
+// ForEachKey executes the given function for each key. fn is invoked after the
+// lock is released, against a point-in-time snapshot taken under the lock, so
+// fn may safely call back into the collection.
 func (ch *ConcurrentHash[K, V]) ForEachKey(fn func(key K)) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	keys := make([]K, 0, len(ch.data))
 	for key := range ch.data {
+		keys = append(keys, key)
+	}
+	ch.lock.Unlock()
+
+	for _, key := range keys {
 		fn(key)
 	}
 }
 
-// ForEachValue executes the given function for each value.
+// ForEachValue executes the given function for each value. fn is invoked after
+// the lock is released, against a point-in-time snapshot taken under the lock,
+// so fn may safely call back into the collection.
 func (ch *ConcurrentHash[K, V]) ForEachValue(fn func(value V)) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	values := make([]V, 0, len(ch.data))
 	for _, value := range ch.data {
+		values = append(values, value)
+	}
+	ch.lock.Unlock()
+
+	for _, value := range values {
 		fn(value)
 	}
 }
 
 // Filter returns a new dictionary containing only the key-value pairs
 // that satisfy the given predicate function. The returned dictionary is a new
-// thread-safe ConcurrentHash, independent of the receiver.
+// thread-safe ConcurrentHash, independent of the receiver. The predicate is
+// evaluated after the lock is released, against a point-in-time snapshot taken
+// under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentHash[K, V]) Filter(fn func(key K, value V) bool) Dict[K, V] {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
+	items := make([]Pair[K, V], 0, len(ch.data))
+	for key, value := range ch.data {
+		items = append(items, Pair[K, V]{Key: key, Value: value})
+	}
+	ch.lock.Unlock()
 
 	result := NewConcurrentHash[K, V]()
-	for key, value := range ch.data {
-		if fn(key, value) {
-			result.data[key] = value
+	for _, item := range items {
+		if fn(item.Key, item.Value) {
+			result.data[item.Key] = item.Value
 		}
 	}
 	return result
 }
 
 // FilterInPlace removes all key-value pairs that do not satisfy
-// the given predicate function, modifying the dictionary in place.
+// the given predicate function, modifying the dictionary in place. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the
+// collection. Modifications made concurrently with evaluation are not
+// reflected in the retained set.
 func (ch *ConcurrentHash[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	items := make([]Pair[K, V], 0, len(ch.data))
 	for key, value := range ch.data {
-		if !fn(key, value) {
-			delete(ch.data, key)
+		items = append(items, Pair[K, V]{Key: key, Value: value})
+	}
+	ch.lock.Unlock()
+
+	var toRemove []K
+	for _, item := range items {
+		if !fn(item.Key, item.Value) {
+			toRemove = append(toRemove, item.Key)
 		}
 	}
+
+	ch.lock.Lock()
+	for _, key := range toRemove {
+		delete(ch.data, key)
+	}
+	ch.lock.Unlock()
 }
 
 // AllMatch returns true if every key-value pair satisfies the given predicate.
-// It is vacuously true for an empty dictionary.
+// It is vacuously true for an empty dictionary. The predicate is evaluated
+// after the lock is released, against a point-in-time snapshot taken under the
+// lock, so it may safely call back into the collection.
 func (ch *ConcurrentHash[K, V]) AllMatch(fn func(key K, value V) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	items := make([]Pair[K, V], 0, len(ch.data))
 	for key, value := range ch.data {
-		if !fn(key, value) {
+		items = append(items, Pair[K, V]{Key: key, Value: value})
+	}
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		if !fn(item.Key, item.Value) {
 			return false
 		}
 	}
@@ -136,13 +181,19 @@ func (ch *ConcurrentHash[K, V]) AllMatch(fn func(key K, value V) bool) bool {
 }
 
 // AnyMatch returns true if at least one key-value pair satisfies the given
-// predicate. It is false for an empty dictionary.
+// predicate. It is false for an empty dictionary. The predicate is evaluated
+// after the lock is released, against a point-in-time snapshot taken under the
+// lock, so it may safely call back into the collection.
 func (ch *ConcurrentHash[K, V]) AnyMatch(fn func(key K, value V) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	items := make([]Pair[K, V], 0, len(ch.data))
 	for key, value := range ch.data {
-		if fn(key, value) {
+		items = append(items, Pair[K, V]{Key: key, Value: value})
+	}
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		if fn(item.Key, item.Value) {
 			return true
 		}
 	}
@@ -150,13 +201,19 @@ func (ch *ConcurrentHash[K, V]) AnyMatch(fn func(key K, value V) bool) bool {
 }
 
 // NoneMatch returns true if no key-value pair satisfies the given predicate.
-// It is vacuously true for an empty dictionary.
+// It is vacuously true for an empty dictionary. The predicate is evaluated
+// after the lock is released, against a point-in-time snapshot taken under the
+// lock, so it may safely call back into the collection.
 func (ch *ConcurrentHash[K, V]) NoneMatch(fn func(key K, value V) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	items := make([]Pair[K, V], 0, len(ch.data))
 	for key, value := range ch.data {
-		if fn(key, value) {
+		items = append(items, Pair[K, V]{Key: key, Value: value})
+	}
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		if fn(item.Key, item.Value) {
 			return false
 		}
 	}
@@ -165,13 +222,20 @@ func (ch *ConcurrentHash[K, V]) NoneMatch(fn func(key K, value V) bool) bool {
 
 // Find returns the first key-value pair that satisfies the given predicate.
 // Returns the key, value, and true if found; zero values and false otherwise.
+// The predicate is evaluated after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection.
 func (ch *ConcurrentHash[K, V]) Find(fn func(key K, value V) bool) (K, V, bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	items := make([]Pair[K, V], 0, len(ch.data))
 	for key, value := range ch.data {
-		if fn(key, value) {
-			return key, value, true
+		items = append(items, Pair[K, V]{Key: key, Value: value})
+	}
+	ch.lock.Unlock()
+
+	for _, item := range items {
+		if fn(item.Key, item.Value) {
+			return item.Key, item.Value, true
 		}
 	}
 	var zeroK K
@@ -180,12 +244,19 @@ func (ch *ConcurrentHash[K, V]) Find(fn func(key K, value V) bool) (K, V, bool) 
 }
 
 // FindKey returns the first key that satisfies the given predicate.
-// Returns the key and true if found; zero value and false otherwise.
+// Returns the key and true if found; zero value and false otherwise. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the
+// collection.
 func (ch *ConcurrentHash[K, V]) FindKey(fn func(key K) bool) (K, bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	keys := make([]K, 0, len(ch.data))
 	for key := range ch.data {
+		keys = append(keys, key)
+	}
+	ch.lock.Unlock()
+
+	for _, key := range keys {
 		if fn(key) {
 			return key, true
 		}
@@ -195,12 +266,19 @@ func (ch *ConcurrentHash[K, V]) FindKey(fn func(key K) bool) (K, bool) {
 }
 
 // FindValue returns the first value that satisfies the given predicate.
-// Returns the value and true if found; zero value and false otherwise.
+// Returns the value and true if found; zero value and false otherwise. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the
+// collection.
 func (ch *ConcurrentHash[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	values := make([]V, 0, len(ch.data))
 	for _, value := range ch.data {
+		values = append(values, value)
+	}
+	ch.lock.Unlock()
+
+	for _, value := range values {
 		if fn(value) {
 			return value, true
 		}
