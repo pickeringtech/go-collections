@@ -11,14 +11,13 @@ import (
 // performance when there are many concurrent readers.
 type ConcurrentRWDoublyLinked[T any] struct {
 	data *DoublyLinked[T]
-	lock *sync.RWMutex
+	lock sync.RWMutex
 }
 
 // NewConcurrentRWDoublyLinked creates a new ConcurrentRWDoublyLinked with the given values.
 func NewConcurrentRWDoublyLinked[T any](values ...T) *ConcurrentRWDoublyLinked[T] {
 	return &ConcurrentRWDoublyLinked[T]{
 		data: NewDoublyLinked(values...),
-		lock: &sync.RWMutex{},
 	}
 }
 
@@ -26,7 +25,6 @@ func NewConcurrentRWDoublyLinked[T any](values ...T) *ConcurrentRWDoublyLinked[T
 func NewConcurrentRWDoublyLinkedCircular[T any](values ...T) *ConcurrentRWDoublyLinked[T] {
 	return &ConcurrentRWDoublyLinked[T]{
 		data: NewDoublyLinkedCircular(values...),
-		lock: &sync.RWMutex{},
 	}
 }
 

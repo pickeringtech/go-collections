@@ -14,7 +14,7 @@ import (
 // safety of results (see the concurrency standards).
 type ConcurrentSetMultimap[K comparable, V comparable] struct {
 	data SetMultimap[K, V]
-	lock *sync.Mutex
+	lock sync.Mutex
 }
 
 // NewConcurrentSetMultimap creates a new thread-safe, set-backed multimap seeded
@@ -22,7 +22,6 @@ type ConcurrentSetMultimap[K comparable, V comparable] struct {
 func NewConcurrentSetMultimap[K comparable, V comparable](entries ...Entry[K, V]) *ConcurrentSetMultimap[K, V] {
 	return &ConcurrentSetMultimap[K, V]{
 		data: NewSetMultimap(entries...),
-		lock: &sync.Mutex{},
 	}
 }
 
@@ -31,7 +30,7 @@ var _ Multimap[string, int] = &ConcurrentSetMultimap[string, int]{}
 var _ MutableMultimap[string, int] = &ConcurrentSetMultimap[string, int]{}
 
 func (c *ConcurrentSetMultimap[K, V]) wrap(data SetMultimap[K, V]) *ConcurrentSetMultimap[K, V] {
-	return &ConcurrentSetMultimap[K, V]{data: data, lock: &sync.Mutex{}}
+	return &ConcurrentSetMultimap[K, V]{data: data}
 }
 
 // Get returns a copy of all values bound to the given key.

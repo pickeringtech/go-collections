@@ -10,7 +10,7 @@ import (
 // can proceed concurrently while mutating operations take an exclusive lock.
 type ConcurrentRWArray[T any] struct {
 	elements []T
-	lock     *sync.RWMutex
+	lock     sync.RWMutex
 }
 
 // FilterInPlace retains only the elements for which fn returns true, modifying
@@ -86,7 +86,6 @@ func (a *ConcurrentRWArray[T]) DequeueInPlace() (T, bool) {
 func NewConcurrentRWArray[T any](elements ...T) *ConcurrentRWArray[T] {
 	return &ConcurrentRWArray[T]{
 		elements: elements,
-		lock:     &sync.RWMutex{},
 	}
 }
 

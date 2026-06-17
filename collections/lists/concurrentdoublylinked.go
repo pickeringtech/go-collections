@@ -10,14 +10,13 @@ import (
 // using a mutex for synchronization. All operations are protected by a single mutex.
 type ConcurrentDoublyLinked[T any] struct {
 	data *DoublyLinked[T]
-	lock *sync.Mutex
+	lock sync.Mutex
 }
 
 // NewConcurrentDoublyLinked creates a new ConcurrentDoublyLinked with the given values.
 func NewConcurrentDoublyLinked[T any](values ...T) *ConcurrentDoublyLinked[T] {
 	return &ConcurrentDoublyLinked[T]{
 		data: NewDoublyLinked(values...),
-		lock: &sync.Mutex{},
 	}
 }
 
@@ -25,7 +24,6 @@ func NewConcurrentDoublyLinked[T any](values ...T) *ConcurrentDoublyLinked[T] {
 func NewConcurrentDoublyLinkedCircular[T any](values ...T) *ConcurrentDoublyLinked[T] {
 	return &ConcurrentDoublyLinked[T]{
 		data: NewDoublyLinkedCircular(values...),
-		lock: &sync.Mutex{},
 	}
 }
 
