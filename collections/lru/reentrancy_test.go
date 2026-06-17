@@ -51,3 +51,63 @@ func TestConcurrentLRUForEachIsReentrant(t *testing.T) {
 		})
 	})
 }
+
+// TestConcurrentLRUOnEvictIsReentrant verifies that an onEvict callback fired by
+// a capacity-driven eviction may safely call back into the same concurrent
+// cache. Before issue #155 the callback ran while the cache lock was held, so
+// re-entering the cache from it deadlocked.
+func TestConcurrentLRUOnEvictIsReentrant(t *testing.T) {
+	t.Run("ConcurrentLRU/PutInPlace", func(t *testing.T) {
+		var c *lru.ConcurrentLRU[string, int]
+		var once bool
+		c = lru.NewConcurrentLRU[string, int](1, lru.WithOnEvict(func(k string, v int) {
+			// Re-enter the cache: a read and a write that both need the lock. The
+			// once guard stops the write from cascading, since a capacity-1 cache
+			// evicts on every insert.
+			c.Length()
+			if !once {
+				once = true
+				c.PutInPlace("evicted-"+k, v)
+			}
+		}))
+		c.PutInPlace("a", 1)
+		assertNoReentrantDeadlock(t, "ConcurrentLRU/PutInPlace", func() {
+			c.PutInPlace("b", 2) // evicts "a", fires onEvict
+		})
+	})
+	t.Run("ConcurrentLRU/Put", func(t *testing.T) {
+		var c *lru.ConcurrentLRU[string, int]
+		c = lru.NewConcurrentLRU[string, int](1, lru.WithOnEvict(func(k string, v int) {
+			c.Length()
+		}))
+		c.PutInPlace("a", 1)
+		assertNoReentrantDeadlock(t, "ConcurrentLRU/Put", func() {
+			c.Put("b", 2) // immutable put on a full cache evicts, fires onEvict
+		})
+	})
+	t.Run("ConcurrentLRURW/PutInPlace", func(t *testing.T) {
+		var c *lru.ConcurrentLRURW[string, int]
+		var once bool
+		c = lru.NewConcurrentLRURW[string, int](1, lru.WithOnEvict(func(k string, v int) {
+			c.Length() // read lock
+			if !once {
+				once = true
+				c.PutInPlace("evicted-"+k, v) // write lock
+			}
+		}))
+		c.PutInPlace("a", 1)
+		assertNoReentrantDeadlock(t, "ConcurrentLRURW/PutInPlace", func() {
+			c.PutInPlace("b", 2)
+		})
+	})
+	t.Run("ConcurrentLRURW/Put", func(t *testing.T) {
+		var c *lru.ConcurrentLRURW[string, int]
+		c = lru.NewConcurrentLRURW[string, int](1, lru.WithOnEvict(func(k string, v int) {
+			c.Length() // read lock taken from within a read-locked Put
+		}))
+		c.PutInPlace("a", 1)
+		assertNoReentrantDeadlock(t, "ConcurrentLRURW/Put", func() {
+			c.Put("b", 2)
+		})
+	})
+}

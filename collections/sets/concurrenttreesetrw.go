@@ -11,6 +11,11 @@ import (
 // read-write mutex for synchronization. Read operations use read locks so many
 // readers can proceed concurrently, while writes are exclusive. Elements are
 // kept in sorted order. Prefer it over ConcurrentTreeSet for read-heavy workloads.
+//
+// Zero value: always construct with NewConcurrentTreeSetRW. The embedded mutex is
+// a value, so a bare &ConcurrentTreeSetRW{} is at least lock-safe, but its inner
+// TreeSet is nil until the constructor runs, so any operation — reads included —
+// dereferences a nil pointer and panics.
 type ConcurrentTreeSetRW[T constraints.Ordered] struct {
 	set  *TreeSet[T]
 	lock sync.RWMutex

@@ -9,6 +9,11 @@ import (
 // ConcurrentRWLinked is a thread-safe linked list implementation
 // using a read-write mutex for synchronization. Read operations use read locks for better
 // performance when there are many concurrent readers.
+//
+// Zero value: always construct with NewConcurrentRWLinked. The embedded mutex is
+// a value, so a bare &ConcurrentRWLinked{} is at least lock-safe, but its inner
+// list is nil until the constructor runs, so any operation — reads included —
+// dereferences a nil pointer and panics.
 type ConcurrentRWLinked[T any] struct {
 	data *Linked[T]
 	lock sync.RWMutex

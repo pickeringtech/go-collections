@@ -8,6 +8,11 @@ import (
 
 // ConcurrentDoublyLinked is a thread-safe doubly linked list implementation
 // using a mutex for synchronization. All operations are protected by a single mutex.
+//
+// Zero value: always construct with NewConcurrentDoublyLinked. The embedded mutex
+// is a value, so a bare &ConcurrentDoublyLinked{} is at least lock-safe, but its
+// inner list is nil until the constructor runs, so any operation — reads
+// included — dereferences a nil pointer and panics.
 type ConcurrentDoublyLinked[T any] struct {
 	data *DoublyLinked[T]
 	lock sync.Mutex

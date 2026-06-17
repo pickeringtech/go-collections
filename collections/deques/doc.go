@@ -105,4 +105,9 @@
 // Operating on a concurrent deque yields a concurrent deque of the same type:
 // immutable operations return a new instance behind Deque[T], so thread-safe in
 // means thread-safe out.
+//
+// Callbacks passed to the traversal methods — ForEach, ForEachWithIndex and the
+// iterator methods (All, Values, Backward) — run after the lock is released,
+// against a point-in-time snapshot taken under the lock. They may therefore
+// safely re-enter the same deque (read it, or mutate it) without deadlocking.
 package deques

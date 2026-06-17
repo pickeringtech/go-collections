@@ -1,6 +1,8 @@
 // Package collections provides comprehensive, type-safe data structures for Go.
 //
-// This package offers three core data structures with rich APIs and multiple implementations:
+// This package is the facade hub for seven families of data structure — dicts,
+// sets, lists, multimaps, deques, heaps and LRU caches — each with rich APIs and
+// multiple implementations:
 //
 // # Dicts - Key-Value Mappings
 //
@@ -97,6 +99,19 @@
 // lru.Option values (e.g. lru.WithOnEvict) to configure eviction callbacks and
 // seed entries.
 //
+// # Sorted and Alternative Implementations
+//
+// The facade constructors return the everyday default for each family (a
+// hash-backed dict or set, an array-backed list). When you need a sorted or
+// otherwise alternative implementation, reach into the spoke package directly:
+//
+//	tree := dicts.NewTree(...)      // sorted, ordered-iteration dictionary
+//	sorted := sets.NewTreeSet(...)  // sorted set with ordered iteration
+//	linked := lists.NewLinked(...)  // singly linked list (also collections.NewLinkedList)
+//
+// See each spoke package's documentation for the full set of implementations
+// and their trade-offs.
+//
 // # Thread Safety
 //
 // All data structures offer thread-safe variants:
@@ -134,9 +149,21 @@
 // until the constructor runs, so a write to a bare CollectionType{} panics.
 //
 // Concurrent types embed their sync.Mutex / sync.RWMutex by value rather than by
-// pointer, so the lock alone is always safe to take and reads on the zero value
-// return empty results. They do not initialize the backing data, though, so the
-// constructor is still required before writing.
+// pointer, so the lock alone is always safe to take. They do not initialize the
+// backing data, though, so the constructor is still required before writing.
+//
+// Zero-value reads split into two groups by how a type stores its data. The map-
+// and slice-backed concurrent types — ConcurrentHash (dicts and sets) and
+// ConcurrentArray (lists), plus their RW variants — treat a nil backing map or
+// slice as empty, so reads on their zero value return empty results. Every other
+// concurrent type wraps an inner collection by pointer: the linked lists
+// (ConcurrentLinked, ConcurrentDoublyLinked), the tree-backed dicts and sets
+// (ConcurrentTree, ConcurrentTreeSet), the heaps (ConcurrentBinary), the ring
+// buffers (ConcurrentRingBuffer), the LRU caches (ConcurrentLRU) and all their RW
+// variants. Their inner pointer is nil until the constructor runs, so any
+// operation — reads included — dereferences a nil pointer and panics. Construct
+// those with their New* constructor before use; each type's own documentation
+// repeats the warning.
 //
 // A few types document a usable zero value as part of their contract — for
 // example deques.RingBuffer (a valid empty, unbounded deque) and dicts.Tree (a
