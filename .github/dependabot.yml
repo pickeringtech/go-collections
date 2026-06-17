@@ -1,0 +1,42 @@
+version: 2
+updates:
+  # Keep GitHub Actions (actions/*, golangci/*, codecov/*, ...) current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Root module — runtime deps are zero, but this catches toolchain and
+  # test-only updates and keeps the `go` directive current.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      gomod:
+        patterns:
+          - "*"
+
+  # Satellite module: examples/
+  - package-ecosystem: gomod
+    directory: /examples
+    schedule:
+      interval: weekly
+    groups:
+      gomod:
+        patterns:
+          - "*"
+
+  # Satellite module: tools/benchreport/
+  - package-ecosystem: gomod
+    directory: /tools/benchreport
+    schedule:
+      interval: weekly
+    groups:
+      gomod:
+        patterns:
+          - "*"

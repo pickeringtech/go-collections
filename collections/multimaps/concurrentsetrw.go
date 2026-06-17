@@ -76,18 +76,37 @@ func (c *ConcurrentRWSetMultimap[K, V]) IsEmpty() bool {
 	return c.data.IsEmpty()
 }
 
-// ForEach executes the given function once for every entry.
+// ForEach executes the given function once for every entry. fn is invoked after
+// the lock is released, against a point-in-time snapshot taken under the lock, so
+// fn may safely call back into the multimap.
 func (c *ConcurrentRWSetMultimap[K, V]) ForEach(fn func(key K, value V)) {
 	c.lock.RLock()
-	defer c.lock.RUnlock()
-	c.data.ForEach(fn)
+	entries := c.data.Entries()
+	c.lock.RUnlock()
+
+	for _, entry := range entries {
+		fn(entry.Key, entry.Value)
+	}
 }
 
-// ForEachKey executes the given function once per distinct key.
+// ForEachKey executes the given function once per distinct key. fn is invoked
+// after the lock is released, against a point-in-time snapshot taken under the
+// lock, so fn may safely call back into the multimap.
 func (c *ConcurrentRWSetMultimap[K, V]) ForEachKey(fn func(key K, values []V)) {
 	c.lock.RLock()
-	defer c.lock.RUnlock()
-	c.data.ForEachKey(fn)
+	type keyValues struct {
+		key    K
+		values []V
+	}
+	snapshot := make([]keyValues, 0, len(c.data))
+	for key, values := range c.data {
+		snapshot = append(snapshot, keyValues{key: key, values: valuesSlice(values)})
+	}
+	c.lock.RUnlock()
+
+	for _, item := range snapshot {
+		fn(item.key, item.values)
+	}
 }
 
 // All returns an iterator over every entry. The read lock is held for the
@@ -121,46 +140,102 @@ func (c *ConcurrentRWSetMultimap[K, V]) KeysSeq() iter.Seq[K] {
 }
 
 // Filter returns a new thread-safe multimap containing only entries that satisfy
-// the predicate.
+// the predicate. The predicate is evaluated after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the multimap.
 func (c *ConcurrentRWSetMultimap[K, V]) Filter(fn func(key K, value V) bool) Multimap[K, V] {
 	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return c.wrap(c.data.Filter(fn).(SetMultimap[K, V]))
+	entries := c.data.Entries()
+	c.lock.RUnlock()
+
+	result := make(SetMultimap[K, V])
+	for _, entry := range entries {
+		if fn(entry.Key, entry.Value) {
+			result.PutInPlace(entry.Key, entry.Value)
+		}
+	}
+	return c.wrap(result)
 }
 
-// FilterInPlace removes every entry that does not satisfy the predicate.
+// FilterInPlace removes every entry that does not satisfy the predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the multimap.
+// Modifications made concurrently with evaluation are not reflected in the
+// retained set.
 func (c *ConcurrentRWSetMultimap[K, V]) FilterInPlace(fn func(key K, value V) bool) {
+	c.lock.RLock()
+	entries := c.data.Entries()
+	c.lock.RUnlock()
+
+	var toRemove []Entry[K, V]
+	for _, entry := range entries {
+		if !fn(entry.Key, entry.Value) {
+			toRemove = append(toRemove, entry)
+		}
+	}
+
 	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.data.FilterInPlace(fn)
+	for _, entry := range toRemove {
+		c.data.RemoveInPlace(entry.Key, entry.Value)
+	}
+	c.lock.Unlock()
 }
 
-// AllMatch returns true if every entry satisfies the predicate.
+// AllMatch returns true if every entry satisfies the predicate. The predicate is
+// evaluated after the lock is released, against a point-in-time snapshot taken
+// under the lock, so it may safely call back into the multimap.
 func (c *ConcurrentRWSetMultimap[K, V]) AllMatch(fn func(key K, value V) bool) bool {
 	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return c.data.AllMatch(fn)
+	entries := c.data.Entries()
+	c.lock.RUnlock()
+
+	for _, entry := range entries {
+		if !fn(entry.Key, entry.Value) {
+			return false
+		}
+	}
+	return true
 }
 
-// AnyMatch returns true if at least one entry satisfies the predicate.
+// AnyMatch returns true if at least one entry satisfies the predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the multimap.
 func (c *ConcurrentRWSetMultimap[K, V]) AnyMatch(fn func(key K, value V) bool) bool {
 	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return c.data.AnyMatch(fn)
+	entries := c.data.Entries()
+	c.lock.RUnlock()
+
+	for _, entry := range entries {
+		if fn(entry.Key, entry.Value) {
+			return true
+		}
+	}
+	return false
 }
 
-// NoneMatch returns true if no entry satisfies the predicate.
+// NoneMatch returns true if no entry satisfies the predicate. The predicate is
+// evaluated after the lock is released, against a point-in-time snapshot taken
+// under the lock, so it may safely call back into the multimap.
 func (c *ConcurrentRWSetMultimap[K, V]) NoneMatch(fn func(key K, value V) bool) bool {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return c.data.NoneMatch(fn)
+	return !c.AnyMatch(fn)
 }
 
-// Find returns the first entry that satisfies the predicate.
+// Find returns the first entry that satisfies the predicate. The predicate is
+// evaluated after the lock is released, against a point-in-time snapshot taken
+// under the lock, so it may safely call back into the multimap.
 func (c *ConcurrentRWSetMultimap[K, V]) Find(fn func(key K, value V) bool) (K, V, bool) {
 	c.lock.RLock()
-	defer c.lock.RUnlock()
-	return c.data.Find(fn)
+	entries := c.data.Entries()
+	c.lock.RUnlock()
+
+	for _, entry := range entries {
+		if fn(entry.Key, entry.Value) {
+			return entry.Key, entry.Value, true
+		}
+	}
+	var zeroKey K
+	var zeroValue V
+	return zeroKey, zeroValue, false
 }
 
 // Keys returns a slice containing each distinct key once.
