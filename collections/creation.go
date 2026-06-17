@@ -225,12 +225,12 @@ func NewLRU[K comparable, V any](capacity int, opts ...lru.Option[K, V]) lru.Mut
 	return lru.NewLRU[K, V](capacity, opts...)
 }
 
-// NewConcurrentLRU creates a thread-safe LRU cache (mutex-guarded) bounded to capacity entries. It accepts the same lru.Options as NewLRU.
+// NewConcurrentLRU creates a thread-safe LRU cache (mutex-guarded) bounded to capacity entries. It accepts the same lru.Option values as NewLRU.
 func NewConcurrentLRU[K comparable, V any](capacity int, opts ...lru.Option[K, V]) lru.MutableCache[K, V] {
 	return lru.NewConcurrentLRU[K, V](capacity, opts...)
 }
 
-// NewConcurrentRWLRU creates a thread-safe LRU cache optimised for concurrent reads (RWMutex-guarded) bounded to capacity entries. It accepts the same lru.Options as NewLRU.
+// NewConcurrentRWLRU creates a thread-safe LRU cache optimised for concurrent reads (RWMutex-guarded) bounded to capacity entries. It accepts the same lru.Option values as NewLRU.
 func NewConcurrentRWLRU[K comparable, V any](capacity int, opts ...lru.Option[K, V]) lru.MutableCache[K, V] {
 	return lru.NewConcurrentLRURW[K, V](capacity, opts...)
 }

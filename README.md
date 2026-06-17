@@ -134,15 +134,20 @@ task, found := queue.DequeueInPlace()
 
 ### When to Use Heaps (Priority Queues)
 ```go
-// Smallest-first scheduling — reachable straight from the facade
+import (
+    "github.com/pickeringtech/go-collections/collections"
+    "github.com/pickeringtech/go-collections/collections/heaps" // for the in-place API
+)
+
+// Smallest-first scheduling — reachable straight from the facade.
+// Pop is immutable: it returns the element, an ok flag, and the remaining heap.
 pq := collections.NewMinHeap(5, 1, 3)
-next, _ := pq.Pop() // 1
+next, ok, rest := pq.Pop() // next == 1, ok == true; rest is pq without it
 
 // Or order by any comparator (e.g. a struct field)
 tasks := collections.NewHeap(func(a, b Task) bool { return a.Priority > b.Priority })
 
 // The heaps subpackage adds the in-place, mutating API (PushInPlace / PopInPlace)
-import "github.com/pickeringtech/go-collections/collections/heaps"
 mpq := heaps.NewMin(5, 1, 3)
 mpq.PushInPlace(0)
 top, _ := mpq.PopInPlace() // 0
@@ -153,6 +158,11 @@ scheduling, Dijkstra / A* frontiers, streaming top-k, or merging sorted streams.
 
 ### When to Use an LRU Cache
 ```go
+import (
+    "github.com/pickeringtech/go-collections/collections"
+    "github.com/pickeringtech/go-collections/collections/lru" // for eviction options
+)
+
 // Bounded cache that evicts the least-recently-used entry — from the facade
 cache := collections.NewLRU[string, int](2)
 cache.PutInPlace("a", 1)
@@ -160,7 +170,6 @@ cache.PutInPlace("b", 2)
 v, ok := cache.Get("a")  // promotes "a"; adding a third entry now evicts "b"
 
 // Eviction callbacks and seed entries via lru.Option
-import "github.com/pickeringtech/go-collections/collections/lru"
 cache = collections.NewLRU[string, int](100,
     lru.WithOnEvict(func(k string, v int) { /* ... */ }),
 )

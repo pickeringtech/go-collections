@@ -73,7 +73,7 @@
 //
 //	// Smallest-first (min-heap) over an ordered type
 //	pq := collections.NewMinHeap(5, 1, 3)
-//	next, _ := pq.Pop() // 1
+//	next, ok, rest := pq.Pop() // next == 1, ok == true; rest is pq without it
 //
 //	// Or order by any comparator, e.g. a struct field
 //	tasks := collections.NewHeap(func(a, b Task) bool { return a.Priority > b.Priority })
