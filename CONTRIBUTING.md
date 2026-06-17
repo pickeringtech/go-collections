@@ -83,6 +83,9 @@ before adding or changing a collection — each is one short page.
   and `ConcurrentRW*` (`sync.RWMutex`) variants. Lock + `defer` unlock are the
   first lines of every method; reads use `RLock`. An immutable op on a
   concurrent type returns the **same concurrent type**; `InPlace` stays void.
+  Callback-taking methods (`ForEach`, `Filter`, `AllMatch`, `Find`…) are the
+  exception: they snapshot under the lock, release it, then invoke the callback
+  outside the lock so it can safely re-enter the collection.
   → [`standards/concurrency/`](agent-os/standards/concurrency/)
 - **Functional standards** — higher-order params use named `XxxFunc` type
   aliases (`FilterFunc`, `MapFunc`…); package-level funcs never mutate input and

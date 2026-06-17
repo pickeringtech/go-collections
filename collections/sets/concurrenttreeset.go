@@ -57,55 +57,122 @@ func (ch *ConcurrentTreeSet[T]) IsEmpty() bool {
 	return ch.set.IsEmpty()
 }
 
-// ForEach executes the given function for each element in ascending order.
+// ForEach executes the given function for each element in ascending order. fn is
+// invoked after the lock is released, against a point-in-time snapshot taken under
+// the lock, so fn may safely call back into the collection.
 func (ch *ConcurrentTreeSet[T]) ForEach(fn func(element T)) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	ch.set.ForEach(fn)
+	elements := ch.set.AsSlice()
+	ch.lock.Unlock()
+
+	for _, element := range elements {
+		fn(element)
+	}
 }
 
 // Filter returns a new set containing only the elements that satisfy the given
-// predicate. The result is a new thread-safe ConcurrentTreeSet.
+// predicate. The result is a new thread-safe ConcurrentTreeSet. The predicate is
+// evaluated after the lock is released, against a point-in-time snapshot taken
+// under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentTreeSet[T]) Filter(fn func(element T) bool) Set[T] {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return wrapConcurrentTreeSet(ch.set.Filter(fn).(*TreeSet[T]))
+	elements := ch.set.AsSlice()
+	ch.lock.Unlock()
+
+	result := NewTreeSet[T]()
+	for _, element := range elements {
+		if fn(element) {
+			result.AddInPlace(element)
+		}
+	}
+	return wrapConcurrentTreeSet(result)
 }
 
 // FilterInPlace removes all elements that do not satisfy the given predicate,
-// modifying the set in place.
+// modifying the set in place. The predicate is evaluated after the lock is
+// released, against a point-in-time snapshot taken under the lock, so it may
+// safely call back into the collection. Modifications made concurrently with
+// evaluation are not reflected in the retained set.
 func (ch *ConcurrentTreeSet[T]) FilterInPlace(fn func(element T) bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	ch.set.FilterInPlace(fn)
+	elements := ch.set.AsSlice()
+	ch.lock.Unlock()
+
+	var toRemove []T
+	for _, element := range elements {
+		if !fn(element) {
+			toRemove = append(toRemove, element)
+		}
+	}
+
+	ch.lock.Lock()
+	ch.set.RemoveManyInPlace(toRemove...)
+	ch.lock.Unlock()
 }
 
 // Find returns the first element (in ascending order) that satisfies the predicate.
+// The predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentTreeSet[T]) Find(fn func(element T) bool) (T, bool) {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return ch.set.Find(fn)
+	elements := ch.set.AsSlice()
+	ch.lock.Unlock()
+
+	for _, element := range elements {
+		if fn(element) {
+			return element, true
+		}
+	}
+	var zero T
+	return zero, false
 }
 
-// AllMatch returns true if all elements satisfy the given predicate.
+// AllMatch returns true if all elements satisfy the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentTreeSet[T]) AllMatch(fn func(element T) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return ch.set.AllMatch(fn)
+	elements := ch.set.AsSlice()
+	ch.lock.Unlock()
+
+	for _, element := range elements {
+		if !fn(element) {
+			return false
+		}
+	}
+	return true
 }
 
-// AnyMatch returns true if any element satisfies the given predicate.
+// AnyMatch returns true if any element satisfies the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentTreeSet[T]) AnyMatch(fn func(element T) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return ch.set.AnyMatch(fn)
+	elements := ch.set.AsSlice()
+	ch.lock.Unlock()
+
+	for _, element := range elements {
+		if fn(element) {
+			return true
+		}
+	}
+	return false
 }
 
-// NoneMatch returns true if no element satisfies the given predicate.
+// NoneMatch returns true if no element satisfies the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentTreeSet[T]) NoneMatch(fn func(element T) bool) bool {
 	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	return ch.set.NoneMatch(fn)
+	elements := ch.set.AsSlice()
+	ch.lock.Unlock()
+
+	for _, element := range elements {
+		if fn(element) {
+			return false
+		}
+	}
+	return true
 }
 
 // AsSlice returns the set as a slice in ascending order.
@@ -143,6 +210,11 @@ func (ch *ConcurrentTreeSet[T]) AddMany(elements ...T) Set[T] {
 func (ch *ConcurrentTreeSet[T]) Union(other Set[T]) Set[T] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	// When other is the receiver, operate on the inner (non-locking) set so the
+	// delegated call doesn't re-acquire ch.lock (non-reentrant) and deadlock.
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return wrapConcurrentTreeSet(ch.set.Union(other).(*TreeSet[T]))
 }
 
@@ -164,6 +236,9 @@ func (ch *ConcurrentTreeSet[T]) AddManyInPlace(elements ...T) {
 func (ch *ConcurrentTreeSet[T]) UnionInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	ch.set.UnionInPlace(other)
 }
 
@@ -188,6 +263,9 @@ func (ch *ConcurrentTreeSet[T]) RemoveMany(elements ...T) Set[T] {
 func (ch *ConcurrentTreeSet[T]) Difference(other Set[T]) Set[T] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return wrapConcurrentTreeSet(ch.set.Difference(other).(*TreeSet[T]))
 }
 
@@ -210,6 +288,9 @@ func (ch *ConcurrentTreeSet[T]) RemoveManyInPlace(elements ...T) {
 func (ch *ConcurrentTreeSet[T]) DifferenceInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	ch.set.DifferenceInPlace(other)
 }
 
@@ -225,6 +306,9 @@ func (ch *ConcurrentTreeSet[T]) Clear() {
 func (ch *ConcurrentTreeSet[T]) Intersection(other Set[T]) Set[T] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return wrapConcurrentTreeSet(ch.set.Intersection(other).(*TreeSet[T]))
 }
 
@@ -232,6 +316,9 @@ func (ch *ConcurrentTreeSet[T]) Intersection(other Set[T]) Set[T] {
 func (ch *ConcurrentTreeSet[T]) IsSubsetOf(other Set[T]) bool {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return ch.set.IsSubsetOf(other)
 }
 
@@ -244,6 +331,9 @@ func (ch *ConcurrentTreeSet[T]) IsSupersetOf(other Set[T]) bool {
 func (ch *ConcurrentTreeSet[T]) IsDisjoint(other Set[T]) bool {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return ch.set.IsDisjoint(other)
 }
 
@@ -251,6 +341,9 @@ func (ch *ConcurrentTreeSet[T]) IsDisjoint(other Set[T]) bool {
 func (ch *ConcurrentTreeSet[T]) Equals(other Set[T]) bool {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return ch.set.Equals(other)
 }
 
@@ -258,6 +351,9 @@ func (ch *ConcurrentTreeSet[T]) Equals(other Set[T]) bool {
 func (ch *ConcurrentTreeSet[T]) IntersectionInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	ch.set.IntersectionInPlace(other)
 }
 
