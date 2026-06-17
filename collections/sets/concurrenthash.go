@@ -6,14 +6,13 @@ import "sync"
 // with a mutex for synchronization. All operations are protected by a single mutex.
 type ConcurrentHash[T comparable] struct {
 	data map[T]struct{}
-	lock *sync.Mutex
+	lock sync.Mutex
 }
 
 // NewConcurrentHash creates a new ConcurrentHash set with the given elements.
 func NewConcurrentHash[T comparable](values ...T) *ConcurrentHash[T] {
 	s := &ConcurrentHash[T]{
 		data: make(map[T]struct{}),
-		lock: &sync.Mutex{},
 	}
 	for _, value := range values {
 		s.data[value] = struct{}{}

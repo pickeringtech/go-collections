@@ -14,7 +14,7 @@ import (
 // safety of results (see the concurrency standards).
 type ConcurrentRWSetMultimap[K comparable, V comparable] struct {
 	data SetMultimap[K, V]
-	lock *sync.RWMutex
+	lock sync.RWMutex
 }
 
 // NewConcurrentRWSetMultimap creates a new thread-safe, set-backed multimap
@@ -22,7 +22,6 @@ type ConcurrentRWSetMultimap[K comparable, V comparable] struct {
 func NewConcurrentRWSetMultimap[K comparable, V comparable](entries ...Entry[K, V]) *ConcurrentRWSetMultimap[K, V] {
 	return &ConcurrentRWSetMultimap[K, V]{
 		data: NewSetMultimap(entries...),
-		lock: &sync.RWMutex{},
 	}
 }
 
@@ -31,7 +30,7 @@ var _ Multimap[string, int] = &ConcurrentRWSetMultimap[string, int]{}
 var _ MutableMultimap[string, int] = &ConcurrentRWSetMultimap[string, int]{}
 
 func (c *ConcurrentRWSetMultimap[K, V]) wrap(data SetMultimap[K, V]) *ConcurrentRWSetMultimap[K, V] {
-	return &ConcurrentRWSetMultimap[K, V]{data: data, lock: &sync.RWMutex{}}
+	return &ConcurrentRWSetMultimap[K, V]{data: data}
 }
 
 // Get returns a copy of all values bound to the given key.

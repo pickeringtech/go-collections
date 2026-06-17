@@ -27,6 +27,10 @@ type node[K constraints.Ordered, V any] struct {
 // order — including the degenerate sorted-insert case that turns a plain BST
 // into a linked list.
 // Keys must implement constraints.Ordered (integers, floats, strings).
+//
+// Zero value: a &Tree{} is a valid, empty tree ready for use (its root is nil
+// and grows on the first PutInPlace). NewTree remains the recommended way to
+// construct one, especially when seeding initial entries.
 type Tree[K constraints.Ordered, V any] struct {
 	root *node[K, V]
 	size int
@@ -392,6 +396,10 @@ func (t *Tree[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 // Values are compared with reflect.DeepEqual, matching the equality semantics
 // used by list removal. This supports non-comparable value types (slices, maps,
 // funcs) without panicking.
+//
+// This is the deliberate counterpart to maps.ContainsValue, which uses == and
+// requires a comparable V: dicts trades that speed for the ability to compare
+// nested and non-comparable values structurally.
 func (t *Tree[K, V]) ContainsValue(value V) bool {
 	return t.AnyMatch(func(_ K, v V) bool {
 		return reflect.DeepEqual(v, value)
