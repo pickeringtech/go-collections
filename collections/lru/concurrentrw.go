@@ -16,7 +16,7 @@ import (
 // from the RW variant; reach for Peek when a lookup need not count as a use.
 type ConcurrentLRURW[K comparable, V any] struct {
 	inner *LRU[K, V]
-	lock  *sync.RWMutex
+	lock  sync.RWMutex
 }
 
 // Interface guards: a pointer to ConcurrentLRURW satisfies both cache contracts.
@@ -29,7 +29,6 @@ var _ MutableCache[string, int] = &ConcurrentLRURW[string, int]{}
 func NewConcurrentLRURW[K comparable, V any](capacity int, opts ...Option[K, V]) *ConcurrentLRURW[K, V] {
 	return &ConcurrentLRURW[K, V]{
 		inner: NewLRU[K, V](capacity, opts...),
-		lock:  &sync.RWMutex{},
 	}
 }
 
@@ -137,7 +136,7 @@ func (c *ConcurrentLRURW[K, V]) Put(key K, value V) Cache[K, V] {
 	defer c.lock.RUnlock()
 	dup := c.inner.clone()
 	dup.putInPlace(key, value)
-	return &ConcurrentLRURW[K, V]{inner: dup, lock: &sync.RWMutex{}}
+	return &ConcurrentLRURW[K, V]{inner: dup}
 }
 
 // PutInPlace sets key to value and promotes it to most-recently-used, evicting
@@ -155,7 +154,7 @@ func (c *ConcurrentLRURW[K, V]) Remove(key K) Cache[K, V] {
 	defer c.lock.RUnlock()
 	dup := c.inner.clone()
 	dup.removeInPlace(key)
-	return &ConcurrentLRURW[K, V]{inner: dup, lock: &sync.RWMutex{}}
+	return &ConcurrentLRURW[K, V]{inner: dup}
 }
 
 // RemoveInPlace removes key, returning the removed value and true if it was

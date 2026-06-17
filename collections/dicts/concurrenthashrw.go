@@ -8,16 +8,20 @@ import (
 // ConcurrentHashRW is a thread-safe dictionary implementation using Go's built-in map
 // with a read-write mutex for synchronization. Read operations use read locks for better
 // performance when there are many concurrent readers.
+//
+// Zero value: always construct with NewConcurrentHashRW. The embedded mutex is a
+// value, so a bare &ConcurrentHashRW{} is at least lock-safe, but its backing map
+// is nil until the constructor runs, so writes (PutInPlace) panic. Reads on the
+// zero value return empty results.
 type ConcurrentHashRW[K comparable, V any] struct {
 	data map[K]V
-	lock *sync.RWMutex
+	lock sync.RWMutex
 }
 
 // NewConcurrentHashRW creates a new ConcurrentHashRW dictionary with the given key-value pairs.
 func NewConcurrentHashRW[K comparable, V any](entries ...Pair[K, V]) *ConcurrentHashRW[K, V] {
 	m := &ConcurrentHashRW[K, V]{
 		data: make(map[K]V),
-		lock: &sync.RWMutex{},
 	}
 	for _, entry := range entries {
 		m.data[entry.Key] = entry.Value
@@ -296,6 +300,10 @@ func (ch *ConcurrentHashRW[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 // Values are compared with reflect.DeepEqual, matching the equality semantics
 // used by list removal. This supports non-comparable value types (slices, maps,
 // funcs) without panicking.
+//
+// This is the deliberate counterpart to maps.ContainsValue, which uses == and
+// requires a comparable V: dicts trades that speed for the ability to compare
+// nested and non-comparable values structurally.
 func (ch *ConcurrentHashRW[K, V]) ContainsValue(value V) bool {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()

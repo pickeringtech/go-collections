@@ -13,7 +13,7 @@ import (
 // thread-safe heap out.
 type ConcurrentBinary[T any] struct {
 	inner *Binary[T]
-	lock  *sync.Mutex
+	lock  sync.Mutex
 }
 
 // NewConcurrent creates a thread-safe Binary heap ordered by the given
@@ -21,7 +21,6 @@ type ConcurrentBinary[T any] struct {
 func NewConcurrent[T any](less LessFunc[T], values ...T) *ConcurrentBinary[T] {
 	return &ConcurrentBinary[T]{
 		inner: New(less, values...),
-		lock:  &sync.Mutex{},
 	}
 }
 
@@ -42,7 +41,7 @@ var _ MutableHeap[int] = &ConcurrentBinary[int]{}
 // wrap adapts a plain Binary into a thread-safe ConcurrentBinary, preserving
 // the concurrent return contract.
 func (c *ConcurrentBinary[T]) wrap(b *Binary[T]) Heap[T] {
-	return &ConcurrentBinary[T]{inner: b, lock: &sync.Mutex{}}
+	return &ConcurrentBinary[T]{inner: b}
 }
 
 // Peek returns the highest-priority element without removing it.

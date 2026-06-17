@@ -228,7 +228,7 @@ fmt.Printf("Total requests: %d\n", total) // Total requests: 100
 | Single-threaded, high performance | `NewDict()`, `NewSet()`, `NewList()` | No locking overhead |
 | Balanced read/write, multi-threaded | `NewConcurrentDict()`, etc. | Simple mutex protection |
 | Read-heavy, multi-threaded | `NewConcurrentRWDict()`, etc. | Concurrent reads |
-| Need sorted iteration | `NewTreeDict()` | Maintains key order |
+| Need sorted iteration | `dicts.NewTree()` | Maintains key order (sub-package; no facade constructor) |
 | Need bidirectional access | `NewDoublyLinkedList()` | O(n/2) average access |
 
 ### Performance Characteristics

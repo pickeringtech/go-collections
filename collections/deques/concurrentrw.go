@@ -11,7 +11,7 @@ import (
 // the full lock. Favour it over ConcurrentRingBuffer for read-heavy workloads.
 type ConcurrentRWRingBuffer[T any] struct {
 	inner *RingBuffer[T]
-	lock  *sync.RWMutex
+	lock  sync.RWMutex
 }
 
 // NewConcurrentRWRingBuffer creates an unbounded, thread-safe RingBuffer
@@ -19,7 +19,6 @@ type ConcurrentRWRingBuffer[T any] struct {
 func NewConcurrentRWRingBuffer[T any](elements ...T) *ConcurrentRWRingBuffer[T] {
 	return &ConcurrentRWRingBuffer[T]{
 		inner: NewRingBuffer[T](elements...),
-		lock:  &sync.RWMutex{},
 	}
 }
 
@@ -30,7 +29,6 @@ func NewConcurrentRWRingBuffer[T any](elements ...T) *ConcurrentRWRingBuffer[T] 
 func NewBoundedConcurrentRWRingBuffer[T any](capacity int, policy OverflowPolicy, elements ...T) *ConcurrentRWRingBuffer[T] {
 	return &ConcurrentRWRingBuffer[T]{
 		inner: NewBoundedRingBuffer[T](capacity, policy, elements...),
-		lock:  &sync.RWMutex{},
 	}
 }
 
@@ -41,7 +39,7 @@ var _ MutableDeque[int] = &ConcurrentRWRingBuffer[int]{}
 // wrapConcurrentRW builds a new ConcurrentRWRingBuffer around an inner buffer
 // with a fresh lock, so the result is independent of the receiver's lock.
 func wrapConcurrentRW[T any](inner *RingBuffer[T]) *ConcurrentRWRingBuffer[T] {
-	return &ConcurrentRWRingBuffer[T]{inner: inner, lock: &sync.RWMutex{}}
+	return &ConcurrentRWRingBuffer[T]{inner: inner}
 }
 
 // snapshot returns an independent front-to-back copy of the elements, taken

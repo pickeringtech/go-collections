@@ -6,24 +6,28 @@
 //
 //	import "github.com/pickeringtech/go-collections/maps"
 //
-//	// Transform native Go maps functionally
+//	// Transform native Go maps functionally.
 //	inventory := map[string]int{
 //		"apples":  50,
 //		"oranges": 30,
 //		"bananas": 20,
 //	}
 //
-//	// Filter for low stock items
+//	// Filter for low-stock items.
 //	lowStock := maps.Filter(inventory, func(item string, count int) bool {
 //		return count < 40
 //	})
-//	// Result: {"oranges": 30, "bananas": 20}
+//	// lowStock: {"oranges": 30, "bananas": 20}
 //
-//	// Transform values
-//	doubled := maps.MapValues(inventory, func(count int) int {
-//		return count * 2
+//	// Transform entries. Map rebuilds the map and can change the key, the
+//	// value, or both; here it doubles each value and keeps the key.
+//	doubled := maps.Map(inventory, func(item string, count int) (string, int) {
+//		return item, count * 2
 //	})
-//	// Result: {"apples": 100, "oranges": 60, "bananas": 40}
+//	// doubled: {"apples": 100, "oranges": 60, "bananas": 40}
+//
+// This Quick Start is compiled and run as Example_quickStart in the package's
+// test suite, so it is guaranteed to track the real API.
 //
 // # When to Use Maps vs Collections/Dicts
 //
@@ -41,44 +45,25 @@
 //
 // # Core Operations
 //
-// Transform Operations:
-//   - Filter: Keep key-value pairs matching condition
-//   - MapKeys: Transform all keys
-//   - MapValues: Transform all values
-//   - Map: Transform both keys and values
+// Transform operations (each returns a new map without mutating the input):
+//   - Filter: keep key-value pairs matching a predicate
+//   - Map: rebuild the map, transforming each key and/or value
+//   - Update: merge another map's entries over a copy of the input
 //
-// Utility Operations:
-//   - Keys: Extract all keys as slice
-//   - Values: Extract all values as slice
-//   - Invert: Swap keys and values
-//   - Merge: Combine multiple maps
+// Lookup and extraction:
+//   - Keys / Values: extract all keys or values as a slice
+//   - Items: extract all entries as a slice of Entry[K, V]
+//   - GetOrDefault / GetMany / GetManyOrDefault: read values with fallbacks
+//   - ContainsValue: check whether a value is present
+//
+// Construction and utilities:
+//   - FromKeys: build a map from a slice of keys and a default value
+//   - Copy: shallow-copy a map
+//   - Clear: remove every entry from a map in place
 //
 // # Common Patterns
 //
-// Configuration Processing:
-//
-//	config := map[string]string{
-//		"database.host": "localhost",
-//		"database.port": "5432",
-//		"server.port":   "8080",
-//		"debug.enabled": "true",
-//	}
-//
-//	// Extract database config
-//	dbConfig := maps.Filter(config, func(key, value string) bool {
-//		return strings.HasPrefix(key, "database.")
-//	})
-//
-//	// Convert to integers where needed
-//	ports := maps.Filter(config, func(key, value string) bool {
-//		return strings.HasSuffix(key, ".port")
-//	})
-//	portInts := maps.MapValues(ports, func(port string) int {
-//		p, _ := strconv.Atoi(port)
-//		return p
-//	})
-//
-// Data Transformation:
+// Transform values with Map (swap, recompute, or relabel entries):
 //
 //	userScores := map[string]int{
 //		"alice":   95,
@@ -86,38 +71,44 @@
 //		"charlie": 92,
 //	}
 //
-//	// Convert scores to grades
-//	grades := maps.MapValues(userScores, func(score int) string {
-//		if score >= 90 { return "A" }
-//		if score >= 80 { return "B" }
-//		return "C"
+//	// Convert scores to letter grades, keeping the user as the key.
+//	grades := maps.Map(userScores, func(user string, score int) (string, string) {
+//		switch {
+//		case score >= 90:
+//			return user, "A"
+//		case score >= 80:
+//			return user, "B"
+//		default:
+//			return user, "C"
+//		}
 //	})
 //
-//	// Create reverse lookup (grade -> users)
-//	gradeUsers := make(map[string][]string)
-//	for user, grade := range grades {
-//		gradeUsers[grade] = append(gradeUsers[grade], user)
+// Invert a map by swapping keys and values in the mapping function:
+//
+//	idToName := map[int]string{1: "alice", 2: "bob"}
+//	nameToID := maps.Map(idToName, func(id int, name string) (string, int) {
+//		return name, id
+//	})
+//
+// Merge maps with Update (entries from the second argument win):
+//
+//	defaults := map[string]string{"host": "localhost", "port": "8080"}
+//	overrides := map[string]string{"port": "9090"}
+//	settings := maps.Update(defaults, overrides)
+//	// settings: {"host": "localhost", "port": "9090"}
+//
+// Filter then extract:
+//
+//	config := map[string]string{
+//		"database.host": "localhost",
+//		"database.port": "5432",
+//		"server.port":   "8080",
 //	}
 //
-// API Response Processing:
-//
-//	// Process API response
-//	response := map[string]interface{}{
-//		"user_id":    123,
-//		"user_name":  "alice",
-//		"user_email": "alice@example.com",
-//		"created_at": "2023-01-01T00:00:00Z",
-//	}
-//
-//	// Extract user fields only
-//	userFields := maps.Filter(response, func(key string, value interface{}) bool {
-//		return strings.HasPrefix(key, "user_")
+//	dbConfig := maps.Filter(config, func(key, value string) bool {
+//		return strings.HasPrefix(key, "database.")
 //	})
-//
-//	// Clean up field names
-//	cleanFields := maps.MapKeys(userFields, func(key string) string {
-//		return strings.TrimPrefix(key, "user_")
-//	})
+//	dbKeys := maps.Keys(dbConfig)
 //
 // # Performance Considerations
 //
@@ -142,23 +133,23 @@
 //
 // # Integration with Other Packages
 //
-// Maps package works well with slices and collections:
+// The maps package works well with slices and collections:
 //
-//	// Extract and process map data
+//	// Extract and process map data.
 //	inventory := map[string]int{"apples": 50, "oranges": 30}
 //
-//	// Get keys and process with slices
+//	// Get keys and process them with the slices package.
 //	items := maps.Keys(inventory)
-//	sortedItems := slices.Sort(items, func(a, b string) bool { return a < b })
+//	slices.SortOrderedAscInPlace(items)
 //
-//	// Store in collections
+//	// Store the data in collections.
 //	itemSet := collections.NewSet(items...)
 //	itemDict := collections.NewDict(
 //		slices.Map(items, func(item string) collections.Pair[string, int] {
 //			return collections.Pair[string, int]{Key: item, Value: inventory[item]}
-//		})...
+//		})...,
 //	)
 //
-// Start with simple Filter and MapValues operations, then explore advanced
-// patterns like key transformation and map merging as needed.
+// Start with simple Filter and Map operations, then reach for Update to merge
+// maps and the Keys/Values/Items extractors as needed.
 package maps

@@ -27,6 +27,12 @@ import "reflect"
 //	activeUsers := users.Filter(func(id int, name string) bool {
 //		return isActive(id)
 //	})
+//
+// Zero value: because Hash is a map type, its zero value is a nil map. Reads
+// (Get, Contains, Length, iteration) are safe on a nil Hash, as are delete-based
+// operations (Clear, FilterInPlace), which are no-ops on a nil map. Inserting an
+// entry (PutInPlace, PutManyInPlace) panics on a nil map, exactly as with a
+// built-in map. Construct a writable Hash with NewHash.
 type Hash[K comparable, V any] map[K]V
 
 // NewHash creates a new Hash dictionary with the given key-value pairs.
@@ -208,6 +214,10 @@ func (h Hash[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 // Values are compared with reflect.DeepEqual, matching the equality semantics
 // used by list removal. This supports non-comparable value types (slices, maps,
 // funcs) without panicking.
+//
+// This is the deliberate counterpart to maps.ContainsValue, which uses == and
+// requires a comparable V: dicts trades that speed for the ability to compare
+// nested and non-comparable values structurally.
 func (h Hash[K, V]) ContainsValue(value V) bool {
 	for _, v := range h {
 		if reflect.DeepEqual(v, value) {
