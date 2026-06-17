@@ -35,9 +35,9 @@ func (b ListBuilder[T]) Add(values ...T) ListBuilder[T] {
 
 // Build constructs the List described by the builder.
 func (b ListBuilder[T]) Build() lists.List[T] {
-	//if b.isRW {
-	//	return NewConcurrentRWList[T](b.values...)
-	//}
+	if b.isConcurrent && b.isRW {
+		return NewConcurrentRWList[T](b.values...)
+	}
 	if b.isConcurrent {
 		return NewConcurrentList[T](b.values...)
 	}
