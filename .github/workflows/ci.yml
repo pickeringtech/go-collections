@@ -826,11 +826,21 @@ jobs:
           git add $paths
           # [skip ci] in the subject is the recursion guard — keep it.
           git commit -m "chore(bench): refresh CI benchmark dataset & report [skip ci]"
-          # main may have advanced while we benchmarked; rebase and retry once.
-          if ! git push origin HEAD:main; then
-            echo "::warning::push rejected (main advanced); rebasing and retrying once"
-            git pull --rebase origin main
-            git push origin HEAD:main
+          # Best-effort push (issue #199). This is a housekeeping refresh of
+          # regenerable artifacts — it must NEVER fail the build. The push can be
+          # rejected because main advanced (non-fast-forward) OR because the
+          # merge-queue ruleset forbids direct pushes to main (GH013). Try a
+          # direct push, then one rebase-and-retry; if it still can't land, warn
+          # and exit 0 rather than reporting a red CI run on main. Once a durable
+          # write path exists (a merge-queue bypass actor for the bot, or a
+          # PR-based refresh — see #199), the push simply starts succeeding again
+          # with no further change here.
+          if git push origin HEAD:main; then
+            echo "Pushed refreshed benchmark artifacts to main."
+          elif git pull --rebase origin main && git push origin HEAD:main; then
+            echo "Pushed refreshed benchmark artifacts to main after rebase."
+          else
+            echo "::warning::Could not push refreshed benchmark artifacts to main (branch advanced, or the merge-queue ruleset forbids direct pushes — GH013). Skipping: this refresh is best-effort and never gates. See issue #199."
           fi
 
   ci-gate:
