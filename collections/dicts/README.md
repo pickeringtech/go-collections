@@ -258,6 +258,21 @@ total := dicts.Reduce(prices, 0.0, func(acc float64, _ string, price float64) fl
 })
 ```
 
+**`Map` always returns a `Hash`-backed `Dict`, even for a sorted (`Tree`) input.**
+This is deliberate: `Map` may change the key type, and the output key type is only
+constrained to `comparable`, not `Ordered` — so a sorted output cannot be
+guaranteed in general. When your output key type *is* `Ordered` and you want to
+keep sorted iteration, use `MapSorted`, which returns a `Tree`-backed
+`SortedDict`:
+
+```go
+// MapSorted: like Map, but OK must be Ordered and the result stays sorted.
+byPrice := dicts.MapSorted(prices, func(name string, price float64) (int, string) {
+    return int(price), name
+})                                                                   // SortedDict[int, string]
+// byPrice iterates in ascending key order: 29, 999
+```
+
 Iteration order over a `Dict` is unspecified, so a reduction should be
 order-independent. (`FlatMap` is intentionally omitted — flattening a dict of
 dicts has no unambiguous key-merging rule.)

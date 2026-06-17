@@ -254,7 +254,10 @@ total := lists.Reduce(words, 0, func(acc int, s string) int { return acc + len(s
 ```
 
 These work over any `List` implementation (`Array`, `Linked`, the concurrent
-types, …) because they take the interface. Empty or nil input yields an
+types, …) because they take the interface, and they always return an
+`Array`-backed `List` regardless of the input's backing (a `Linked` input does
+not yield a `Linked` output) — the package-wide return policy that keeps results
+chaining uniformly. Order is always preserved. Empty or nil input yields an
 initialised, non-nil empty `List`.
 
 ### Removal, Emptiness, and Clearing

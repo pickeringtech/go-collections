@@ -14,6 +14,11 @@ package lists
 
 // Map applies fn to every element of l, in order, returning a new List holding
 // the results. The output element type U may differ from the input type T.
+//
+// The result is always an Array-backed List, regardless of l's backing (a linked
+// input does not yield a linked output). This follows the package-wide return
+// policy documented in interfaces.go: every immutable list transform returns an
+// Array-backed List so results chain uniformly. Order is always preserved.
 func Map[T, U any](l List[T], fn func(T) U) List[U] {
 	out := []U{}
 	l.ForEach(func(element T) {
