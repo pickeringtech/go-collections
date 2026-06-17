@@ -8,16 +8,20 @@ import (
 // ConcurrentHashRW is a thread-safe dictionary implementation using Go's built-in map
 // with a read-write mutex for synchronization. Read operations use read locks for better
 // performance when there are many concurrent readers.
+//
+// Zero value: always construct with NewConcurrentHashRW. The embedded mutex is a
+// value, so a bare &ConcurrentHashRW{} is at least lock-safe, but its backing map
+// is nil until the constructor runs, so writes (PutInPlace) panic. Reads on the
+// zero value return empty results.
 type ConcurrentHashRW[K comparable, V any] struct {
 	data map[K]V
-	lock *sync.RWMutex
+	lock sync.RWMutex
 }
 
 // NewConcurrentHashRW creates a new ConcurrentHashRW dictionary with the given key-value pairs.
 func NewConcurrentHashRW[K comparable, V any](entries ...Pair[K, V]) *ConcurrentHashRW[K, V] {
 	m := &ConcurrentHashRW[K, V]{
 		data: make(map[K]V),
-		lock: &sync.RWMutex{},
 	}
 	for _, entry := range entries {
 		m.data[entry.Key] = entry.Value
@@ -296,6 +300,10 @@ func (ch *ConcurrentHashRW[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 // Values are compared with reflect.DeepEqual, matching the equality semantics
 // used by list removal. This supports non-comparable value types (slices, maps,
 // funcs) without panicking.
+//
+// This is the deliberate counterpart to maps.ContainsValue, which uses == and
+// requires a comparable V: dicts trades that speed for the ability to compare
+// nested and non-comparable values structurally.
 func (ch *ConcurrentHashRW[K, V]) ContainsValue(value V) bool {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
@@ -402,6 +410,22 @@ func (ch *ConcurrentHashRW[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 	for _, pair := range pairs {
 		ch.data[pair.Key] = pair.Value
 	}
+}
+
+// UpdateInPlace atomically reads the value at key, applies fn to it, and stores
+// the result back under key, returning the new value. fn receives the current
+// value (the zero value if the key is absent) and whether the key existed. The
+// whole read-modify-write holds the write lock, so concurrent updates compose
+// without losing writes. fn must not call back into the dictionary, which would
+// deadlock on the held lock.
+func (ch *ConcurrentHashRW[K, V]) UpdateInPlace(key K, fn func(old V, existed bool) V) V {
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
+
+	old, existed := ch.data[key]
+	newValue := fn(old, existed)
+	ch.data[key] = newValue
+	return newValue
 }
 
 // Remove creates a new dictionary with the given key removed.
