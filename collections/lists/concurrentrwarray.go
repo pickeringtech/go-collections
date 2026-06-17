@@ -156,9 +156,9 @@ func (a *ConcurrentRWArray[T]) Enqueue(element T) List[T] {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	// Operate on a copy so the returned List is independent of the receiver's
-	// backing array (Push may append into shared capacity).
-	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
+	// PushCopy copies and appends in a single allocation, so the new List is
+	// independent of the receiver (plain Push could append into shared capacity).
+	return NewArray(slices.PushCopy(a.elements, element)...)
 }
 
 // Filter returns a new List containing only the elements for which fun returns
@@ -379,9 +379,9 @@ func (a *ConcurrentRWArray[T]) Push(element T) List[T] {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	// Operate on a copy so the returned List is independent of the receiver's
-	// backing array (Push may append into shared capacity).
-	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
+	// PushCopy copies and appends in a single allocation, so the new List is
+	// independent of the receiver (plain Push could append into shared capacity).
+	return NewArray(slices.PushCopy(a.elements, element)...)
 }
 
 // Sort returns a new List sorted according to the less-than function lessThan,

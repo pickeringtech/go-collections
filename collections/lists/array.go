@@ -58,9 +58,9 @@ func (a *Array[T]) DequeueInPlace() (T, bool) {
 // Enqueue returns a new List with element appended to the end, without
 // modifying the receiver.
 func (a *Array[T]) Enqueue(element T) List[T] {
-	// Operate on a copy so the returned List is independent of the receiver's
-	// backing array (Push may append into shared capacity).
-	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
+	// PushCopy copies and appends in a single allocation, so the new List is
+	// independent of the receiver (plain Push could append into shared capacity).
+	return NewArray(slices.PushCopy(a.elements, element)...)
 }
 
 // EnqueueInPlace appends element to the end of the receiver.
@@ -223,9 +223,9 @@ func (a *Array[T]) PopInPlace() (T, bool) {
 // Push returns a new List with element appended to the end, without modifying
 // the receiver.
 func (a *Array[T]) Push(element T) List[T] {
-	// Operate on a copy so the returned List is independent of the receiver's
-	// backing array (Push may append into shared capacity).
-	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
+	// PushCopy copies and appends in a single allocation, so the new List is
+	// independent of the receiver (plain Push could append into shared capacity).
+	return NewArray(slices.PushCopy(a.elements, element)...)
 }
 
 // PushInPlace appends element to the end of the receiver.

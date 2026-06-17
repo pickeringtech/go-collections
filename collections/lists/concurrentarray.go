@@ -92,9 +92,9 @@ func (a *ConcurrentArray[T]) Enqueue(element T) List[T] {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	// Operate on a copy so the returned List is independent of the receiver's
-	// backing array (Push may append into shared capacity).
-	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
+	// PushCopy copies and appends in a single allocation, so the new List is
+	// independent of the receiver (plain Push could append into shared capacity).
+	return NewArray(slices.PushCopy(a.elements, element)...)
 }
 
 // EnqueueInPlace appends element to the end of the receiver. It is safe for
@@ -356,9 +356,9 @@ func (a *ConcurrentArray[T]) Push(element T) List[T] {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	// Operate on a copy so the returned List is independent of the receiver's
-	// backing array (Push may append into shared capacity).
-	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
+	// PushCopy copies and appends in a single allocation, so the new List is
+	// independent of the receiver (plain Push could append into shared capacity).
+	return NewArray(slices.PushCopy(a.elements, element)...)
 }
 
 // PushInPlace appends element to the end of the receiver. It is safe for

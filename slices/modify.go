@@ -131,6 +131,18 @@ func Push[T any](input []T, newElements ...T) []T {
 	return append(input, newElements...)
 }
 
+// PushCopy returns a new slice containing the elements of input followed by
+// newElements. Unlike Push, the result never aliases input's backing array
+// (Push appends into input's spare capacity when present), and it is built with
+// a single allocation sized to hold every element - avoiding the extra
+// reallocation of copying and then pushing separately. The result is non-nil
+// even when both input and newElements are empty.
+func PushCopy[T any](input []T, newElements ...T) []T {
+	out := make([]T, 0, len(input)+len(newElements))
+	out = append(out, input...)
+	return append(out, newElements...)
+}
+
 // PushFront adds the new elements to the front of the input slice.
 func PushFront[T any](input []T, newElements ...T) []T {
 	return append(newElements, input...)
