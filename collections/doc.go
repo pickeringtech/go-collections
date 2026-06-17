@@ -67,6 +67,36 @@
 //	// Tag documents (duplicates collapsed)
 //	tags := collections.NewSetMultimap[string, string]()
 //
+// # Heaps - Priority Queues
+//
+// Heaps always hand back the most- (or least-) extreme element next:
+//
+//	// Smallest-first (min-heap) over an ordered type
+//	pq := collections.NewMinHeap(5, 1, 3)
+//	next, _ := pq.Pop() // 1
+//
+//	// Or order by any comparator, e.g. a struct field
+//	tasks := collections.NewHeap(func(a, b Task) bool { return a.Priority > b.Priority })
+//
+// The facade constructors return the immutable heaps.Heap interface (Push/Pop
+// return a new heap). For the in-place mutating API (PushInPlace/PopInPlace),
+// reach for the heaps subpackage directly.
+//
+// # LRU - Bounded Caches
+//
+// LRU caches keep at most a fixed number of entries, evicting the
+// least-recently-used one to make room:
+//
+//	cache := collections.NewLRU[string, int](2)
+//	cache.PutInPlace("a", 1)
+//	cache.PutInPlace("b", 2)
+//	v, ok := cache.Get("a") // promotes "a"; a third insert now evicts "b"
+//
+// The facade constructors return lru.MutableCache because an LRU is inherently
+// stateful: its defining recency-marking read, Get, is a mutation. Pass
+// lru.Option values (e.g. lru.WithOnEvict) to configure eviction callbacks and
+// seed entries.
+//
 // # Thread Safety
 //
 // All data structures offer thread-safe variants:

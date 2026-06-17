@@ -1,6 +1,6 @@
 # Collections - Core Data Structures
 
-The `collections` package provides the core of the Go Collections library with four data structures: **Dicts** (key-value mappings), **Sets** (unique collections), **Lists** (ordered sequences), and **Heaps** (priority queues).
+The `collections` package provides the core of the Go Collections library with **Dicts** (key-value mappings), **Sets** (unique collections), **Lists** (ordered sequences), **Heaps** (priority queues), and **LRU** (bounded caches) — all reachable through the single `collections` facade.
 
 ## Quick Start
 
@@ -101,22 +101,52 @@ Use when you always need the most- (or least-) extreme item next. See the
 [`heaps` package](./heaps/README.md).
 
 ```go
-import "github.com/pickeringtech/go-collections/collections/heaps"
-
-// Smallest-first by default
-pq := heaps.NewMin(5, 1, 3)
-pq.PushInPlace(0)
-next, _ := pq.PopInPlace() // 0
+// Smallest-first by default — reachable straight from the facade
+pq := collections.NewMinHeap(5, 1, 3)
+next, _ := pq.Pop() // 1
 
 // Or order by any comparator
-tasks := heaps.New(func(a, b Task) bool { return a.Priority > b.Priority })
+tasks := collections.NewHeap(func(a, b Task) bool { return a.Priority > b.Priority })
+
+// The heaps subpackage adds the in-place, mutating API
+import "github.com/pickeringtech/go-collections/collections/heaps"
+mpq := heaps.NewMin(5, 1, 3)
+mpq.PushInPlace(0)
+top, _ := mpq.PopInPlace() // 0
 ```
 
-**Available Implementations:**
-- `heaps.NewMin()` / `heaps.NewMax()` - Min / max binary heap
-- `heaps.New(less, ...)` - Comparator-driven binary heap
-- `heaps.NewConcurrentMin()` / `heaps.NewConcurrentMax()` - Thread-safe (mutex)
-- `heaps.NewConcurrentRWMin()` / `heaps.NewConcurrentRWMax()` - Read-optimized thread-safe
+**Facade constructors** (return the immutable `heaps.Heap` interface):
+- `collections.NewMinHeap()` / `collections.NewMaxHeap()` - Min / max binary heap
+- `collections.NewHeap(less, ...)` - Comparator-driven binary heap
+- `collections.NewConcurrentMinHeap()` / `…MaxHeap()` / `…Heap(less, ...)` - Thread-safe (mutex)
+- `collections.NewConcurrentRWMinHeap()` / `…RWMaxHeap()` / `…RWHeap(less, ...)` - Read-optimized thread-safe
+
+For the in-place mutating API (`PushInPlace`/`PopInPlace`), use the
+[`heaps` package](./heaps/README.md) constructors directly.
+
+### LRU - Bounded Caches
+Use when you need a fixed-memory cache that evicts the least-recently-used
+entry. See the [`lru` package](./lru/README.md).
+
+```go
+// Reachable straight from the facade
+cache := collections.NewLRU[string, int](2)
+cache.PutInPlace("a", 1)
+cache.PutInPlace("b", 2)
+v, ok := cache.Get("a") // promotes "a"; a third insert now evicts "b"
+
+// Eviction callbacks and seed entries via lru.Option
+import "github.com/pickeringtech/go-collections/collections/lru"
+cache = collections.NewLRU[string, int](100,
+    lru.WithOnEvict(func(k string, v int) { /* ... */ }),
+)
+```
+
+**Facade constructors** (return the `lru.MutableCache` interface — an LRU is
+inherently stateful, so its recency-marking `Get` is a mutation):
+- `collections.NewLRU[K, V](capacity, opts...)` - Single-threaded cache
+- `collections.NewConcurrentLRU[K, V](capacity, opts...)` - Thread-safe (mutex)
+- `collections.NewConcurrentRWLRU[K, V](capacity, opts...)` - Read-optimized thread-safe
 
 ## Common Patterns
 
