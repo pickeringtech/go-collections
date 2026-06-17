@@ -220,6 +220,19 @@ lengths := sets.Map(words, func(s string) int { return len(s) })
 total := sets.Reduce(words, 0, func(acc int, s string) int { return acc + len(s) })
 ```
 
+**`Map` always returns a `Hash`-backed `Set`, even for a sorted (`TreeSet`)
+input.** This is deliberate: `Map` may change the element type, and the output
+element type is only constrained to `comparable`, not `Ordered` — so a sorted
+output cannot be guaranteed in general. When your output element type *is*
+`Ordered` and you want to keep sorted iteration, use `MapSorted`, which returns a
+`TreeSet`-backed `SortedSet`:
+
+```go
+// MapSorted: like Map, but U must be Ordered and the result stays sorted.
+lengths := sets.MapSorted(words, func(s string) int { return len(s) })  // SortedSet[int]
+// lengths.AsSlice() == []int{1, 2} (ascending, deduplicated)
+```
+
 Iteration order over a `Set` is unspecified, so a reduction should be
 order-independent.
 
