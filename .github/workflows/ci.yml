@@ -423,10 +423,28 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          # Restore ~/.cache/go-build so the tool installs below relink from
+          # cached objects instead of recompiling from source (issue #151).
+          cache-dependency-path: go.mod
+      # Cache the *compiled* tool binaries, keyed on pinned-version + Go-minor +
+      # OS (issue #151). The pinned versions live in `env:`, so the key is stable
+      # and busts only on a deliberate bump. Restore-then-`go install`: install is
+      # a fast no-op on a hit and only recompiles when the key changes. gosec and
+      # govulncheck are non-trivial programs, so this removes a per-run rebuild.
+      - name: Cache govulncheck binary
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/govulncheck
+          key: ${{ runner.os }}-tool-govulncheck-${{ env.GOVULNCHECK_VERSION }}-go${{ env.GO_PRIMARY }}
       - name: Scan for known vulnerabilities (govulncheck)
         run: |
           go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
           govulncheck ./...
+      - name: Cache gosec binary
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gosec
+          key: ${{ runner.os }}-tool-gosec-${{ env.GOSEC_VERSION }}-go${{ env.GO_PRIMARY }}
       - name: Security lint (gosec)
         # Blocking: gosec reports no issues, so it now gates against regressions.
         run: |
@@ -483,6 +501,30 @@ jobs:
         working-directory: tools/benchreport
         run: go test -shuffle=on ./...
 
+  doc-compile:
+    # Blocking PR-time gate (issue #151): make the package godoc examples in every
+    # doc.go provably real. The doccompile tool symbol-checks each indented code
+    # block against the library's exported API and compiles the parseable ones, so
+    # a quick-start that references a non-existent symbol (collections.Pair-style
+    # drift) or a renamed method fails CI. Cheap Linux, diff-sensitive, high
+    # dependability value — exactly what belongs on every PR. The tool lives in its
+    # own nested module (tools/doccompile); its own unit tests run first so a broken
+    # guard is caught here too, mirroring the benchreport-test job's structure.
+    name: Doc examples compile-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      - name: Test the doccompile guard itself
+        working-directory: tools/doccompile
+        run: go test -shuffle=on ./...
+      - name: Verify every doc.go example references real symbols and compiles
+        working-directory: tools/doccompile
+        run: go run . -root ../..
+
   api-compat:
     name: API compatibility (gorelease vs last tag) — report-only
     runs-on: ubuntu-latest
@@ -495,6 +537,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache-dependency-path: go.mod
+      # Cache the compiled gorelease binary (issue #151) — see the security job
+      # for the keying rationale.
+      - name: Cache gorelease binary
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gorelease
+          key: ${{ runner.os }}-tool-gorelease-${{ env.GORELEASE_VERSION }}-go${{ env.GO_PRIMARY }}
       - name: Report API compatibility and implied semver bump
         # Report-only pre-1.0 (see the gating-policy comment at the top): breaking
         # changes are allowed while major version is 0, so this surfaces the verdict
@@ -688,7 +738,17 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache-dependency-path: go.mod
 
+      # Cache the compiled benchstat binary (issue #151) — see the security job
+      # for the keying rationale. Restored before the install below so install is
+      # a fast no-op on a cache hit.
+      - name: Cache benchstat binary
+        if: github.event_name != 'pull_request' || needs.changes.outputs.code == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/benchstat
+          key: ${{ runner.os }}-tool-benchstat-${{ env.BENCHSTAT_VERSION }}-go${{ env.GO_PRIMARY }}
       # Install before any `git checkout` below: the binary lands in $GOBIN,
       # outside the work tree, so switching the tree to the base commit can't
       # disturb it.
@@ -943,6 +1003,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod
+      # Cache the compiled benchstat binary (issue #151) — see the security job.
+      - name: Cache benchstat binary
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/benchstat
+          key: ${{ runner.os }}-tool-benchstat-${{ env.BENCHSTAT_VERSION }}-go${{ env.GO_PRIMARY }}
       - name: Install benchstat (pinned)
         # Same pinned version as the PR A/B job, for a reproducible CSV format.
         run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
@@ -1018,7 +1084,7 @@ jobs:
     # *steps* inside `benchmarks`, which still reports `success`, not in a
     # conditional job. benchmarks gates on catastrophic (≥10x) regressions
     # (#114). Report-only jobs (test-tip, api-compat) stay out.
-    needs: [setup, changes, build, test, lint, security, examples-e2e, benchreport-test, cross-arch, fuzz, benchmarks]
+    needs: [setup, changes, build, test, lint, security, examples-e2e, benchreport-test, doc-compile, cross-arch, fuzz, benchmarks]
     runs-on: ubuntu-latest
     steps:
       - name: Require all blocking jobs to have succeeded
