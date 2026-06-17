@@ -36,6 +36,19 @@ func wrapConcurrentTreeSet[T constraints.Ordered](set *TreeSet[T]) *ConcurrentTr
 	return &ConcurrentTreeSet[T]{set: set, lock: &sync.Mutex{}}
 }
 
+// snapshotOperand returns a non-locking, point-in-time copy of other suitable for
+// the inner TreeSet's binary operations. It must be called *before* ch.lock is
+// taken: snapshotting copies other under other's own lock, and doing that while
+// holding ch.lock would invert lock order against an opposite-operand call and
+// deadlock (a.Difference(b) racing b.Difference(a)). It returns nil when other is
+// the receiver, in which case the caller operates on ch.set under the lock.
+func (ch *ConcurrentTreeSet[T]) snapshotOperand(other Set[T]) Set[T] {
+	if other == Set[T](ch) {
+		return nil
+	}
+	return NewTreeSet[T](other.AsSlice()...)
+}
+
 // Contains checks if the given element exists in the set.
 func (ch *ConcurrentTreeSet[T]) Contains(element T) bool {
 	ch.lock.Lock()
@@ -208,14 +221,14 @@ func (ch *ConcurrentTreeSet[T]) AddMany(elements ...T) Set[T] {
 // Union creates a new set containing all elements from this set and the other set.
 // Returns a new thread-safe ConcurrentTreeSet without modifying the original.
 func (ch *ConcurrentTreeSet[T]) Union(other Set[T]) Set[T] {
+	operand := ch.snapshotOperand(other)
+
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	// When other is the receiver, operate on the inner (non-locking) set so the
-	// delegated call doesn't re-acquire ch.lock (non-reentrant) and deadlock.
-	if other == Set[T](ch) {
-		other = ch.set
+	if operand == nil {
+		operand = ch.set
 	}
-	return wrapConcurrentTreeSet(ch.set.Union(other).(*TreeSet[T]))
+	return wrapConcurrentTreeSet(ch.set.Union(operand).(*TreeSet[T]))
 }
 
 // AddInPlace adds the given element to the set.
@@ -234,12 +247,14 @@ func (ch *ConcurrentTreeSet[T]) AddManyInPlace(elements ...T) {
 
 // UnionInPlace adds all elements from the other set to this set.
 func (ch *ConcurrentTreeSet[T]) UnionInPlace(other Set[T]) {
+	operand := ch.snapshotOperand(other)
+
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	if other == Set[T](ch) {
-		other = ch.set
+	if operand == nil {
+		operand = ch.set
 	}
-	ch.set.UnionInPlace(other)
+	ch.set.UnionInPlace(operand)
 }
 
 // Remove creates a new set with the given element removed.
@@ -261,12 +276,14 @@ func (ch *ConcurrentTreeSet[T]) RemoveMany(elements ...T) Set[T] {
 // Difference creates a new set containing elements in this set but not in the other set.
 // Returns a new thread-safe ConcurrentTreeSet without modifying the original.
 func (ch *ConcurrentTreeSet[T]) Difference(other Set[T]) Set[T] {
+	operand := ch.snapshotOperand(other)
+
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	if other == Set[T](ch) {
-		other = ch.set
+	if operand == nil {
+		operand = ch.set
 	}
-	return wrapConcurrentTreeSet(ch.set.Difference(other).(*TreeSet[T]))
+	return wrapConcurrentTreeSet(ch.set.Difference(operand).(*TreeSet[T]))
 }
 
 // RemoveInPlace removes the given element from the set.
@@ -286,12 +303,14 @@ func (ch *ConcurrentTreeSet[T]) RemoveManyInPlace(elements ...T) {
 
 // DifferenceInPlace removes all elements that are present in the other set.
 func (ch *ConcurrentTreeSet[T]) DifferenceInPlace(other Set[T]) {
+	operand := ch.snapshotOperand(other)
+
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	if other == Set[T](ch) {
-		other = ch.set
+	if operand == nil {
+		operand = ch.set
 	}
-	ch.set.DifferenceInPlace(other)
+	ch.set.DifferenceInPlace(operand)
 }
 
 // Clear removes all elements from the set.
@@ -304,22 +323,26 @@ func (ch *ConcurrentTreeSet[T]) Clear() {
 // Intersection creates a new set containing elements present in both sets.
 // Returns a new thread-safe ConcurrentTreeSet without modifying the original.
 func (ch *ConcurrentTreeSet[T]) Intersection(other Set[T]) Set[T] {
+	operand := ch.snapshotOperand(other)
+
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	if other == Set[T](ch) {
-		other = ch.set
+	if operand == nil {
+		operand = ch.set
 	}
-	return wrapConcurrentTreeSet(ch.set.Intersection(other).(*TreeSet[T]))
+	return wrapConcurrentTreeSet(ch.set.Intersection(operand).(*TreeSet[T]))
 }
 
 // IsSubsetOf returns true if this set is a subset of the other set.
 func (ch *ConcurrentTreeSet[T]) IsSubsetOf(other Set[T]) bool {
+	operand := ch.snapshotOperand(other)
+
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	if other == Set[T](ch) {
-		other = ch.set
+	if operand == nil {
+		operand = ch.set
 	}
-	return ch.set.IsSubsetOf(other)
+	return ch.set.IsSubsetOf(operand)
 }
 
 // IsSupersetOf returns true if this set is a superset of the other set.
@@ -329,32 +352,38 @@ func (ch *ConcurrentTreeSet[T]) IsSupersetOf(other Set[T]) bool {
 
 // IsDisjoint returns true if this set has no elements in common with the other set.
 func (ch *ConcurrentTreeSet[T]) IsDisjoint(other Set[T]) bool {
+	operand := ch.snapshotOperand(other)
+
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	if other == Set[T](ch) {
-		other = ch.set
+	if operand == nil {
+		operand = ch.set
 	}
-	return ch.set.IsDisjoint(other)
+	return ch.set.IsDisjoint(operand)
 }
 
 // Equals returns true if both sets contain exactly the same elements.
 func (ch *ConcurrentTreeSet[T]) Equals(other Set[T]) bool {
+	operand := ch.snapshotOperand(other)
+
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	if other == Set[T](ch) {
-		other = ch.set
+	if operand == nil {
+		operand = ch.set
 	}
-	return ch.set.Equals(other)
+	return ch.set.Equals(operand)
 }
 
 // IntersectionInPlace keeps only elements that are present in both sets.
 func (ch *ConcurrentTreeSet[T]) IntersectionInPlace(other Set[T]) {
+	operand := ch.snapshotOperand(other)
+
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	if other == Set[T](ch) {
-		other = ch.set
+	if operand == nil {
+		operand = ch.set
 	}
-	ch.set.IntersectionInPlace(other)
+	ch.set.IntersectionInPlace(operand)
 }
 
 // Min returns the smallest element.
