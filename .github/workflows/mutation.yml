@@ -54,8 +54,8 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod   # project tests run under the declared Go version
       - name: Install gremlins (pinned)
@@ -73,7 +73,7 @@ jobs:
             --threshold-efficacy "${MUTATION_EFFICACY_MIN}" \
             --threshold-mcover "${MUTATION_MCOVER_MIN}"
       - name: Upload mutation report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutation-report
           path: mutation-report.json
@@ -84,12 +84,12 @@ jobs:
     if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0   # gremlins --diff needs history back to the merge base
           # The merge queue's post-merge tree (the commit actually about to land).
           ref: ${{ github.event.merge_group.head_sha }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Determine whether this merge changes non-test Go source
@@ -135,7 +135,7 @@ jobs:
             --threshold-efficacy "${MUTATION_EFFICACY_MIN}" \
             --threshold-mcover "${MUTATION_MCOVER_MIN}"
       - name: Upload mutation report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutation-report-merge
           path: mutation-report.json

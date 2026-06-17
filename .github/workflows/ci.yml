@@ -186,8 +186,8 @@ jobs:
     name: Build & module hygiene
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Compile every package
@@ -249,8 +249,8 @@ jobs:
         # the runner) so the awk/tr/tail coverage steps are portable across cells.
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go }}
           # Zero-dependency repo: no go.sum exists, so key the (per-OS, per-Go)
@@ -283,7 +283,7 @@ jobs:
         # a repo secret (Settings → Secrets → Actions → CODECOV_TOKEN).
         # Kept non-gating: the coverage floor above is the authoritative gate,
         # so a flaky upload must not block a merge.
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -310,8 +310,8 @@ jobs:
           - goarch: s390x      # big-endian — surfaces endianness assumptions
             run-tests: false
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod
@@ -332,8 +332,8 @@ jobs:
     name: Lint, format & complexity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Check formatting (gofmt)
@@ -351,7 +351,7 @@ jobs:
         # Aggregates staticcheck, errcheck, ineffassign, unconvert, misspell,
         # revive, cyclop (cyclomatic) and gocognit (cognitive). Blocking: the
         # debt it surfaced has been paid down (see #9), so it now gates.
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v2.1.6
 
@@ -364,8 +364,8 @@ jobs:
     name: Security lint (gosec — static analysis)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Security lint (gosec)
@@ -386,8 +386,8 @@ jobs:
     name: Examples E2E (golden output, separate module)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           # Drive the toolchain from the examples module's own go.mod.
           go-version-file: examples/go.mod
@@ -411,8 +411,8 @@ jobs:
     name: Benchreport tests (separate module)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           # Drive the toolchain from the benchreport module's own go.mod.
           go-version-file: tools/benchreport/go.mod
@@ -428,8 +428,8 @@ jobs:
     name: Fuzz (short run per target)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Run every fuzz target for a fixed iteration count, in parallel
@@ -543,7 +543,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # Full history so we can check out and benchmark the queue base commit
           # within this same job (cheap no-op on push events).
@@ -551,7 +551,7 @@ jobs:
           # Bench the merge queue's head (the post-merge tree) on merge_group;
           # empty on push → checkout falls back to the default ref (main).
           ref: ${{ github.event.merge_group.head_sha }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -764,7 +764,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # Full history so the rebase-on-reject retry below has something to
           # rebase onto if main advances while this job runs.
@@ -773,7 +773,7 @@ jobs:
           # commit step can push to protected main. Also rewrites the remote to
           # SSH, so the push/pull below go over the key, not the token.
           ssh-key: ${{ secrets.BENCH_REPORT_DEPLOY_KEY }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod

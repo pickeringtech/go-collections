@@ -33,12 +33,12 @@ jobs:
     name: API compatibility (gorelease vs previous release)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # gorelease and the tag lookup both need the full tag history, which
           # the default shallow checkout omits.
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Report API compatibility and implied semver bump
