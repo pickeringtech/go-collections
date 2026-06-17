@@ -23,18 +23,20 @@ func NewConcurrentList[T any](values ...T) lists.List[T] {
 	return lists.NewConcurrentArray[T](values...)
 }
 
-//func NewConcurrentRWList[T any](values ...T) lists.List[T] {
-//	return lists.NewConcurrentArrayRW[T](values...)
-//}
+// NewConcurrentRWList creates a thread-safe List backed by an array, optimised for concurrent reads (RWMutex-guarded), with the given values.
+func NewConcurrentRWList[T any](values ...T) lists.List[T] {
+	return lists.NewConcurrentRWArray[T](values...)
+}
 
 // NewQueue creates a Queue (FIFO) backed by an array with the given values.
 func NewQueue[T any](values ...T) lists.Queue[T] {
 	return lists.NewArray(values...)
 }
 
-//func NewConcurrentRWQueue[T any](values ...T) lists.List[T] {
-//	return lists.NewConcurrentArrayRW[T](values...)
-//}
+// NewConcurrentRWQueue creates a thread-safe Queue (FIFO) backed by an array, optimised for concurrent reads (RWMutex-guarded), with the given values.
+func NewConcurrentRWQueue[T any](values ...T) lists.Queue[T] {
+	return lists.NewConcurrentRWArray[T](values...)
+}
 
 // NewConcurrentQueue creates a thread-safe Queue (FIFO) backed by an array with the given values.
 func NewConcurrentQueue[T any](values ...T) lists.Queue[T] {
@@ -51,9 +53,10 @@ func NewConcurrentStack[T any](values ...T) lists.Stack[T] {
 	return lists.NewConcurrentArray[T](values...)
 }
 
-//func NewConcurrentRWStack[T any](values ...T) lists.List[T] {
-//	return lists.NewConcurrentArrayRW[T](values...)
-//}
+// NewConcurrentRWStack creates a thread-safe Stack (LIFO) backed by an array, optimised for concurrent reads (RWMutex-guarded), with the given values.
+func NewConcurrentRWStack[T any](values ...T) lists.Stack[T] {
+	return lists.NewConcurrentRWArray[T](values...)
+}
 
 // NewDeque creates an unbounded Deque (double-ended queue) backed by a ring buffer with the given values (values[0] becomes the front).
 func NewDeque[T any](values ...T) deques.Deque[T] {

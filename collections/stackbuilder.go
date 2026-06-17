@@ -35,11 +35,11 @@ func (b StackBuilder[T]) Add(values ...T) StackBuilder[T] {
 
 // Build constructs the Stack described by the builder.
 func (b StackBuilder[T]) Build() lists.Stack[T] {
-	//if b.isRW {
-	//	return NewConcurrentRWList[T](b.values...)
-	//}
-	if b.isConcurrent {
-		return NewConcurrentList[T](b.values...)
+	if b.isConcurrent && b.isRW {
+		return NewConcurrentRWStack[T](b.values...)
 	}
-	return NewList[T](b.values...)
+	if b.isConcurrent {
+		return NewConcurrentStack[T](b.values...)
+	}
+	return NewStack[T](b.values...)
 }
