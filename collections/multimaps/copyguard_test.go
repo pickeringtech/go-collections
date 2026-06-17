@@ -8,7 +8,10 @@ import (
 )
 
 func TestCopyGuard_Multimaps(t *testing.T) {
-	nocopytest.AssertLockerImpl(t)
+	impl := nocopytest.NoCopyImplementsLocker()
+	if !impl {
+		t.Error("*nocopy.NoCopy must implement sync.Locker")
+	}
 
 	tests := []struct {
 		name string
@@ -34,7 +37,10 @@ func TestCopyGuard_Multimaps(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			nocopytest.AssertNoCopyFirstField(t, tc.typ)
+			ok := nocopytest.HasNoCopyFirstField(tc.typ)
+			if !ok {
+				t.Errorf("%s: first field is not nocopy.NoCopy", tc.typ)
+			}
 		})
 	}
 }
