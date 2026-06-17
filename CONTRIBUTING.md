@@ -39,8 +39,17 @@ other dependencies.
 go build ./...        # compile every package
 go test ./...         # run the suite (Examples are verified here too)
 make test             # the suite with -race -shuffle=on (what CI runs)
+make lint             # gofmt + go vet + golangci-lint (pinned to CI's version)
+make ci               # every blocking CI gate at once — green here predicts a green PR
 make help             # list the developer entry points
 ```
+
+`make ci` runs the same blocking checks the PR `CI Gate` aggregates, using the
+**same pinned tool versions** as [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+(golangci-lint, govulncheck, gosec), so a green local run predicts a green PR.
+Each gate is also a standalone target (`make lint`, `make security`,
+`make cover`, `make cross-arch`, `make fuzz`, `make hygiene`) so you can
+reproduce a single failing job.
 
 ## Design conventions
 
@@ -117,19 +126,23 @@ It `needs:` every blocking job, so a single stable context survives matrix and
 job-name changes (#41). The full policy and rationale live at the top of
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-**Blocking** (these must pass — reproduce each locally before pushing):
+**Blocking** (these must pass — reproduce each locally before pushing).
+`make ci` runs the whole column in one shot; each row's target reproduces a
+single gate:
 
 | CI job | What it checks | Reproduce locally |
 |---|---|---|
-| Build & module hygiene | compiles; `go.mod` tidy; **zero deps**; module integrity | `go build ./...` · `go mod tidy` (no diff) · `go mod verify` |
-| Test (race + coverage) | suite on Linux/macOS/Windows × Go 1.24 (+ Go 1.23 Linux); 100% floor | `make test` · `go test -race -shuffle=on -coverprofile=coverage.out ./... && go tool cover -func=coverage.out \| tail -1` |
-| Lint, format & complexity | `gofmt`, `go vet`, golangci-lint (staticcheck, revive, cyclop, gocognit…) | `gofmt -l .` · `go vet ./...` · `golangci-lint run` |
-| Security | known-vuln scan + security lint | `govulncheck ./...` · `gosec ./...` |
-| Examples E2E | the separate `examples/` module builds and matches golden stdout | `cd examples && go test -shuffle=on ./...` |
+| Build & module hygiene | compiles; `go.mod` tidy; **zero deps**; module integrity | `make hygiene` |
+| Test (race + coverage) | suite on Linux/macOS/Windows × Go 1.24 (+ Go 1.23 Linux); 100% floor | `make cover` |
+| Lint, format & complexity | `gofmt`, `go vet`, golangci-lint (staticcheck, revive, cyclop, gocognit…) | `make lint` |
+| Security | known-vuln scan + security lint | `make security` |
+| Examples E2E | the separate `examples/` module builds and matches golden stdout | `make test-nested` |
+| Cross-arch | 386/arm64/s390x build+vet (+ run 386 tests) | `make cross-arch` |
+| Fuzz | count-based smoke run of every `FuzzXxx` target | `make fuzz` |
 
-**Report-only** (surface findings/warnings, never block a merge): Go tip,
-cross-arch (386/arm64/s390x), fuzz smoke, the benchmark base-vs-head benchstat
-table, and API-compatibility (`gorelease`, report-only pre-1.0). **main-only:**
+**Report-only** (surface findings/warnings, never block a merge): Go tip, the
+benchmark base-vs-head benchstat table, and API-compatibility (`gorelease`,
+report-only pre-1.0). **main-only:**
 `bench-report` regenerates `BENCHMARKS.md`, `docs/bench.svg` and the README
 preview and bot-commits them with `[skip ci]` — don't hand-edit those.
 
