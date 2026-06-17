@@ -1,6 +1,8 @@
 // Package collections provides comprehensive, type-safe data structures for Go.
 //
-// This package offers three core data structures with rich APIs and multiple implementations:
+// This package is the facade hub for seven families of data structure — dicts,
+// sets, lists, multimaps, deques, heaps and LRU caches — each with rich APIs and
+// multiple implementations:
 //
 // # Dicts - Key-Value Mappings
 //
@@ -96,6 +98,19 @@
 // stateful: its defining recency-marking read, Get, is a mutation. Pass
 // lru.Option values (e.g. lru.WithOnEvict) to configure eviction callbacks and
 // seed entries.
+//
+// # Sorted and Alternative Implementations
+//
+// The facade constructors return the everyday default for each family (a
+// hash-backed dict or set, an array-backed list). When you need a sorted or
+// otherwise alternative implementation, reach into the spoke package directly:
+//
+//	tree := dicts.NewTree(...)      // sorted, ordered-iteration dictionary
+//	sorted := sets.NewTreeSet(...)  // sorted set with ordered iteration
+//	linked := lists.NewLinked(...)  // singly linked list (also collections.NewLinkedList)
+//
+// See each spoke package's documentation for the full set of implementations
+// and their trade-offs.
 //
 // # Thread Safety
 //

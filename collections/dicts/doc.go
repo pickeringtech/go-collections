@@ -44,6 +44,28 @@
 //
 // MutableSortedDict[K, V]: Mutable counterpart of SortedDict.
 //
+// # Transformations
+//
+// Map, MapSorted and Reduce are free functions (Go has no method type
+// parameters) that transform a Dict into a new collection:
+//
+//	doubled := dicts.Map(prices, func(k string, v int) (string, int) {
+//		return k, v * 2
+//	})
+//
+// Map always returns a Hash-backed Dict, even from a Tree input. This is a
+// deliberate downgrade: Map may change the key type, and an arbitrary
+// comparable output key need not be ordered, so sorted iteration cannot be
+// carried through in general. When the output key is constraints.Ordered and
+// you want to preserve sorted iteration, use MapSorted, which returns a
+// Tree-backed SortedDict:
+//
+//	ranked := dicts.MapSorted(scores, func(name string, pts int) (int, string) {
+//		return pts, name // keyed by points, iterated in ascending order
+//	})
+//
+// Reduce folds a Dict into a single accumulated value.
+//
 // # Ordered Queries
 //
 //	tree := dicts.NewTree(
