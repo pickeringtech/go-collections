@@ -74,17 +74,22 @@ counter := dicts.NewConcurrentHash(
     dicts.Pair[string, int]{Key: "requests", Value: 0},
 )
 
-// Safe from multiple goroutines
+// Safe from multiple goroutines. UpdateInPlace performs the read-modify-write
+// atomically (under a single lock acquisition), so concurrent increments don't
+// lose updates. A separate Get + PutInPlace would race: each call locks
+// independently, so goroutines read the same value and overwrite each other.
 var wg sync.WaitGroup
 for i := 0; i < 100; i++ {
     wg.Add(1)
     go func() {
         defer wg.Done()
-        current, _ := counter.Get("requests", 0)
-        counter.PutInPlace("requests", current+1)
+        counter.UpdateInPlace("requests", func(old int, _ bool) int {
+            return old + 1
+        })
     }()
 }
 wg.Wait()
+// counter.Get("requests", 0) == (100, true)
 ```
 
 **Performance**: O(1) with mutex overhead (~2x slower than Hash)
@@ -256,6 +261,21 @@ rounded := dicts.Map(prices, func(name string, price float64) (string, int) {
 total := dicts.Reduce(prices, 0.0, func(acc float64, _ string, price float64) float64 {
     return acc + price
 })
+```
+
+**`Map` always returns a `Hash`-backed `Dict`, even for a sorted (`Tree`) input.**
+This is deliberate: `Map` may change the key type, and the output key type is only
+constrained to `comparable`, not `Ordered` — so a sorted output cannot be
+guaranteed in general. When your output key type *is* `Ordered` and you want to
+keep sorted iteration, use `MapSorted`, which returns a `Tree`-backed
+`SortedDict`:
+
+```go
+// MapSorted: like Map, but OK must be Ordered and the result stays sorted.
+byPrice := dicts.MapSorted(prices, func(name string, price float64) (int, string) {
+    return int(price), name
+})                                                                   // SortedDict[int, string]
+// byPrice iterates in ascending key order: 29, 999
 ```
 
 Iteration order over a `Dict` is unspecified, so a reduction should be
@@ -527,6 +547,7 @@ dict.RemoveInPlace("old")
 | Operation | Immutable | Mutable | Use Case |
 |-----------|-----------|---------|----------|
 | Add/Update | `Put(k, v)` | `PutInPlace(k, v)` | Insert or update |
+| Atomic update | — | `UpdateInPlace(k, fn)` | Race-free read-modify-write (counters) |
 | Remove | `Remove(k)` | `RemoveInPlace(k)` | Delete key |
 | Filter | `Filter(fn)` | `FilterInPlace(fn)` | Conditional removal |
 | Access | `Get(k, default)` | `Get(k, default)` | Safe retrieval |

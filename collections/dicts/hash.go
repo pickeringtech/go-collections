@@ -27,6 +27,12 @@ import "reflect"
 //	activeUsers := users.Filter(func(id int, name string) bool {
 //		return isActive(id)
 //	})
+//
+// Zero value: because Hash is a map type, its zero value is a nil map. Reads
+// (Get, Contains, Length, iteration) are safe on a nil Hash, as are delete-based
+// operations (Clear, FilterInPlace), which are no-ops on a nil map. Inserting an
+// entry (PutInPlace, PutManyInPlace) panics on a nil map, exactly as with a
+// built-in map. Construct a writable Hash with NewHash.
 type Hash[K comparable, V any] map[K]V
 
 // NewHash creates a new Hash dictionary with the given key-value pairs.
@@ -208,6 +214,10 @@ func (h Hash[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 // Values are compared with reflect.DeepEqual, matching the equality semantics
 // used by list removal. This supports non-comparable value types (slices, maps,
 // funcs) without panicking.
+//
+// This is the deliberate counterpart to maps.ContainsValue, which uses == and
+// requires a comparable V: dicts trades that speed for the ability to compare
+// nested and non-comparable values structurally.
 func (h Hash[K, V]) ContainsValue(value V) bool {
 	for _, v := range h {
 		if reflect.DeepEqual(v, value) {
@@ -287,6 +297,16 @@ func (h Hash[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 	for _, pair := range pairs {
 		h[pair.Key] = pair.Value
 	}
+}
+
+// UpdateInPlace reads the value at key, applies fn to it, and stores the result
+// back under key, returning the new value. fn receives the current value (the
+// zero value if the key is absent) and whether the key existed.
+func (h Hash[K, V]) UpdateInPlace(key K, fn func(old V, existed bool) V) V {
+	old, existed := h[key]
+	newValue := fn(old, existed)
+	h[key] = newValue
+	return newValue
 }
 
 // Remove creates a new dictionary with the given key removed.

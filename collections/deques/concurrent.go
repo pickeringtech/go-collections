@@ -11,7 +11,7 @@ import (
 // thread-safe out.
 type ConcurrentRingBuffer[T any] struct {
 	inner *RingBuffer[T]
-	lock  *sync.Mutex
+	lock  sync.Mutex
 }
 
 // NewConcurrentRingBuffer creates an unbounded, thread-safe RingBuffer seeded
@@ -19,7 +19,6 @@ type ConcurrentRingBuffer[T any] struct {
 func NewConcurrentRingBuffer[T any](elements ...T) *ConcurrentRingBuffer[T] {
 	return &ConcurrentRingBuffer[T]{
 		inner: NewRingBuffer[T](elements...),
-		lock:  &sync.Mutex{},
 	}
 }
 
@@ -29,7 +28,6 @@ func NewConcurrentRingBuffer[T any](elements ...T) *ConcurrentRingBuffer[T] {
 func NewBoundedConcurrentRingBuffer[T any](capacity int, policy OverflowPolicy, elements ...T) *ConcurrentRingBuffer[T] {
 	return &ConcurrentRingBuffer[T]{
 		inner: NewBoundedRingBuffer[T](capacity, policy, elements...),
-		lock:  &sync.Mutex{},
 	}
 }
 
@@ -40,7 +38,7 @@ var _ MutableDeque[int] = &ConcurrentRingBuffer[int]{}
 // wrapConcurrent builds a new ConcurrentRingBuffer around an inner buffer with a
 // fresh lock, so the result is independent of the receiver's lock.
 func wrapConcurrent[T any](inner *RingBuffer[T]) *ConcurrentRingBuffer[T] {
-	return &ConcurrentRingBuffer[T]{inner: inner, lock: &sync.Mutex{}}
+	return &ConcurrentRingBuffer[T]{inner: inner}
 }
 
 // snapshot returns an independent front-to-back copy of the elements, taken
