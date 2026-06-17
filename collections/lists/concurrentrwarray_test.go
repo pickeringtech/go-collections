@@ -175,7 +175,7 @@ func ExampleConcurrentRWArray_Dequeue() {
 	first, ok, rest := arr.Dequeue()
 	fmt.Printf("First: %v\n", first)
 	fmt.Printf("OK: %v\n", ok)
-	fmt.Printf("Rest: %v\n", rest)
+	fmt.Printf("Rest: %v\n", rest.AsSlice())
 
 	// Output:
 	// First: 1
@@ -223,7 +223,7 @@ func TestConcurrentRWArray_Dequeue(t *testing.T) {
 			if gotOK != tt.wantOK {
 				t.Errorf("Dequeue() gotOK = %v, want %v", gotOK, tt.wantOK)
 			}
-			if !reflect.DeepEqual(gotSli, tt.wantSli) {
+			if !reflect.DeepEqual(gotSli.AsSlice(), tt.wantSli) {
 				t.Errorf("Dequeue() gotSli = %v, want %v", gotSli, tt.wantSli)
 			}
 		})
@@ -319,7 +319,7 @@ func TestConcurrentRWArray_Enqueue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Enqueue(tt.args.element)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Enqueue() = %v, want %v", got, tt.want)
 			}
 		})
@@ -372,7 +372,7 @@ func ExampleConcurrentRWArray_Filter() {
 	out := arr.Filter(func(i int) bool {
 		return i > 2 && i < 5
 	})
-	fmt.Printf("ConcurrentRWArray: %v\n", out)
+	fmt.Printf("ConcurrentRWArray: %v\n", out.AsSlice())
 
 	// Output:
 	// ConcurrentRWArray: [3 4]
@@ -413,7 +413,7 @@ func TestConcurrentRWArray_Filter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Filter(tt.args.fn)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Filter() = %v, want %v", got, tt.want)
 			}
 		})
@@ -843,7 +843,7 @@ func ExampleConcurrentRWArray_Insert() {
 
 	out := arr.Insert(2, 6, 7, 8)
 
-	fmt.Printf("%v\n", out)
+	fmt.Printf("%v\n", out.AsSlice())
 
 	// Output:
 	// [1 2 6 7 8 3 4 5]
@@ -937,7 +937,7 @@ func TestConcurrentRWArray_Insert(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Insert(tt.args.index, tt.args.elements...)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Insert() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1164,7 +1164,7 @@ func ExampleConcurrentRWArray_Pop() {
 
 	out, ok, outSli := arr.Pop()
 
-	fmt.Printf("%v, %v, %v\n", out, ok, outSli)
+	fmt.Printf("%v, %v, %v\n", out, ok, outSli.AsSlice())
 
 	// Output:
 	// 5, true, [1 2 3 4]
@@ -1203,7 +1203,7 @@ func TestConcurrentRWArray_Pop(t *testing.T) {
 			if gotOK != tt.wantOK {
 				t.Errorf("Pop() gotOK = %v, want %v", gotOK, tt.wantOK)
 			}
-			if !reflect.DeepEqual(gotSli, tt.wantSli) {
+			if !reflect.DeepEqual(gotSli.AsSlice(), tt.wantSli) {
 				t.Errorf("Pop() gotSli = %v, want %v", gotSli, tt.wantSli)
 			}
 		})
@@ -1256,7 +1256,7 @@ func ExampleConcurrentRWArray_Push() {
 
 	out := arr.Push(10)
 
-	fmt.Printf("%v\n", out)
+	fmt.Printf("%v\n", out.AsSlice())
 
 	// Output:
 	// [1 2 3 4 5 10]
@@ -1293,7 +1293,7 @@ func TestConcurrentRWArray_Push(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Push(tt.args.element)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Push() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1345,7 +1345,7 @@ func ExampleConcurrentRWArray_Sort() {
 
 	out := arr.Sort(slices.AscendingSortFunc[int])
 
-	fmt.Printf("%v\n", out)
+	fmt.Printf("%v\n", out.AsSlice())
 
 	// Output:
 	// [1 2 3 4 5]
@@ -1390,7 +1390,7 @@ func TestConcurrentRWArray_Sort(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Sort(tt.args.fn)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Sort() = %v, want %v", got, tt.want)
 			}
 		})

@@ -170,8 +170,8 @@ func (l *Linked[T]) FindIndex(fn func(T) bool) int {
 	return -1
 }
 
-// Filter returns a new slice containing only elements that satisfy the predicate.
-func (l *Linked[T]) Filter(fn func(T) bool) []T {
+// Filter returns a new List containing only elements that satisfy the predicate.
+func (l *Linked[T]) Filter(fn func(T) bool) List[T] {
 	var result []T
 	current := l.head
 	for current != nil {
@@ -183,7 +183,7 @@ func (l *Linked[T]) Filter(fn func(T) bool) []T {
 			break
 		}
 	}
-	return result
+	return NewArray(result...)
 }
 
 // FilterInPlace removes elements that don't satisfy the predicate.
@@ -270,20 +270,20 @@ func (l *Linked[T]) IsEmpty() bool {
 	return l.head == nil
 }
 
-// RemoveAt returns a new slice with the element at index removed, without
+// RemoveAt returns a new List with the element at index removed, without
 // modifying the receiver. If index is out of bounds the elements are returned
 // unchanged. AsSlice already allocates a fresh slice, so the element is
 // deleted in place on it without a second copy.
-func (l *Linked[T]) RemoveAt(index int) []T {
-	return deleteOwned(l.AsSlice(), index)
+func (l *Linked[T]) RemoveAt(index int) List[T] {
+	return NewArray(deleteOwned(l.AsSlice(), index)...)
 }
 
-// Remove returns a new slice with the first element deeply equal to element
+// Remove returns a new List with the first element deeply equal to element
 // removed, without modifying the receiver. If no element matches, the elements
 // are returned unchanged.
-func (l *Linked[T]) Remove(element T) []T {
+func (l *Linked[T]) Remove(element T) List[T] {
 	slice := l.AsSlice()
-	return deleteOwned(slice, indexOfDeepEqual(slice, element))
+	return NewArray(deleteOwned(slice, indexOfDeepEqual(slice, element))...)
 }
 
 // RemoveAtInPlace removes the element at index, returning it and whether the
@@ -392,20 +392,20 @@ func (l *Linked[T]) AsSlice() []T {
 	return result
 }
 
-// Insert creates a new slice with elements inserted at the given index. The
+// Insert creates a new List with elements inserted at the given index. The
 // index may range over 0 <= index <= Length(): an index equal to the length
 // appends. An out-of-range index leaves the list's elements unchanged.
-func (l *Linked[T]) Insert(index int, elements ...T) []T {
+func (l *Linked[T]) Insert(index int, elements ...T) List[T] {
 	slice := l.AsSlice()
 	if index < 0 || index > len(slice) {
-		return slice
+		return NewArray(slice...)
 	}
 
 	result := make([]T, 0, len(slice)+len(elements))
 	result = append(result, slice[:index]...)
 	result = append(result, elements...)
 	result = append(result, slice[index:]...)
-	return result
+	return NewArray(result...)
 }
 
 // InsertInPlace inserts elements at the given index. The index may range over
@@ -489,8 +489,8 @@ func (l *Linked[T]) insertAfter(current *node[T], elements []T) {
 	}
 }
 
-// Sort returns a new sorted slice.
-func (l *Linked[T]) Sort(lessThan func(T, T) bool) []T {
+// Sort returns a new sorted List.
+func (l *Linked[T]) Sort(lessThan func(T, T) bool) List[T] {
 	slice := l.AsSlice()
 	// Simple bubble sort for demonstration
 	for i := 0; i < len(slice); i++ {
@@ -500,7 +500,7 @@ func (l *Linked[T]) Sort(lessThan func(T, T) bool) []T {
 			}
 		}
 	}
-	return slice
+	return NewArray(slice...)
 }
 
 // SortInPlace sorts the list in place.
@@ -510,7 +510,7 @@ func (l *Linked[T]) SortInPlace(lessThan func(T, T) bool) {
 	}
 
 	// Convert to slice, sort, and rebuild
-	sorted := l.Sort(lessThan)
+	sorted := l.Sort(lessThan).AsSlice()
 	l.head = nil
 	l.tail = nil
 	for _, element := range sorted {
@@ -518,10 +518,10 @@ func (l *Linked[T]) SortInPlace(lessThan func(T, T) bool) {
 	}
 }
 
-// Push adds an element to the end and returns a new slice.
-func (l *Linked[T]) Push(element T) []T {
+// Push adds an element to the end and returns a new List.
+func (l *Linked[T]) Push(element T) List[T] {
 	slice := l.AsSlice()
-	return append(slice, element)
+	return NewArray(append(slice, element)...)
 }
 
 // PushInPlace adds an element to the end of the list (stack operation).
@@ -540,22 +540,22 @@ func (l *Linked[T]) PushInPlace(element T) {
 }
 
 // Pop removes and returns the last element (stack operation).
-// This is an immutable operation that returns a new slice.
-// Returns the removed element, whether it was found, and the new slice.
+// This is an immutable operation that returns a new List.
+// Returns the removed element, whether it was found, and the new List.
 //
 // Example:
 //
 //	stack := lists.NewLinked(1, 2, 3)
-//	element, found, newSlice := stack.Pop()
-//	// element: 3, found: true, newSlice: [1, 2]
+//	element, found, newList := stack.Pop()
+//	// element: 3, found: true, newList: [1, 2]
 //	// Original stack unchanged
-func (l *Linked[T]) Pop() (T, bool, []T) {
+func (l *Linked[T]) Pop() (T, bool, List[T]) {
 	slice := l.AsSlice()
 	if len(slice) == 0 {
 		var zero T
-		return zero, false, slice
+		return zero, false, NewArray(slice...)
 	}
-	return slice[len(slice)-1], true, slice[:len(slice)-1]
+	return slice[len(slice)-1], true, NewArray(slice[:len(slice)-1]...)
 }
 
 // PopInPlace removes and returns the last element (stack operation).
@@ -606,8 +606,8 @@ func (l *Linked[T]) PeekEnd() (T, bool) {
 	return l.tail.value, true
 }
 
-// Enqueue adds an element to the end and returns a new slice.
-func (l *Linked[T]) Enqueue(element T) []T {
+// Enqueue adds an element to the end and returns a new List.
+func (l *Linked[T]) Enqueue(element T) List[T] {
 	return l.Push(element)
 }
 
@@ -617,13 +617,13 @@ func (l *Linked[T]) EnqueueInPlace(element T) {
 }
 
 // Dequeue removes and returns the first element.
-func (l *Linked[T]) Dequeue() (T, bool, []T) {
+func (l *Linked[T]) Dequeue() (T, bool, List[T]) {
 	slice := l.AsSlice()
 	if len(slice) == 0 {
 		var zero T
-		return zero, false, slice
+		return zero, false, NewArray(slice...)
 	}
-	return slice[0], true, slice[1:]
+	return slice[0], true, NewArray(slice[1:]...)
 }
 
 // DequeueInPlace removes and returns the first element.

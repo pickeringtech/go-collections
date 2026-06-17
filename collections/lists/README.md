@@ -132,17 +132,25 @@ go func() {
 ## Two Ways to Work: Immutable vs Mutable
 
 ### Immutable Style (Functional Programming)
-Returns new slices, original list unchanged:
+Returns a new `List`, original list unchanged. Results chain straight into
+other list operations (just like `dicts.Filter` and `sets.Filter`); call
+`AsSlice` when you need a raw slice:
 
 ```go
 tasks := lists.NewLinked("design", "code", "test")
 
-// Immutable operations - returns slices
-newTasks := tasks.Push("deploy")               // Returns []string
+// Immutable operations - return List[string]
+newTasks := tasks.Push("deploy")               // Returns List[string]
 filtered := tasks.Filter(func(task string) bool {
     return len(task) > 4
 })
 sorted := tasks.Sort(func(a, b string) bool { return a < b })
+
+// Chain directly, then drop to a slice at the end
+shortlist := tasks.
+    Filter(func(t string) bool { return len(t) > 4 }).
+    Sort(func(a, b string) bool { return a < b }).
+    AsSlice()
 
 // Original list unchanged
 fmt.Printf("Original: %v\n", tasks.AsSlice())
@@ -222,12 +230,13 @@ numbers.InsertInPlace(2, 99)                  // Insert 99 at index 2
 ```
 
 ### Transforming to a New Type: Map / FlatMap / Reduce
-`Filter` is a method because it keeps the same element type (`T -> []T`). A
+`Filter` is a method because it keeps the same element type (`T -> List[T]`). A
 general `Map` is `T -> U` with a **different** element type, and Go methods
 cannot take type parameters ([golang/go#49085](https://github.com/golang/go/issues/49085)),
 so `Map`, `FlatMap` and `Reduce` are **free functions** over the `List`
-interface. They return the `List` interface (backed by `NewArray`) rather than a
-plain slice, so results chain on into other collection helpers.
+interface. Like `Filter` and the other immutable operations, they return the
+`List` interface (backed by `NewArray`), so results chain on into other
+collection helpers.
 
 ```go
 words := lists.NewArray("a", "ab", "abc")
@@ -255,9 +264,9 @@ numbers := lists.NewArray(10, 20, 20, 30)
 // Emptiness
 numbers.IsEmpty()                             // false
 
-// Immutable removal - returns a new slice, original unchanged
-rest := numbers.RemoveAt(1)                   // [10 20 30]
-rest = numbers.Remove(20)                     // [10 20 30] (first match)
+// Immutable removal - returns a new List, original unchanged
+rest := numbers.RemoveAt(1)                   // List[int]{10, 20, 30}
+rest = numbers.Remove(20)                     // List[int]{10, 20, 30} (first match)
 
 // Mutable removal - modifies the list
 value, ok := numbers.RemoveAtInPlace(0)       // value=10, ok=true

@@ -175,7 +175,7 @@ func ExampleArray_Dequeue() {
 	first, ok, rest := arr.Dequeue()
 	fmt.Printf("First: %v\n", first)
 	fmt.Printf("OK: %v\n", ok)
-	fmt.Printf("Rest: %v\n", rest)
+	fmt.Printf("Rest: %v\n", rest.AsSlice())
 
 	// Output:
 	// First: 1
@@ -223,7 +223,7 @@ func TestArray_Dequeue(t *testing.T) {
 			if gotOK != tt.wantOK {
 				t.Errorf("Dequeue() gotOK = %v, want %v", gotOK, tt.wantOK)
 			}
-			if !reflect.DeepEqual(gotSli, tt.wantSli) {
+			if !reflect.DeepEqual(gotSli.AsSlice(), tt.wantSli) {
 				t.Errorf("Dequeue() gotSli = %v, want %v", gotSli, tt.wantSli)
 			}
 		})
@@ -319,7 +319,7 @@ func TestArray_Enqueue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Enqueue(tt.args.element)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Enqueue() = %v, want %v", got, tt.want)
 			}
 		})
@@ -372,7 +372,7 @@ func ExampleArray_Filter() {
 	out := arr.Filter(func(i int) bool {
 		return i > 2 && i < 5
 	})
-	fmt.Printf("Array: %v\n", out)
+	fmt.Printf("Array: %v\n", out.AsSlice())
 
 	// Output:
 	// Array: [3 4]
@@ -413,7 +413,7 @@ func TestArray_Filter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Filter(tt.args.fn)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Filter() = %v, want %v", got, tt.want)
 			}
 		})
@@ -843,7 +843,7 @@ func ExampleArray_Insert() {
 
 	out := arr.Insert(2, 6, 7, 8)
 
-	fmt.Printf("%v\n", out)
+	fmt.Printf("%v\n", out.AsSlice())
 
 	// Output:
 	// [1 2 6 7 8 3 4 5]
@@ -937,7 +937,7 @@ func TestArray_Insert(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Insert(tt.args.index, tt.args.elements...)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Insert() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1173,7 +1173,7 @@ func ExampleArray_Pop() {
 
 	out, ok, outSli := arr.Pop()
 
-	fmt.Printf("%v, %v, %v\n", out, ok, outSli)
+	fmt.Printf("%v, %v, %v\n", out, ok, outSli.AsSlice())
 
 	// Output:
 	// 5, true, [1 2 3 4]
@@ -1212,7 +1212,7 @@ func TestArray_Pop(t *testing.T) {
 			if gotOK != tt.wantOK {
 				t.Errorf("Pop() gotOK = %v, want %v", gotOK, tt.wantOK)
 			}
-			if !reflect.DeepEqual(gotSli, tt.wantSli) {
+			if !reflect.DeepEqual(gotSli.AsSlice(), tt.wantSli) {
 				t.Errorf("Pop() gotSli = %v, want %v", gotSli, tt.wantSli)
 			}
 		})
@@ -1265,7 +1265,7 @@ func ExampleArray_Push() {
 
 	out := arr.Push(10)
 
-	fmt.Printf("%v\n", out)
+	fmt.Printf("%v\n", out.AsSlice())
 
 	// Output:
 	// [1 2 3 4 5 10]
@@ -1302,7 +1302,7 @@ func TestArray_Push(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Push(tt.args.element)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Push() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1354,7 +1354,7 @@ func ExampleArray_Sort() {
 
 	out := arr.Sort(slices.AscendingSortFunc[int])
 
-	fmt.Printf("%v\n", out)
+	fmt.Printf("%v\n", out.AsSlice())
 
 	// Output:
 	// [1 2 3 4 5]
@@ -1399,7 +1399,7 @@ func TestArray_Sort(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Sort(tt.args.fn)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Sort() = %v, want %v", got, tt.want)
 			}
 		})

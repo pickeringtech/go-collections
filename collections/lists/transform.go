@@ -4,12 +4,13 @@ package lists
 // still does not allow method type parameters (golang/go#49085). A general
 // T -> U transform needs a fresh type parameter on the operation itself, which
 // only a free function can express. Filter remains a method because it is a
-// same-element-type transform (T -> []T) and so needs no extra type parameter.
+// same-element-type transform (T -> List[T]) and so needs no extra type
+// parameter.
 //
-// Unlike Filter, which returns a plain []T, these functions return the List
-// interface (backed by the default Array implementation) so their results chain
-// straight into other collection helpers. Empty or nil input yields an
-// initialised, non-nil empty List, matching slices.Map.
+// Like Filter and the other immutable list operations, these functions return
+// the List interface (backed by the default Array implementation) so their
+// results chain straight into other collection helpers. Empty or nil input
+// yields an initialised, non-nil empty List, matching slices.Map.
 
 // Map applies fn to every element of l, in order, returning a new List holding
 // the results. The output element type U may differ from the input type T.
