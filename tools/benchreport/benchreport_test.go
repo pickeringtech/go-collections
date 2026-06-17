@@ -50,20 +50,26 @@ Hash_Contains/size_1000-32,1,∞
 geomean,,
 `
 
-func loadSample(t *testing.T, base Meta) (Dataset, int) {
+func loadSample(t *testing.T, base Meta) (Dataset, LoadStats) {
 	t.Helper()
-	ds, skipped, err := LoadDataset(strings.NewReader(sampleCSV), base)
+	ds, stats, err := LoadDataset(strings.NewReader(sampleCSV), base)
 	if err != nil {
 		t.Fatalf("LoadDataset: %v", err)
 	}
-	return ds, skipped
+	return ds, stats
 }
 
 func TestLoadDatasetConformingSamples(t *testing.T) {
-	ds, skipped := loadSample(t, Meta{Benchtime: "50ms", Count: "8"})
+	ds, stats := loadSample(t, Meta{Benchtime: "50ms", Count: "8"})
 
-	if skipped != 2 { // Comparison_Get/Hash and Tree_Get
-		t.Errorf("skipped = %d, want 2", skipped)
+	if stats.SkippedNames != 2 { // Comparison_Get/Hash and Tree_Get
+		t.Errorf("SkippedNames = %d, want 2", stats.SkippedNames)
+	}
+	if stats.DroppedRows != 0 {
+		t.Errorf("DroppedRows = %d, want 0", stats.DroppedRows)
+	}
+	if len(stats.Partial) != 0 {
+		t.Errorf("Partial = %v, want none", stats.Partial)
 	}
 	if len(ds.Samples) != 3 { // 2 Hash_Get + 1 Hash_Contains
 		t.Fatalf("len(samples) = %d, want 3", len(ds.Samples))
@@ -90,6 +96,67 @@ func TestLoadDatasetConformingSamples(t *testing.T) {
 	}
 	if contains.BytesOp != 8 || contains.AllocsOp != 1 {
 		t.Errorf("Contains B/op=%v allocs/op=%v, want 8 and 1", contains.BytesOp, contains.AllocsOp)
+	}
+}
+
+// TestLoadDatasetReportsDataLoss checks that the three silent-loss paths the
+// parser used to swallow are now surfaced in LoadStats: a sample whose B/op and
+// allocs/op unit sections never appeared (partial), and numeric data rows that
+// are empty or non-numeric (dropped). A zero-allocation benchmark with a
+// genuine B/op=0 must NOT be flagged partial — presence is tracked apart from value.
+func TestLoadDatasetReportsDataLoss(t *testing.T) {
+	const csv = `goos: linux
+goarch: amd64
+pkg: github.com/pickeringtech/go-collections/collections/dicts
+cpu: TestCPU
+,bench.txt,
+,sec/op,CI
+Hash_Get/size_10-32,2.5e-08,∞
+Hash_Get/size_1000-32,4e-08,∞
+Hash_Miss/size_10-32,3e-08,∞
+Bad_Row/size_10-32,bogus,∞
+Bad_Row/size_1000-32,,∞
+geomean,3e-08,
+,bench.txt,
+,B/op,CI
+Hash_Get/size_10-32,0,∞
+Hash_Get/size_1000-32,0,∞
+geomean,,
+,bench.txt,
+,allocs/op,CI
+Hash_Get/size_10-32,0,∞
+Hash_Get/size_1000-32,0,∞
+geomean,,
+`
+	ds, stats, err := LoadDataset(strings.NewReader(csv), Meta{})
+	if err != nil {
+		t.Fatalf("LoadDataset: %v", err)
+	}
+
+	// Both Hash_Get cells have all three units (B/op=0 is a real zero, not missing),
+	// so they must not be flagged. Hash_Miss appears only in the sec/op section, so
+	// its cell exists but is missing B/op and allocs/op — the partial case. The two
+	// Bad_Row entries never parse a single value, so no cell forms: they are dropped.
+	want := []string{"dicts/Hash_Miss/size_10-32 (missing: B/op, allocs/op)"}
+	if len(stats.Partial) != len(want) || stats.Partial[0] != want[0] {
+		t.Errorf("Partial = %v, want %v", stats.Partial, want)
+	}
+	// Bad_Row's "bogus" (non-numeric) and "" (empty) are the two dropped rows.
+	if stats.DroppedRows != 2 {
+		t.Errorf("DroppedRows = %d, want 2", stats.DroppedRows)
+	}
+	if stats.Clean() {
+		t.Error("Clean() = true, want false for a lossy load")
+	}
+
+	// The partial sample is still emitted, with the missing metrics left at zero.
+	idx := indexSamples(ds.Samples)
+	miss, ok := idx[sampleKey{"dicts", "Hash", "Miss", 10}]
+	if !ok {
+		t.Fatal("partial sample Hash_Miss/size_10 not emitted")
+	}
+	if miss.BytesOp != 0 || miss.AllocsOp != 0 {
+		t.Errorf("partial sample metrics = B/op %v allocs/op %v, want 0/0", miss.BytesOp, miss.AllocsOp)
 	}
 }
 
