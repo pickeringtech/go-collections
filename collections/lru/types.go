@@ -14,9 +14,10 @@ type EachFunc[K comparable, V any] func(key K, value V)
 // the cache because the capacity bound was exceeded. It is the optional
 // eviction callback described in the package overview: use it to release the
 // resources an evicted value owned (close a handle, decrement a refcount, emit
-// a metric). It runs synchronously inside the operation that caused the
-// eviction, so keep it cheap and non-blocking, and never call back into the
-// same cache from it.
+// a metric). It runs synchronously within the operation that caused the
+// eviction, so keep it cheap and non-blocking. On the concurrent caches it is
+// invoked after the lock is released, against the entry snapshotted under it, so
+// the callback may safely call back into the same cache without deadlocking.
 type EvictFunc[K comparable, V any] func(key K, value V)
 
 // Option configures a cache at construction time. Options are applied in the

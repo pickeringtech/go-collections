@@ -8,6 +8,11 @@ import (
 
 // ConcurrentLinked is a thread-safe linked list implementation
 // using a mutex for synchronization. All operations are protected by a single mutex.
+//
+// Zero value: always construct with NewConcurrentLinked. The embedded mutex is a
+// value, so a bare &ConcurrentLinked{} is at least lock-safe, but its inner list
+// is nil until the constructor runs, so any operation — reads included —
+// dereferences a nil pointer and panics.
 type ConcurrentLinked[T any] struct {
 	data *Linked[T]
 	lock sync.Mutex

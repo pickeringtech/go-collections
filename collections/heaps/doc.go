@@ -87,4 +87,9 @@
 //
 // Start with NewMin / NewMax / New and upgrade to a concurrent variant only
 // when shared across goroutines.
+//
+// Callbacks passed to ForEach and the All iterator run after the lock is
+// released, against a point-in-time snapshot taken under the lock. They may
+// therefore safely re-enter the same heap (read it, or mutate it) without
+// deadlocking.
 package heaps

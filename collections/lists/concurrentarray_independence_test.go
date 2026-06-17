@@ -98,3 +98,30 @@ func TestConcurrentRWArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 		}
 	})
 }
+
+// TestNewConcurrentArray_CopiesCallerSlice verifies that NewConcurrentArray
+// copies the caller's variadic backing array. Aliasing would let a caller
+// mutate the list's backing array directly, bypassing its lock.
+func TestNewConcurrentArray_CopiesCallerSlice(t *testing.T) {
+	src := []int{1, 2, 3}
+	a := lists.NewConcurrentArray(src...)
+
+	src[0] = 99
+
+	if got := a.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+		t.Errorf("list = %v, want [1 2 3] (constructor aliased the caller's slice)", got)
+	}
+}
+
+// TestNewConcurrentRWArray_CopiesCallerSlice mirrors the above for the
+// read-write mutex variant.
+func TestNewConcurrentRWArray_CopiesCallerSlice(t *testing.T) {
+	src := []int{1, 2, 3}
+	a := lists.NewConcurrentRWArray(src...)
+
+	src[0] = 99
+
+	if got := a.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+		t.Errorf("list = %v, want [1 2 3] (constructor aliased the caller's slice)", got)
+	}
+}

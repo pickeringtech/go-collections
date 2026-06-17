@@ -108,6 +108,12 @@
 //	// Read-heavy workloads (concurrent reads)
 //	permissions := sets.NewConcurrentHashRW[string]()
 //
+// Callbacks passed to the traversal and predicate methods — ForEach, Filter,
+// AllMatch, AnyMatch, Find and the iterator methods (All, Backward) — run after
+// the lock is released, against a point-in-time snapshot taken under the lock.
+// They may therefore safely re-enter the same set (read it, or mutate it)
+// without deadlocking.
+//
 // # Common Patterns
 //
 // Permission system:

@@ -11,6 +11,11 @@ import (
 // for synchronization. Elements are kept in sorted order and all operations are
 // protected by a single mutex. Use it when reads and writes are balanced; prefer
 // ConcurrentTreeSetRW for read-heavy workloads.
+//
+// Zero value: always construct with NewConcurrentTreeSet. The embedded mutex is a
+// value, so a bare &ConcurrentTreeSet{} is at least lock-safe, but its inner
+// TreeSet is nil until the constructor runs, so any operation — reads included —
+// dereferences a nil pointer and panics.
 type ConcurrentTreeSet[T constraints.Ordered] struct {
 	set  *TreeSet[T]
 	lock sync.Mutex
