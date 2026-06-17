@@ -12,16 +12,20 @@ import (
 // read locks so many readers can proceed concurrently, while writes are
 // exclusive. Keys are maintained in sorted order. Prefer it over ConcurrentTree
 // for read-heavy workloads.
+//
+// Zero value: always construct with NewConcurrentTreeRW. The embedded mutex is a
+// value, so a bare &ConcurrentTreeRW{} is at least lock-safe, but its inner tree
+// is nil until the constructor runs, so any operation dereferences a nil pointer
+// and panics.
 type ConcurrentTreeRW[K constraints.Ordered, V any] struct {
 	tree *Tree[K, V]
-	lock *sync.RWMutex
+	lock sync.RWMutex
 }
 
 // NewConcurrentTreeRW creates a new ConcurrentTreeRW dictionary with the given key-value pairs.
 func NewConcurrentTreeRW[K constraints.Ordered, V any](entries ...Pair[K, V]) *ConcurrentTreeRW[K, V] {
 	return &ConcurrentTreeRW[K, V]{
 		tree: NewTree[K, V](entries...),
-		lock: &sync.RWMutex{},
 	}
 }
 
@@ -31,7 +35,7 @@ var _ MutableSortedDict[string, int] = &ConcurrentTreeRW[string, int]{}
 
 // wrapConcurrentTreeRW builds a new ConcurrentTreeRW, with its own lock, around the given tree.
 func wrapConcurrentTreeRW[K constraints.Ordered, V any](tree *Tree[K, V]) *ConcurrentTreeRW[K, V] {
-	return &ConcurrentTreeRW[K, V]{tree: tree, lock: &sync.RWMutex{}}
+	return &ConcurrentTreeRW[K, V]{tree: tree}
 }
 
 // Get retrieves the value associated with the given key.
@@ -249,7 +253,10 @@ func (ch *ConcurrentTreeRW[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 	return zeroV, false
 }
 
-// ContainsValue checks if the given value exists in the dictionary.
+// ContainsValue checks if the given value exists in the dictionary. Values are
+// compared with reflect.DeepEqual (see Tree.ContainsValue), so unlike
+// maps.ContainsValue it accepts non-comparable value types and compares nested
+// values structurally.
 func (ch *ConcurrentTreeRW[K, V]) ContainsValue(value V) bool {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()

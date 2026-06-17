@@ -7,14 +7,13 @@ import "sync"
 // performance when there are many concurrent readers.
 type ConcurrentHashRW[T comparable] struct {
 	data map[T]struct{}
-	lock *sync.RWMutex
+	lock sync.RWMutex
 }
 
 // NewConcurrentHashRW creates a new ConcurrentHashRW set with the given elements.
 func NewConcurrentHashRW[T comparable](values ...T) *ConcurrentHashRW[T] {
 	s := &ConcurrentHashRW[T]{
 		data: make(map[T]struct{}),
-		lock: &sync.RWMutex{},
 	}
 	for _, value := range values {
 		s.data[value] = struct{}{}
