@@ -306,7 +306,9 @@ func (dl *DoublyLinked[T]) AsSlice() []T {
 	return result
 }
 
-// Insert creates a new slice with elements inserted at the given index.
+// Insert creates a new slice with elements inserted at the given index. The
+// index may range over 0 <= index <= Length(): an index equal to the length
+// appends. An out-of-range index leaves the list's elements unchanged.
 func (dl *DoublyLinked[T]) Insert(index int, elements ...T) []T {
 	slice := dl.AsSlice()
 	if index < 0 || index > len(slice) {
@@ -320,7 +322,9 @@ func (dl *DoublyLinked[T]) Insert(index int, elements ...T) []T {
 	return result
 }
 
-// InsertInPlace inserts elements at the given index.
+// InsertInPlace inserts elements at the given index. The index may range over
+// 0 <= index <= Length(): an index equal to the length appends. An out-of-range
+// index leaves the list untouched.
 func (dl *DoublyLinked[T]) InsertInPlace(index int, elements ...T) {
 	if index < 0 || index > dl.size {
 		return

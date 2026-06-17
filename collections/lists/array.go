@@ -117,12 +117,16 @@ func (a *Array[T]) AsSlice() []T {
 }
 
 // Insert returns a new slice with the given elements inserted at index, without
-// modifying the receiver.
+// modifying the receiver. The index may range over 0 <= index <= Length(): an
+// index equal to the length appends. An out-of-range index returns the elements
+// unchanged.
 func (a *Array[T]) Insert(index int, element ...T) []T {
 	return slices.Insert(a.elements, index, element...)
 }
 
-// InsertInPlace inserts the given elements at index, modifying the receiver.
+// InsertInPlace inserts the given elements at index, modifying the receiver. The
+// index may range over 0 <= index <= Length(): an index equal to the length
+// appends. An out-of-range index leaves the receiver untouched.
 func (a *Array[T]) InsertInPlace(index int, element ...T) {
 	a.elements = slices.Insert(a.elements, index, element...)
 }

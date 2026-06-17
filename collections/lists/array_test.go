@@ -889,29 +889,47 @@ func TestArray_Insert(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "inserting into empty array yields nil output",
+			name: "index equal to length appends",
+			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			args: args[int]{
+				index:    5,
+				elements: []int{6, 7, 8},
+			},
+			want: []int{1, 2, 3, 4, 5, 6, 7, 8},
+		},
+		{
+			name: "inserting into empty array yields the elements",
 			a:    lists.NewArray[int](),
 			args: args[int]{
 				index:    0,
 				elements: []int{6, 7, 8},
 			},
-			want: nil,
+			want: []int{6, 7, 8},
 		},
 		{
-			name: "empty array and empty elements slice yields nil output",
-			a:    lists.NewArray[int](),
+			name: "index beyond length leaves elements unchanged",
+			a:    lists.NewArray[int](1, 2, 3),
 			args: args[int]{
-				index:    2,
-				elements: []int{},
+				index:    5,
+				elements: []int{6, 7, 8},
 			},
-			want: nil,
+			want: []int{1, 2, 3},
 		},
 		{
-			name: "empty array and nil elements slice yields nil output",
+			name: "negative index leaves elements unchanged",
+			a:    lists.NewArray[int](1, 2, 3),
+			args: args[int]{
+				index:    -1,
+				elements: []int{6, 7, 8},
+			},
+			want: []int{1, 2, 3},
+		},
+		{
+			name: "out-of-range index on empty array leaves it unchanged",
 			a:    lists.NewArray[int](),
 			args: args[int]{
 				index:    2,
-				elements: nil,
+				elements: []int{6, 7, 8},
 			},
 			want: nil,
 		},
@@ -966,29 +984,47 @@ func TestArray_InsertInPlace(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "inserting into empty array yields nil output",
+			name: "index equal to length appends",
+			a:    lists.NewArray[int](1, 2, 3, 4, 5),
+			args: args[int]{
+				index:    5,
+				elements: []int{6, 7, 8},
+			},
+			want: []int{1, 2, 3, 4, 5, 6, 7, 8},
+		},
+		{
+			name: "inserting into empty array yields the elements",
 			a:    lists.NewArray[int](),
 			args: args[int]{
 				index:    0,
 				elements: []int{6, 7, 8},
 			},
-			want: nil,
+			want: []int{6, 7, 8},
 		},
 		{
-			name: "empty array and empty elements slice yields nil output",
-			a:    lists.NewArray[int](),
+			name: "index beyond length leaves elements unchanged",
+			a:    lists.NewArray[int](1, 2, 3),
 			args: args[int]{
-				index:    2,
-				elements: []int{},
+				index:    5,
+				elements: []int{6, 7, 8},
 			},
-			want: nil,
+			want: []int{1, 2, 3},
 		},
 		{
-			name: "empty array and nil elements slice yields nil output",
+			name: "negative index leaves elements unchanged",
+			a:    lists.NewArray[int](1, 2, 3),
+			args: args[int]{
+				index:    -1,
+				elements: []int{6, 7, 8},
+			},
+			want: []int{1, 2, 3},
+		},
+		{
+			name: "out-of-range index on empty array leaves it unchanged",
 			a:    lists.NewArray[int](),
 			args: args[int]{
 				index:    2,
-				elements: nil,
+				elements: []int{6, 7, 8},
 			},
 			want: nil,
 		},
