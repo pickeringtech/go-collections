@@ -1,6 +1,7 @@
 package channels_test
 
 import (
+	"context"
 	"fmt"
 	"github.com/pickeringtech/go-collections/channels"
 	"github.com/pickeringtech/go-collections/maps"
@@ -55,8 +56,9 @@ func TestBuildMapFromEntries(t *testing.T) {
 }
 
 func ExampleCollectAsSlice() {
-	input := channels.FromSlice([]int{1, 2, 3, 4, 5})
-	mapOut := channels.Map(input, func(element int) int {
+	ctx := context.Background()
+	input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
+	mapOut := channels.Map(ctx, input, func(element int) int {
 		return element * 2
 	})
 	output := channels.CollectAsSlice(mapOut)
@@ -73,25 +75,26 @@ func TestCollectAsSlice(t *testing.T) {
 		args args[T]
 		want []T
 	}
+	ctx := context.Background()
 	tests := []testCase[int]{
 		{
 			name: "correctly collect as a slice",
 			args: args[int]{
-				input: channels.FromSlice([]int{1, 19, 21, 3, -1, 100}),
+				input: channels.FromSlice(ctx, []int{1, 19, 21, 3, -1, 100}),
 			},
 			want: []int{1, 19, 21, 3, -1, 100},
 		},
 		{
 			name: "empty input provides nil output",
 			args: args[int]{
-				input: channels.FromSlice([]int{}),
+				input: channels.FromSlice(ctx, []int{}),
 			},
 			want: nil,
 		},
 		{
 			name: "nil input provides nil output",
 			args: args[int]{
-				input: channels.FromSlice[int](nil),
+				input: channels.FromSlice[int](ctx, nil),
 			},
 			want: nil,
 		},
@@ -107,7 +110,7 @@ func TestCollectAsSlice(t *testing.T) {
 }
 
 func ExampleCollectAsMap() {
-	input := channels.FromSlice([]string{"hello", "generous", "and", "glorious", "world"})
+	input := channels.FromSlice(context.Background(), []string{"hello", "generous", "and", "glorious", "world"})
 	output := channels.CollectAsMap(input, func(element string) maps.Entry[string, int] {
 		return maps.Entry[string, int]{
 			Key:   element,
@@ -132,7 +135,7 @@ func TestCollectAsMap(t *testing.T) {
 		{
 			name: "converts and collect elements into a map as expected",
 			args: args[string, string, int]{
-				input: channels.FromSlice([]string{"hello", "generous", "and", "glorious", "world"}),
+				input: channels.FromSlice(context.Background(), []string{"hello", "generous", "and", "glorious", "world"}),
 				fn: func(input string) maps.Entry[string, int] {
 					return maps.Entry[string, int]{
 						Key:   input,
@@ -169,11 +172,12 @@ func TestCollectNAsSlice(t *testing.T) {
 		args args[T]
 		want []T
 	}
+	ctx := context.Background()
 	tests := []testCase[int]{
 		{
 			name: "correctly collect as a slice",
 			args: args[int]{
-				input:   channels.FromSlice([]int{1, 19, 21, 3, -1, 100}),
+				input:   channels.FromSlice(ctx, []int{1, 19, 21, 3, -1, 100}),
 				howMany: 6,
 			},
 			want: []int{1, 19, 21, 3, -1, 100},
@@ -181,7 +185,7 @@ func TestCollectNAsSlice(t *testing.T) {
 		{
 			name: "empty input provides nil output",
 			args: args[int]{
-				input:   channels.FromSlice([]int{}),
+				input:   channels.FromSlice(ctx, []int{}),
 				howMany: 0,
 			},
 			want: nil,
@@ -189,7 +193,7 @@ func TestCollectNAsSlice(t *testing.T) {
 		{
 			name: "nil input provides nil output",
 			args: args[int]{
-				input:   channels.FromSlice[int](nil),
+				input:   channels.FromSlice[int](ctx, nil),
 				howMany: 0,
 			},
 			want: nil,
@@ -197,7 +201,7 @@ func TestCollectNAsSlice(t *testing.T) {
 		{
 			name: "collects a subset of the input",
 			args: args[int]{
-				input:   channels.FromSlice([]int{1, 19, 21, 3, -1, 100}),
+				input:   channels.FromSlice(ctx, []int{1, 19, 21, 3, -1, 100}),
 				howMany: 3,
 			},
 			want: []int{1, 19, 21},
@@ -205,7 +209,7 @@ func TestCollectNAsSlice(t *testing.T) {
 		{
 			name: "collects all elements when howMany is greater than the input",
 			args: args[int]{
-				input:   channels.FromSlice([]int{1, 19, 21, 3, -1, 100}),
+				input:   channels.FromSlice(ctx, []int{1, 19, 21, 3, -1, 100}),
 				howMany: 10,
 			},
 			want: []int{1, 19, 21, 3, -1, 100},
@@ -221,8 +225,9 @@ func TestCollectNAsSlice(t *testing.T) {
 }
 
 func ExampleCollectNAsSlice() {
-	input := channels.FromSlice([]int{1, 2, 3, 4, 5})
-	mapOut := channels.Map(input, func(element int) int {
+	ctx := context.Background()
+	input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
+	mapOut := channels.Map(ctx, input, func(element int) int {
 		return element * 2
 	})
 	output := channels.CollectNAsSlice(mapOut, 3)

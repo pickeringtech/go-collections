@@ -1,6 +1,7 @@
 package channels_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/channels"
@@ -19,7 +20,7 @@ func FuzzFromSliceCollect(f *testing.F) {
 		input := make([]byte, len(data))
 		copy(input, data)
 
-		got := channels.CollectAsSlice(channels.FromSlice(input))
+		got := channels.CollectAsSlice(channels.FromSlice(context.Background(), input))
 
 		if len(got) != len(input) {
 			t.Fatalf("round-trip length = %d, want %d", len(got), len(input))
@@ -48,7 +49,7 @@ func FuzzCollectNAsSlice(f *testing.F) {
 		input := make([]byte, len(data))
 		copy(input, data)
 
-		got := channels.CollectNAsSlice(channels.FromSlice(input), n)
+		got := channels.CollectNAsSlice(channels.FromSlice(context.Background(), input), n)
 
 		want := n
 		if want > len(input) {
@@ -81,8 +82,9 @@ func FuzzPipelineFilterMap(f *testing.F) {
 		keep := func(b byte) bool { return b%2 == 0 }
 		transform := func(b byte) int { return int(b) * 10 }
 
-		filtered := channels.Filter(channels.FromSlice(input), keep)
-		mapped := channels.Map(filtered, transform)
+		ctx := context.Background()
+		filtered := channels.Filter(ctx, channels.FromSlice(ctx, input), keep)
+		mapped := channels.Map(ctx, filtered, transform)
 		got := channels.CollectAsSlice(mapped)
 
 		var want []int
