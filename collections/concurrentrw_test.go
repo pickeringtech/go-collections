@@ -69,6 +69,11 @@ func TestQueueBuilder_RWPath(t *testing.T) {
 	if _, ok := rwOnly.(*lists.ConcurrentRWArray[int]); ok {
 		t.Errorf("RW() without Concurrent() built an RW array, want a non-concurrent queue")
 	}
+
+	concurrent := NewQueueBuilder[int]().Concurrent().Add(1).Build()
+	if _, ok := concurrent.(*lists.ConcurrentRWArray[int]); ok {
+		t.Errorf("Concurrent() without RW() built an RW array, want a plain concurrent queue")
+	}
 }
 
 func TestStackBuilder_RWPath(t *testing.T) {
@@ -80,5 +85,10 @@ func TestStackBuilder_RWPath(t *testing.T) {
 	rwOnly := NewStackBuilder[int]().RW().Add(1).Build()
 	if _, ok := rwOnly.(*lists.ConcurrentRWArray[int]); ok {
 		t.Errorf("RW() without Concurrent() built an RW array, want a non-concurrent stack")
+	}
+
+	concurrent := NewStackBuilder[int]().Concurrent().Add(1).Build()
+	if _, ok := concurrent.(*lists.ConcurrentRWArray[int]); ok {
+		t.Errorf("Concurrent() without RW() built an RW array, want a plain concurrent stack")
 	}
 }
