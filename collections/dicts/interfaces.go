@@ -133,14 +133,20 @@ type MutableInsertable[K comparable, V any] interface {
 	// PutManyInPlace adds or updates all given key-value pairs in the dictionary.
 	PutManyInPlace(pairs ...Pair[K, V])
 
-	// UpdateInPlace atomically reads the value at key, applies fn to it, and
-	// stores the result back under key, returning the new value. fn receives the
-	// current value (the zero value if the key is absent) and existed, reporting
-	// whether the key was present. On the concurrent implementations the entire
-	// read-modify-write runs under a single critical section, so it is the
-	// race-free primitive for operations like incrementing a counter or
-	// initialising a value on first use — unlike a separate Get followed by
-	// PutInPlace, which interleaves with other goroutines and loses updates.
+	// UpdateInPlace reads the value at key, applies fn to it, and stores the
+	// result back under key, returning the new value. fn receives the current
+	// value (the zero value if the key is absent) and existed, reporting whether
+	// the key was present.
+	//
+	// On the concurrent implementations the whole read-modify-write runs under a
+	// single critical section, making this the race-free primitive for
+	// operations like incrementing a counter or initialising a value on first
+	// use — unlike a separate Get followed by PutInPlace, whose two independent
+	// lock acquisitions interleave with other goroutines and lose updates.
+	// Because fn runs while that lock is held, on those implementations fn must
+	// not call back into the same dictionary, or it will deadlock. The
+	// single-threaded implementations hold no lock and impose no such
+	// restriction.
 	UpdateInPlace(key K, fn func(old V, existed bool) V) V
 }
 
