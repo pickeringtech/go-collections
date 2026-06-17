@@ -54,7 +54,9 @@ func NewBackgroundWorkLimiter(limit int) *BackgroundWorkLimiter {
 
 // Start opens the limiter for work and begins processing items added via Add in
 // the background. Calling Start a second time is a no-op: the already-running
-// goroutine and its channels are left untouched rather than orphaned.
+// goroutine and its channels are left untouched rather than orphaned. Start
+// after Stop is likewise a no-op - a stopped limiter cannot be restarted, so
+// construct a fresh BackgroundWorkLimiter for a new batch of work.
 func (wl *BackgroundWorkLimiter) Start() {
 	wl.stateLock.Lock()
 	defer wl.stateLock.Unlock()
@@ -115,8 +117,8 @@ func (wl *BackgroundWorkLimiter) Wait() {
 
 // Add adds an item of work to be completed in the background. It panics if the
 // limiter is not currently running - that is, if Start has not been called or
-// Stop already has - because sending on the unallocated or closed channel would
-// otherwise block forever or panic obscurely.
+// Stop already has been called - because sending on the unallocated or closed
+// channel would otherwise block forever or panic obscurely.
 //
 // The wait group is incremented here, on the producer side, before the work is
 // handed off, so that a subsequent Stop followed by Wait cannot race ahead of

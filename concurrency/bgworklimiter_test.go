@@ -2,9 +2,30 @@ package concurrency
 
 import (
 	"errors"
+	"strings"
 	"sync/atomic"
 	"testing"
 )
+
+// assertPanicContains is deferred in the misuse-path tests: it recovers the
+// panic and fails unless it is a string containing want. Asserting the message
+// (not merely that some panic fired) keeps the test from passing on an
+// unrelated panic - e.g. a nil-pointer dereference - that would mean the
+// lifecycle guard had regressed.
+func assertPanicContains(t *testing.T, want string) {
+	t.Helper()
+	r := recover()
+	if r == nil {
+		t.Fatalf("expected panic containing %q, got none", want)
+	}
+	msg, ok := r.(string)
+	if !ok {
+		t.Fatalf("expected string panic containing %q, got %T: %v", want, r, r)
+	}
+	if !strings.Contains(msg, want) {
+		t.Fatalf("panic = %q, want it to contain %q", msg, want)
+	}
+}
 
 func TestBackgroundWorkLimiter_RunsAllWork(t *testing.T) {
 	var counter int64
@@ -83,11 +104,7 @@ func TestBackgroundWorkLimiter_AddBeforeStartPanics(t *testing.T) {
 	// Before Start the workToDo channel is nil; sending on it would block
 	// forever. The guard must turn that into an immediate panic instead.
 	limiter := NewBackgroundWorkLimiter(2)
-	defer func() {
-		if recover() == nil {
-			t.Fatal("Add before Start did not panic")
-		}
-	}()
+	defer assertPanicContains(t, "Add called while not running")
 	limiter.Add(func() error { return nil })
 }
 
@@ -95,11 +112,7 @@ func TestBackgroundWorkLimiter_StopBeforeStartPanics(t *testing.T) {
 	// Before Start the workToDo channel is nil; close(nil) panics obscurely.
 	// The guard must produce a clear panic instead.
 	limiter := NewBackgroundWorkLimiter(2)
-	defer func() {
-		if recover() == nil {
-			t.Fatal("Stop before Start did not panic")
-		}
-	}()
+	defer assertPanicContains(t, "Stop called before Start")
 	limiter.Stop()
 }
 
@@ -110,11 +123,7 @@ func TestBackgroundWorkLimiter_AddAfterStopPanics(t *testing.T) {
 	limiter.Start()
 	limiter.Stop()
 	limiter.Wait()
-	defer func() {
-		if recover() == nil {
-			t.Fatal("Add after Stop did not panic")
-		}
-	}()
+	defer assertPanicContains(t, "Add called while not running")
 	limiter.Add(func() error { return nil })
 }
 
