@@ -205,28 +205,30 @@ func BenchmarkTree_Get(b *testing.B) {
 }
 
 // BenchmarkTree_PutInPlace inserts one key into a tree already holding `size`
-// entries, rebuilding it under StopTimer each iteration so the timed work is a
-// single insert at that size rather than an unbounded run of inserts.
+// entries. The tree is built once and each iteration inserts a new key then
+// removes it again, measuring a put+remove round-trip at that size. The earlier
+// version rebuilt the whole tree under StopTimer every iteration, making
+// wall-time ≈ b.N × O(size) — unbounded by -benchtime (issue #112) — which is
+// why it had to stop at 1000; timing the cheap O(log n) inverse instead of
+// toggling the timer (a memstats read under -benchmem) keeps it bounded, so the
+// 10k cell is back in to show the O(log n) growth.
 func BenchmarkTree_PutInPlace(b *testing.B) {
-	// Stop at 1000: the tree is rebuilt under StopTimer each iteration, so the
-	// 10k cell's untimed rebuild would dominate CI time (cf. BenchmarkHash_Put).
-	sizes := []int{10, 100, 1000}
+	sizes := []int{10, 100, 1000, 10000}
 
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
-			b.ResetTimer()
+			pairs := make([]dicts.Pair[int, string], size)
+			for j := 0; j < size; j++ {
+				pairs[j] = dicts.Pair[int, string]{Key: j, Value: fmt.Sprintf("value_%d", j)}
+			}
+			tree := dicts.NewTree(pairs...)
+
 			b.ReportAllocs()
+			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				b.StopTimer()
-				pairs := make([]dicts.Pair[int, string], size)
-				for j := 0; j < size; j++ {
-					pairs[j] = dicts.Pair[int, string]{Key: j, Value: fmt.Sprintf("value_%d", j)}
-				}
-				tree := dicts.NewTree(pairs...)
-				b.StartTimer()
-
-				tree.PutInPlace(size+i, fmt.Sprintf("value_%d", i))
+				tree.PutInPlace(size, "value")
+				tree.RemoveInPlace(size)
 			}
 		})
 	}

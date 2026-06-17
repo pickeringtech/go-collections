@@ -1493,6 +1493,75 @@ func TestPush(t *testing.T) {
 	}
 }
 
+func TestPushCopy(t *testing.T) {
+	type args struct {
+		input       []int
+		newElements []int
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{
+			name: "pushes the new elements to the end of the input slice",
+			args: args{
+				input:       []int{1, 2, 3},
+				newElements: []int{4, 5, 6},
+			},
+			want: []int{1, 2, 3, 4, 5, 6},
+		},
+		{
+			name: "nil input slice results in only the new elements",
+			args: args{
+				input:       nil,
+				newElements: []int{4, 5, 6},
+			},
+			want: []int{4, 5, 6},
+		},
+		{
+			name: "nil new elements results in only original input slice",
+			args: args{
+				input:       []int{1, 2, 3},
+				newElements: nil,
+			},
+			want: []int{1, 2, 3},
+		},
+		{
+			name: "empty input and empty new elements results in non-nil empty slice",
+			args: args{
+				input:       []int{},
+				newElements: []int{},
+			},
+			want: []int{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := slices.PushCopy(tt.args.input, tt.args.newElements...)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PushCopy() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestPushCopy_DoesNotAliasInput verifies PushCopy never appends into the
+// input's spare capacity, so mutating the result leaves the input untouched.
+func TestPushCopy_DoesNotAliasInput(t *testing.T) {
+	// Build an input with spare capacity (cap > len), the condition under which
+	// plain append would reuse the backing array.
+	input := make([]int, 3, 8)
+	input[0], input[1], input[2] = 1, 2, 3
+
+	got := slices.PushCopy(input, 4)
+	got[0] = 999
+
+	if !reflect.DeepEqual(input, []int{1, 2, 3}) {
+		t.Errorf("PushCopy aliased its input: input = %v, want [1 2 3]", input)
+	}
+}
+
 func BenchmarkPush(b *testing.B) {
 	benchmarks := []struct {
 		name   string
