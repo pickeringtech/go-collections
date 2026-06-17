@@ -4,18 +4,26 @@
 //
 // # Quick Start
 //
-//	import "github.com/pickeringtech/go-collections/channels"
+//	import (
+//		"context"
+//
+//		"github.com/pickeringtech/go-collections/channels"
+//	)
+//
+//	// A context governs the lifetime of every stage; cancelling it tears the
+//	// whole pipeline down and reclaims its goroutines.
+//	ctx := context.Background()
 //
 //	// Feed numbers into a channel.
-//	input := channels.FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+//	input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 //
 //	// Build a pipeline: square every number, then keep the even squares.
 //	// A Pipeline pins down the input and output types; the supplied function
 //	// wires the intermediate stages together with the standalone Map and Filter
-//	// helpers.
-//	pipeline := channels.NewPipeline[int, int](input, func(in <-chan int) <-chan int {
-//		squares := channels.Map(in, func(n int) int { return n * n })
-//		return channels.Filter(squares, func(n int) bool { return n%2 == 0 })
+//	// helpers, threading the context through each one.
+//	pipeline := channels.NewPipeline[int, int](ctx, input, func(ctx context.Context, in <-chan int) <-chan int {
+//		squares := channels.Map(ctx, in, func(n int) int { return n * n })
+//		return channels.Filter(ctx, squares, func(n int) bool { return n%2 == 0 })
 //	})
 //
 //	// CollectAsSlice drains the pipeline once the input channel is closed.
@@ -59,10 +67,11 @@
 //	}
 //
 // The standalone Map, Filter, and Reduce helpers each own one stage's goroutine
-// and channel lifecycle, so the same computation reads as a straight data flow:
+// and channel lifecycle, so the same computation reads as a straight data flow.
+// Each takes a context so cancelling it reclaims the stage's goroutine:
 //
-//	squares := channels.Map(input, func(n int) int { return n * n })
-//	evens := channels.Filter(squares, func(n int) bool { return n%2 == 0 })
+//	squares := channels.Map(ctx, input, func(n int) int { return n * n })
+//	evens := channels.Filter(ctx, squares, func(n int) bool { return n%2 == 0 })
 //	results := channels.CollectAsSlice(evens)
 //
 // # Core Concepts
@@ -86,19 +95,21 @@
 // Because every stage transform takes a channel and returns a channel, stages
 // compose by nesting - the output of one becomes the input of the next:
 //
-//	input := channels.FromSlice([]string{"one", "two", "three", "four", "five"})
+//	input := channels.FromSlice(ctx, []string{"one", "two", "three", "four", "five"})
 //
-//	lengths := channels.Map(input, func(s string) int { return len(s) })
-//	longish := channels.Filter(lengths, func(n int) bool { return n >= 4 })
+//	lengths := channels.Map(ctx, input, func(s string) int { return len(s) })
+//	longish := channels.Filter(ctx, lengths, func(n int) bool { return n >= 4 })
 //
 //	results := channels.CollectAsSlice(longish) // [5 4 4]
 //
 // NewPipeline captures that wiring behind a single value with fixed input and
-// output types, which is handy when a pipeline is passed around or returned:
+// output types, which is handy when a pipeline is passed around or returned. It
+// threads its context into the supplied function so every stage shares one
+// cancellation signal:
 //
-//	pipeline := channels.NewPipeline[string, int](input, func(in <-chan string) <-chan int {
-//		lengths := channels.Map(in, func(s string) int { return len(s) })
-//		return channels.Filter(lengths, func(n int) bool { return n >= 4 })
+//	pipeline := channels.NewPipeline[string, int](ctx, input, func(ctx context.Context, in <-chan string) <-chan int {
+//		lengths := channels.Map(ctx, in, func(s string) int { return len(s) })
+//		return channels.Filter(ctx, lengths, func(n int) bool { return n >= 4 })
 //	})
 //	results := pipeline.CollectAsSlice()
 //
@@ -107,8 +118,8 @@
 // Reduce folds a channel down to a single running value, emitted on its own
 // channel so it still composes with the other stages:
 //
-//	input := channels.FromSlice([]int{1, 2, 3, 4, 5})
-//	totals := channels.Reduce(input, func(acc, n int) int { return acc + n })
+//	input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
+//	totals := channels.Reduce(ctx, input, func(acc, n int) int { return acc + n })
 //	total := channels.CollectAsSlice(totals) // [15]
 //
 // # Error Handling
@@ -121,12 +132,12 @@
 //		Err   error
 //	}
 //
-//	parsed := channels.Map(input, func(s string) Result {
+//	parsed := channels.Map(ctx, input, func(s string) Result {
 //		n, err := strconv.Atoi(s)
 //		return Result{Value: n, Err: err}
 //	})
 //
-//	ok := channels.Filter(parsed, func(r Result) bool { return r.Err == nil })
+//	ok := channels.Filter(ctx, parsed, func(r Result) bool { return r.Err == nil })
 //	values := channels.CollectAsSlice(ok)
 //
 // # Performance Considerations
@@ -141,8 +152,8 @@
 // Channels interoperate with the slices and collections packages - drain a
 // pipeline into a slice, then build a collection from it:
 //
-//	input := channels.FromSlice([]int{1, 2, 3, 4, 5})
-//	evens := channels.Filter(input, func(n int) bool { return n%2 == 0 })
+//	input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
+//	evens := channels.Filter(ctx, input, func(n int) bool { return n%2 == 0 })
 //	results := channels.CollectAsSlice(evens)
 //
 //	resultSet := collections.NewSet(results...)
