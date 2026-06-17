@@ -1,12 +1,18 @@
 package channels_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/channels"
 	"github.com/pickeringtech/go-collections/maps"
 	"github.com/pickeringtech/go-collections/slices"
 )
+
+// benchCtx is the never-cancelled context every channel benchmark threads through the functions under test. The
+// cancellation machinery only ever evaluates the not-yet-done branch of each select, so its cost is captured in the
+// measurement without altering the produce-and-drain behaviour being benchmarked.
+var benchCtx = context.Background()
 
 // This file backfills the Benchmark leg of the Example+Test+Benchmark trio for
 // every public function in the channels package (issue #52). It follows the
@@ -54,7 +60,7 @@ func BenchmarkFromSlice(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				// FromSlice is lazy, so drain the channel to measure the full
 				// produce-and-close cost.
-				for range channels.FromSlice(sli) {
+				for range channels.FromSlice(benchCtx, sli) {
 				}
 			}
 		})
@@ -69,7 +75,7 @@ func BenchmarkFromMap(b *testing.B) {
 		}
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				for range channels.FromMap(m) {
+				for range channels.FromMap(benchCtx, m) {
 				}
 			}
 		})
@@ -81,7 +87,7 @@ func BenchmarkCollectAsSlice(b *testing.B) {
 		sli := intSlice(bm.n)
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_ = channels.CollectAsSlice(channels.FromSlice(sli))
+				_ = channels.CollectAsSlice(channels.FromSlice(benchCtx, sli))
 			}
 		})
 	}
@@ -92,7 +98,7 @@ func BenchmarkCollectNAsSlice(b *testing.B) {
 		sli := intSlice(bm.n)
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_ = channels.CollectNAsSlice(channels.FromSlice(sli), bm.n)
+				_ = channels.CollectNAsSlice(channels.FromSlice(benchCtx, sli), bm.n)
 			}
 		})
 	}
@@ -106,7 +112,7 @@ func BenchmarkCollectAsMap(b *testing.B) {
 		}
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_ = channels.CollectAsMap(channels.FromSlice(sli), fn)
+				_ = channels.CollectAsMap(channels.FromSlice(benchCtx, sli), fn)
 			}
 		})
 	}
@@ -129,7 +135,7 @@ func BenchmarkMap(b *testing.B) {
 		fn := func(in int) int { return in * 2 }
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				for range channels.Map(channels.FromSlice(sli), fn) {
+				for range channels.Map(benchCtx, channels.FromSlice(benchCtx, sli), fn) {
 				}
 			}
 		})
@@ -142,7 +148,7 @@ func BenchmarkFilter(b *testing.B) {
 		fn := func(in int) bool { return in%2 == 0 }
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				for range channels.Filter(channels.FromSlice(sli), fn) {
+				for range channels.Filter(benchCtx, channels.FromSlice(benchCtx, sli), fn) {
 				}
 			}
 		})
@@ -159,7 +165,7 @@ func BenchmarkReduce(b *testing.B) {
 				// channel. Drain with range (rather than a single receive) so the
 				// Reduce goroutine has fully exited before the next iteration,
 				// avoiding cross-iteration overlap in the measurement.
-				for range channels.Reduce(channels.FromSlice(sli), fn) {
+				for range channels.Reduce(benchCtx, channels.FromSlice(benchCtx, sli), fn) {
 				}
 			}
 		})
@@ -169,12 +175,12 @@ func BenchmarkReduce(b *testing.B) {
 func BenchmarkNewPipeline(b *testing.B) {
 	for _, bm := range ladder {
 		sli := intSlice(bm.n)
-		stage := func(input <-chan int) <-chan int {
-			return channels.Filter(input, func(in int) bool { return in%2 == 0 })
+		stage := func(ctx context.Context, input <-chan int) <-chan int {
+			return channels.Filter(ctx, input, func(in int) bool { return in%2 == 0 })
 		}
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_ = channels.NewPipeline(channels.FromSlice(sli), stage).CollectAsSlice()
+				_ = channels.NewPipeline(benchCtx, channels.FromSlice(benchCtx, sli), stage).CollectAsSlice()
 			}
 		})
 	}

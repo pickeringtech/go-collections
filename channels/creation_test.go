@@ -1,17 +1,19 @@
 package channels_test
 
 import (
+	"context"
 	"fmt"
 	"github.com/pickeringtech/go-collections/channels"
 	"github.com/pickeringtech/go-collections/maps"
 	"github.com/pickeringtech/go-collections/slices"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func ExampleFromSlice() {
 	input := []int{1, 2, 5, 4, 3}
-	output := channels.FromSlice(input)
+	output := channels.FromSlice(context.Background(), input)
 
 	// Capture results in a slice.
 	results := channels.CollectAsSlice(output)
@@ -55,13 +57,43 @@ func TestFromSlice(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := channels.FromSlice(tt.args.input)
+			output := channels.FromSlice(context.Background(), tt.args.input)
 			got := channels.CollectAsSlice(output)
 
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("FromSlice() = %v, want %v", output, tt.want)
 			}
 		})
+	}
+}
+
+// TestFromSliceCancellation asserts that cancelling the context stops the producing goroutine: with an unbuffered,
+// unconsumed output channel, cancellation closes the channel and reclaims the goroutine instead of blocking on the
+// first send forever.
+func TestFromSliceCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	output := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
+
+	cancel()
+
+	select {
+	case <-output:
+		// Either a value that was already in flight or the close - both mean the goroutine is making progress.
+	case <-time.After(time.Second):
+		t.Fatal("FromSlice() goroutine did not react to cancellation")
+	}
+
+	// Draining to completion must terminate: the goroutine closes the channel rather than parking on a send.
+	done := make(chan struct{})
+	go func() {
+		for range output {
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("FromSlice() output channel was not closed after cancellation")
 	}
 }
 
@@ -72,7 +104,7 @@ func ExampleFromMap() {
 		2:  "two",
 		-1: "negative one",
 	}
-	output := channels.FromMap(input)
+	output := channels.FromMap(context.Background(), input)
 
 	// Capture results in a slice.
 	results := channels.CollectAsSlice(output)
@@ -129,7 +161,7 @@ func TestFromMap(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			output := channels.FromMap(tt.args.input)
+			output := channels.FromMap(context.Background(), tt.args.input)
 			got := channels.CollectAsSlice(output)
 			got = slices.SortByOrderedField(got, slices.AscendingSortFunc[int], func(m maps.Entry[int, string]) int {
 				return m.Key
