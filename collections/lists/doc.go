@@ -74,11 +74,18 @@
 //
 // # Immutable vs Mutable Operations
 //
-// Immutable operations return slices:
+// Immutable operations return a new List[T], so they chain straight into
+// other list operations (mirroring dicts.Filter and sets.Filter, which return
+// Dict and Set). Call AsSlice on the result when you need a raw slice:
 //
-//	newSlice := list.Push(element)           // Returns []T
-//	filtered := list.Filter(predicate)      // Returns []T
-//	sorted := list.Sort(compareFn)          // Returns []T
+//	pushed := list.Push(element)             // Returns List[T]
+//	filtered := list.Filter(predicate)      // Returns List[T]
+//	sorted := list.Sort(compareFn)          // Returns List[T]
+//	evens := list.Filter(isEven).Sort(asc)  // chains directly
+//	raw := list.Filter(predicate).AsSlice() // []T when you need the slice
+//
+// The returned List is Array-backed regardless of the receiver's
+// implementation, matching the lists.Map free function.
 //
 // Mutable operations modify the list:
 //
@@ -171,11 +178,11 @@
 //
 // # Removal and Membership
 //
-// Lists support both index-based and value-based removal, returning a new slice
+// Lists support both index-based and value-based removal, returning a new List
 // (immutable) or mutating the receiver (InPlace):
 //
-//	rest := list.RemoveAt(2)                 // Returns []T without index 2
-//	rest = list.Remove(element)              // Returns []T without first match
+//	rest := list.RemoveAt(2)                 // Returns List[T] without index 2
+//	rest = list.Remove(element)              // Returns List[T] without first match
 //	value, ok := list.RemoveAtInPlace(2)     // Removes index 2 in place
 //	ok = list.RemoveInPlace(element)         // Removes first match in place
 //	list.Clear()                             // Removes everything

@@ -135,41 +135,43 @@ func (a *ConcurrentRWArray[T]) NoneMatch(fun func(T) bool) bool {
 	return !slices.AnyMatch(snapshot, fun)
 }
 
-// Dequeue returns the first element, whether one was present, and a new slice
+// Dequeue returns the first element, whether one was present, and a new List
 // (independent of the receiver's backing array) with that element removed,
 // without modifying the receiver. It takes a read lock and is safe for
 // concurrent use.
-func (a *ConcurrentRWArray[T]) Dequeue() (T, bool, []T) {
+func (a *ConcurrentRWArray[T]) Dequeue() (T, bool, List[T]) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	// Operate on a copy so the returned slice is independent of the receiver's
+	// Operate on a copy so the returned List is independent of the receiver's
 	// backing array (PopFront returns a sub-slice of its input).
-	return slices.PopFront(slices.Copy(a.elements))
+	res, ok, rest := slices.PopFront(slices.Copy(a.elements))
+	return res, ok, NewArray(rest...)
 }
 
-// Enqueue returns a new slice (independent of the receiver's backing array)
+// Enqueue returns a new List (independent of the receiver's backing array)
 // with element appended to the end, without modifying the receiver. It takes a
 // read lock and is safe for concurrent use.
-func (a *ConcurrentRWArray[T]) Enqueue(element T) []T {
+func (a *ConcurrentRWArray[T]) Enqueue(element T) List[T] {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	// Operate on a copy so the returned slice is independent of the receiver's
+	// Operate on a copy so the returned List is independent of the receiver's
 	// backing array (Push may append into shared capacity).
-	return slices.Push(slices.Copy(a.elements), element)
+	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
 }
 
-// Filter returns a new slice containing only the elements for which fun returns
+// Filter returns a new List containing only the elements for which fun returns
 // true, without modifying the receiver. The predicate is evaluated after the
 // lock is released, against a point-in-time snapshot taken under the lock, so it
-// may safely call back into the collection. It is safe for concurrent use.
-func (a *ConcurrentRWArray[T]) Filter(fun func(T) bool) []T {
+// may safely call back into the collection. It takes a read lock and is safe for
+// concurrent use.
+func (a *ConcurrentRWArray[T]) Filter(fun func(T) bool) List[T] {
 	a.lock.RLock()
 	snapshot := slices.Copy(a.elements)
 	a.lock.RUnlock()
 
-	return slices.Filter(snapshot, fun)
+	return NewArray(slices.Filter(snapshot, fun)...)
 }
 
 // Find returns the first element for which fun returns true and whether such an
@@ -245,16 +247,16 @@ func (a *ConcurrentRWArray[T]) AsSlice() []T {
 	return slices.Copy(a.elements)
 }
 
-// Insert returns a new slice (independent of the receiver) with the given
+// Insert returns a new List (independent of the receiver) with the given
 // elements inserted at index, without modifying the receiver. It takes a read
 // lock and is safe for concurrent use.
-func (a *ConcurrentRWArray[T]) Insert(index int, element ...T) []T {
+func (a *ConcurrentRWArray[T]) Insert(index int, element ...T) List[T] {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	// Operate on a copy so the returned slice is independent of the receiver and
+	// Operate on a copy so the returned List is independent of the receiver and
 	// the receiver's backing array is never mutated by the insert.
-	return slices.Insert(slices.Copy(a.elements), index, element...)
+	return NewArray(slices.Insert(slices.Copy(a.elements), index, element...)...)
 }
 
 // Length returns the number of elements in the list. It takes a read lock and is
@@ -275,27 +277,27 @@ func (a *ConcurrentRWArray[T]) IsEmpty() bool {
 	return slices.Length(a.elements) == 0
 }
 
-// RemoveAt returns a new slice (independent of the receiver's backing array)
+// RemoveAt returns a new List (independent of the receiver's backing array)
 // with the element at index removed, without modifying the receiver. If index
 // is out of bounds the elements are returned unchanged. It takes a read lock and
 // is safe for concurrent use.
-func (a *ConcurrentRWArray[T]) RemoveAt(index int) []T {
+func (a *ConcurrentRWArray[T]) RemoveAt(index int) List[T] {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	return deleteOwned(slices.Copy(a.elements), index)
+	return NewArray(deleteOwned(slices.Copy(a.elements), index)...)
 }
 
-// Remove returns a new slice (independent of the receiver's backing array) with
+// Remove returns a new List (independent of the receiver's backing array) with
 // the first element deeply equal to element removed, without modifying the
 // receiver. If no element matches, the elements are returned unchanged. It takes
 // a read lock and is safe for concurrent use.
-func (a *ConcurrentRWArray[T]) Remove(element T) []T {
+func (a *ConcurrentRWArray[T]) Remove(element T) List[T] {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
 	elements := slices.Copy(a.elements)
-	return deleteOwned(elements, indexOfDeepEqual(elements, element))
+	return NewArray(deleteOwned(elements, indexOfDeepEqual(elements, element))...)
 }
 
 // RemoveAtInPlace removes the element at index, returning it and whether the
@@ -356,39 +358,40 @@ func (a *ConcurrentRWArray[T]) PeekFront() (T, bool) {
 	return slices.PeekFront(a.elements)
 }
 
-// Pop returns the last element, whether one was present, and a new slice
+// Pop returns the last element, whether one was present, and a new List
 // (independent of the receiver's backing array) with that element removed,
 // without modifying the receiver. It takes a read lock and is safe for
 // concurrent use.
-func (a *ConcurrentRWArray[T]) Pop() (T, bool, []T) {
+func (a *ConcurrentRWArray[T]) Pop() (T, bool, List[T]) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	// Operate on a copy so the returned slice is independent of the receiver's
+	// Operate on a copy so the returned List is independent of the receiver's
 	// backing array (Pop returns a sub-slice of its input).
-	return slices.Pop(slices.Copy(a.elements))
+	res, ok, rest := slices.Pop(slices.Copy(a.elements))
+	return res, ok, NewArray(rest...)
 }
 
-// Push returns a new slice (independent of the receiver's backing array) with
+// Push returns a new List (independent of the receiver's backing array) with
 // element appended to the end, without modifying the receiver. It takes a read
 // lock and is safe for concurrent use.
-func (a *ConcurrentRWArray[T]) Push(element T) []T {
+func (a *ConcurrentRWArray[T]) Push(element T) List[T] {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	// Operate on a copy so the returned slice is independent of the receiver's
+	// Operate on a copy so the returned List is independent of the receiver's
 	// backing array (Push may append into shared capacity).
-	return slices.Push(slices.Copy(a.elements), element)
+	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
 }
 
-// Sort returns a new slice sorted according to the less-than function lessThan,
+// Sort returns a new List sorted according to the less-than function lessThan,
 // without modifying the receiver. It takes a read lock and is safe for
 // concurrent use.
-func (a *ConcurrentRWArray[T]) Sort(lessThan func(T, T) bool) []T {
+func (a *ConcurrentRWArray[T]) Sort(lessThan func(T, T) bool) List[T] {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
 
-	return slices.Sort(a.elements, lessThan)
+	return NewArray(slices.Sort(a.elements, lessThan)...)
 }
 
 // SortInPlace sorts the receiver's elements according to the less-than function

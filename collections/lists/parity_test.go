@@ -69,7 +69,7 @@ func TestMutableList_RemoveAt(t *testing.T) {
 			l := ctor.make(10, 20, 30)
 
 			got := l.RemoveAt(1)
-			if !reflect.DeepEqual(got, []int{10, 30}) {
+			if !reflect.DeepEqual(got.AsSlice(), []int{10, 30}) {
 				t.Errorf("RemoveAt(1) = %v, want [10 30]", got)
 			}
 			// Immutable: the receiver is untouched.
@@ -79,18 +79,18 @@ func TestMutableList_RemoveAt(t *testing.T) {
 
 			// Out of bounds leaves the elements unchanged.
 			for _, idx := range []int{-1, 3, 99} {
-				if got := l.RemoveAt(idx); !reflect.DeepEqual(got, []int{10, 20, 30}) {
+				if got := l.RemoveAt(idx); !reflect.DeepEqual(got.AsSlice(), []int{10, 20, 30}) {
 					t.Errorf("RemoveAt(%d) = %v, want [10 20 30]", idx, got)
 				}
 			}
 
 			// The returned slice is independent of the list, including on the
 			// out-of-bounds path: mutating it must not affect the receiver.
-			oob := l.RemoveAt(99)
+			oob := l.RemoveAt(99).AsSlice()
 			if len(oob) > 0 {
 				oob[0] = -1
 			}
-			if got := l.RemoveAt(99); !reflect.DeepEqual(got, []int{10, 20, 30}) {
+			if got := l.RemoveAt(99); !reflect.DeepEqual(got.AsSlice(), []int{10, 20, 30}) {
 				t.Errorf("RemoveAt result leaked backing array; list now %v", got)
 			}
 		})
@@ -104,7 +104,7 @@ func TestMutableList_Remove(t *testing.T) {
 
 			// Removes the first matching value only.
 			got := l.Remove(20)
-			if !reflect.DeepEqual(got, []int{10, 20, 30}) {
+			if !reflect.DeepEqual(got.AsSlice(), []int{10, 20, 30}) {
 				t.Errorf("Remove(20) = %v, want [10 20 30]", got)
 			}
 			if l.Length() != 4 {
@@ -112,7 +112,7 @@ func TestMutableList_Remove(t *testing.T) {
 			}
 
 			// Absent value leaves the elements unchanged.
-			if got := l.Remove(99); !reflect.DeepEqual(got, []int{10, 20, 20, 30}) {
+			if got := l.Remove(99); !reflect.DeepEqual(got.AsSlice(), []int{10, 20, 20, 30}) {
 				t.Errorf("Remove(99) = %v, want [10 20 20 30]", got)
 			}
 		})
@@ -219,7 +219,7 @@ func TestMutableList_InsertParity(t *testing.T) {
 				t.Run("Insert/"+tc.name, func(t *testing.T) {
 					l := ctor.make(tc.seed...)
 					got := l.Insert(tc.index, tc.elems...)
-					if !equalInts(got, tc.want) {
+					if !equalInts(got.AsSlice(), tc.want) {
 						t.Errorf("Insert(%d, %v) = %v, want %v", tc.index, tc.elems, got, tc.want)
 					}
 					// Immutable: the receiver must be untouched.

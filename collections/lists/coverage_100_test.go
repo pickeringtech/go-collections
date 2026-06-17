@@ -125,10 +125,10 @@ func TestLinked_RemoveInPlace_Empty(t *testing.T) {
 func TestLinked_Insert_OutOfRange(t *testing.T) {
 	l := lists.NewLinked(1, 2, 3)
 
-	if got := l.Insert(-1, 9); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+	if got := l.Insert(-1, 9); !reflect.DeepEqual(got.AsSlice(), []int{1, 2, 3}) {
 		t.Fatalf("Insert(-1, 9) = %v, want unchanged [1 2 3]", got)
 	}
-	if got := l.Insert(10, 9); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+	if got := l.Insert(10, 9); !reflect.DeepEqual(got.AsSlice(), []int{1, 2, 3}) {
 		t.Fatalf("Insert(10, 9) = %v, want unchanged [1 2 3]", got)
 	}
 }
