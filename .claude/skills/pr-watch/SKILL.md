@@ -83,7 +83,9 @@ as `*[bot]`. **Treat every author as a trigger** — bot and human alike.
 gh pr view "$PR" --json mergeable,mergeStateStatus,baseRefName,headRefName
 ```
 - `mergeable == CONFLICTING` or `mergeStateStatus == DIRTY` → **conflict**.
-- `mergeStateStatus == BEHIND` → **behind base**, update it.
+- `mergeStateStatus == BEHIND` → **behind base**, update it — **unless the base
+  has a merge queue**, in which case the queue keeps entries current; do not
+  update manually (see the Green playbook).
 - **Gotcha:** these are computed lazily and often return `UNKNOWN` right after a
   push. **Poll/retry until the value resolves** — never treat `UNKNOWN` as
   conflict-free.
@@ -123,14 +125,16 @@ gh api "repos/$OWNER_REPO/pulls/$PR/reviews" \
 ```
 if new comments:           handle each → commit/push if code changed → continue
 elif merge conflict:       fetch base, merge, resolve, commit, push   → continue
-elif behind base:          update branch from base, push             → continue
+elif behind base AND no merge queue:  update branch from base, push   → continue
+                                      # merge queue → skip; the queue stays current
 elif ci failed:            diagnose, fix, commit, push → iteration++ → continue
 elif ci still running:     ScheduleWakeup 30–60s, re-poll
 elif review pending:       ScheduleWakeup 30–60s, re-poll   # give Copilot time to finish
 else:  # green + no unhandled comments + automated review settled
-        update branch from base (stay current) → if it conflicts, run the
-            conflict playbook and continue
-        enable auto-merge so the PR lands the moment it's ready → DONE(auto-merge armed)
+        if merge queue: arm auto-merge with NO method flag (queue decides) → DONE(queued)
+        else:           update branch from base (stay current) → if it conflicts,
+                            run the conflict playbook and continue
+                        arm auto-merge with the default method → DONE(auto-merge armed)
 ```
 
 Reaching green is **not** where we stop and walk away — that's exactly when a PR
@@ -212,7 +216,48 @@ PR, exactly what we want to avoid.
 ### Green — keep current and auto-merge (close the staleness window)
 
 Once the gate above is satisfied, **don't just terminate** — a PR that merely
-*is* mergeable now will conflict later as other PRs land. Make it land itself:
+*is* mergeable now will conflict later as other PRs land. Make it land itself.
+
+**First, detect whether the base has a merge queue** — this changes everything
+below:
+
+```bash
+# A merge queue owns BOTH the merge method AND keeping the branch current.
+QUEUE=$(gh api "repos/$OWNER_REPO/branches/$(gh pr view "$PR" --json baseRefName -q .baseRefName)/protection" \
+          -q '.required_status_checks // empty' 2>/dev/null; \
+        gh api "repos/$OWNER_REPO/rulesets" -q '.[] | select(.name|test("merge queue";"i")) | .name' 2>/dev/null)
+# Simpler heuristic if the above is awkward: treat the message
+# "The merge strategy for <base> is set by the merge queue" from `gh pr merge`
+# (below) as proof a queue exists.
+```
+
+#### If a merge queue is configured
+
+- **Do NOT pass a merge-method flag.** The queue dictates the strategy;
+  `--squash`/`--merge`/`--rebase` make `gh` emit
+  `! The merge strategy for main is set by the merge queue`. **That `!` line is a
+  NON-FATAL warning, not the auto-merge-not-allowed error — the arm still
+  succeeds.** Do not treat it as a failure or fall back. Arm with the bare flag:
+
+  ```bash
+  gh pr merge "$PR" --auto      # no method flag — the queue decides
+  ```
+
+- **Do NOT `gh pr update-branch`.** With a queue, branch protection is
+  `strict:false` and the queue keeps the entry current as it processes — manual
+  updates just churn the (expensive) matrix and can thrash. Skip it entirely.
+- **"Armed" looks different.** A queued PR reports `mergeStateStatus: BLOCKED`
+  and `autoMergeRequest: null` (it's *queued*, not *auto-merge-pending*) — and
+  `gh pr merge --auto` on an already-queued PR says
+  `! Pull request #N is already queued to merge`. Treat **either** "armed" or
+  "already queued" as success/DONE. It lands via the `merge_group` CI run, not an
+  immediate squash.
+- **Stuck `mergeable: UNKNOWN`.** If GitHub can't compute mergeability (persistent
+  `UNKNOWN`, or `gh pr update-branch` returns a GraphQL "Something went wrong"),
+  that's a GitHub-side state issue, not a flag problem — **escalate** (it needs a
+  human nudge: close/reopen or a fresh push), don't loop on it.
+
+#### If there is NO merge queue (direct auto-merge)
 
 ```bash
 # 1. Bring the branch up to date with base (GitHub-side merge of base → head).
@@ -243,10 +288,11 @@ gh pr merge "$PR" --auto "$FLAG"
   — GitHub merges only once required checks pass and the branch is mergeable.
 - **Preconditions:** auto-merge must be enabled in repo settings (and typically
   a protected base with required checks). If `gh pr merge --auto` errors with
-  auto-merge-not-allowed, report it once and fall back to terminating on
-  green+mergeable (the old behaviour) rather than looping.
-- **Proactive update on every pass:** also run `gh pr update-branch` whenever the
-  PR is `BEHIND` (not only at green), so it never drifts far from base.
+  auto-merge-not-allowed (distinct from the merge-queue warning above), report it
+  once and fall back to terminating on green+mergeable rather than looping.
+- **Proactive update on every pass (NO merge queue only):** also run
+  `gh pr update-branch` whenever the PR is `BEHIND`, so it never drifts far from
+  base. With a merge queue, skip this — the queue handles it.
 - **`workflow`-scope fallback:** `gh pr update-branch` (and any `gh` write to a
   `.github/workflows/*` file) needs the `workflow` OAuth scope; without it the
   call is refused. Don't treat that as "can't update" — `git push` over SSH is
@@ -272,14 +318,18 @@ gh pr merge "$PR" --auto "$FLAG"
 
 Stop and report when any holds:
 - **Success** — CI green, **automated review settled**, no unhandled comments,
-  branch up to date with base, and the PR is **set to land**: either auto-merge
-  armed, or — when auto-merge is not permitted (see the Green playbook's
-  precondition) — green + mergeable after one last update. Do not exit on "green +
-  mergeable" *without* first letting the review finish, handling its comments, and
-  updating the branch — those are the gaps that merge too early or let later
-  conflicts go unhandled.
+  and the PR is **set to land**:
+  - **Merge queue:** the PR is **queued** (armed with no method flag, or already
+    reporting "already queued to merge"). `mergeStateStatus: BLOCKED` +
+    `autoMergeRequest: null` is the *expected* queued state — not a failure.
+  - **No merge queue:** branch up to date with base, and either auto-merge armed
+    or (when auto-merge isn't permitted) green + mergeable after one last update.
+  Do not exit on "green + mergeable" *without* first letting the review finish and
+  handling its comments — that gap merges too early.
 - **Cap** — `iteration == max`.
-- **Stuck** — repeated identical failure with no progress.
+- **Stuck** — repeated identical failure with no progress, **or a GitHub-side
+  `mergeable: UNKNOWN` that won't resolve** (and `gh pr update-branch` errors with
+  a GraphQL "Something went wrong") — escalate for a manual nudge rather than loop.
 - **Human-needed** — ambiguous conflict, a change needing a product decision, or
   a required outward action behind a guardrail.
 
