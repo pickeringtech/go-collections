@@ -107,5 +107,22 @@ func TestConcurrentMultimapCallbacksAreReentrant(t *testing.T) {
 				})
 			})
 		})
+		t.Run(f.name+"/All", func(t *testing.T) {
+			m := f.make()
+			assertNoReentrantDeadlock(t, f.name, func() {
+				for k, v := range m.All() {
+					_ = k
+					m.PutInPlace("reentry", v)
+				}
+			})
+		})
+		t.Run(f.name+"/KeysSeq", func(t *testing.T) {
+			m := f.make()
+			assertNoReentrantDeadlock(t, f.name, func() {
+				for k := range m.KeysSeq() {
+					m.PutInPlace("reentry", len(k))
+				}
+			})
+		})
 	}
 }
