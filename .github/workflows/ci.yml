@@ -10,20 +10,21 @@ name: CI
 #                  (incl. cyclop/gocognit complexity), gosec, the examples
 #                  golden-output E2E (build + run + assert stdout, see #30),
 #                  the tools/benchreport satellite-module tests (#90),
-#                  cross-arch (386 build+vet+test, arm64/s390x build+vet) and
-#                  the fuzz smoke run. The last two were promoted from report-only
-#                  to gates (#72): both are deterministic — cross-arch is a fixed
-#                  cross-compile/run, and fuzz is now count-based (-fuzztime=NNNNx,
-#                  not a wall-clock budget) — so a failure is a real signal, not
-#                  runner noise.
+#                  cross-arch (386 build+vet+test, arm64/s390x build+vet),
+#                  the fuzz smoke run, and the PR benchmark regression gate.
+#                  cross-arch and fuzz were promoted from report-only (#72): both
+#                  are deterministic — cross-arch is a fixed cross-compile/run,
+#                  and fuzz is now count-based (-fuzztime=NNNNx, not a wall-clock
+#                  budget) — so a failure is a real signal, not runner noise.
+#                  benchmarks was promoted (#114, #128): it now fails the build,
+#                  but ONLY on a catastrophic, order-of-magnitude regression
+#                  (≥ BENCH_REGRESS_FACTOR× slower, default 10x, AND statistically
+#                  significant). That deliberately-coarse threshold is what makes
+#                  it safe to gate on shared/noisy runners — see the job header.
 #   - Report-only: Go tip (intentionally unstable — gating would block merges on
-#                  upstream toolchain breakage); benchmarks (GitHub-hosted runners
-#                  are too noisy for a hard micro-benchmark gate); API compatibility
-#                  (breaking changes are allowed pre-1.0). These print findings/early
-#                  warnings but do not fail the build. On a PR the benchmark job also
-#                  A/B-compares against the base branch with benchstat and posts
-#                  the delta table — still advisory (see the job for the
-#                  documented path to a future regression gate).
+#                  upstream toolchain breakage); API compatibility (breaking
+#                  changes are allowed pre-1.0). These print findings/early
+#                  warnings but do not fail the build.
 #   - main-only:   bench-report regenerates BENCHMARKS.md, docs/bench.svg and
 #                  the README preview, archives this commit into the long-term
 #                  trend store (docs/bench/history/, issue #51) and re-renders the
@@ -110,6 +111,18 @@ env:
   BENCH_COUNT: "8"       # canonical-report benchstat samples (issue #31 suggests 6–10)
   BENCH_AB_TIME: "2ms"   # PR A/B per-sample duration — keeps both passes ≈ a few min (issue #112)
   BENCH_AB_COUNT: "6"    # PR A/B benchstat samples (kept at the 6–10 floor; count beats time for noise)
+  # Regression-gate threshold for the PR `benchmarks` job (issues #114, #128).
+  # Expressed as a *factor*, NOT a small percent, on purpose: the gate must only
+  # fire on a gross, order-of-magnitude regression (≈10x slower / +900%) — an
+  # accidental O(n)→O(n²), a dropped preallocation that explodes allocs/op, or a
+  # lock on a hot path. The PR suite runs on SHARED GitHub-hosted runners whose
+  # variance dominates any modest (20–50%) delta, so a small-percent threshold
+  # would flap constantly and erode trust; framing it as "10x" keeps the policy
+  # legible — this catches only catastrophe, by design. Tighten ONLY if/when the
+  # suite moves to a quiet/dedicated runner (the documented next lever is also
+  # "two consecutive regressing runs" before reaching for dedicated infra).
+  BENCH_REGRESS_FACTOR: "10"          # min ratio (head/base) to flag a regression; applied to sec/op, B/op, allocs/op
+  BENCH_REGRESS_LABEL: "perf-accepted" # PR label that bypasses the gate for intentional perf trade-offs
 
 jobs:
   build:
@@ -521,27 +534,37 @@ jobs:
           echo "All $count fuzz target(s) passed the count-based smoke run ✔"
 
   benchmarks:
-    name: Benchmark regression (vs base) — report-only
+    name: Benchmark regression (vs base)
     runs-on: ubuntu-latest
-    # Performance is a mission pillar but was the one claim with no automated
-    # guard (benchmarks ran smoke-only). On a PR this job benchmarks the base
-    # branch and the PR head under identical settings and runs benchstat to
-    # surface deltas + statistical significance. On push (no PR base) it falls
-    # back to a compile-and-run smoke so `main` keeps green, runnable benchmarks.
+    # Performance is a mission pillar. On a PR this job benchmarks the base
+    # branch and the PR head under identical settings, runs benchstat, and GATES
+    # the merge on a catastrophic regression. On push (no PR base) it falls back
+    # to a compile-and-run smoke so `main` keeps green, runnable benchmarks.
     #
-    # Report-only by design: GitHub-hosted runners are shared and noisy, so a
-    # hard gate would be flaky. We publish the table and let humans judge.
+    # GATE policy — order of magnitude only (issues #114, #128). A benchmark
+    # fails the build only when BOTH hold:
+    #   1. it is ≥ BENCH_REGRESS_FACTOR× slower (default 10x ≈ +900%), and
+    #   2. benchstat reports a statistically significant change (the "vs base"
+    #      column is a real delta, not "~", i.e. p < 0.05).
+    # The same order-of-magnitude factor gates sec/op, B/op and allocs/op.
     #
-    # Documented path to a future regression GATE (do NOT enable until a
-    # low-noise runner exists):
-    #   1. Move benchmarks to a dedicated/self-hosted or otherwise quiescent
-    #      runner — micro-benchmark deltas on shared runners are not trustworthy
-    #      enough to block a merge.
-    #   2. Then gate with `benchstat -format=csv` parsed for a tolerance, e.g.
-    #      fail only when a benchmark regresses by > T% (start ~10%) AND
-    #      benchstat reports p < 0.05 (a non-"~" delta). Two consecutive
-    #      regressing runs reduces false positives further.
-    #   3. Keep an allowlist/override label for intentional perf trade-offs.
+    # Why a 10x factor and not, say, 20%? These benchmarks run on SHARED
+    # GitHub-hosted runners whose infrastructure variance dwarfs any modest
+    # delta — a 20% "regression" here is almost always noise, and gating on it
+    # would flap and erode trust. The gate is deliberately catastrophe-only: it
+    # catches an accidental O(n)→O(n²), a dropped preallocation, or a lock on a
+    # hot path, and ignores the 20–50% deltas that are just runner weather.
+    # Requiring significance on top keeps the edge cases honest. Tighten the
+    # factor ONLY if the suite moves to a quiet/dedicated runner (the next lever
+    # before that is "two consecutive regressing runs"). The `perf-accepted`
+    # label bypasses the gate for an intentional perf trade-off.
+    #
+    # The gate is split across two steps on purpose: a best-effort
+    # (continue-on-error) report step that posts the sticky comment / job summary
+    # and can never block on a reporting hiccup (e.g. a fork's read-only token),
+    # and a final decision step — the ONLY non-continue-on-error step — that
+    # actually fails the build. That way reporting flakiness and the gate verdict
+    # stay independent.
     permissions:
       contents: read
       # The sticky report is a PR *conversation* comment, posted via the issues
@@ -581,7 +604,12 @@ jobs:
       # pull_request: A/B compare base vs head.
       - name: Benchmark base vs PR head, compare with benchstat
         if: github.event_name == 'pull_request'
-        continue-on-error: true   # report-only: a slow/failed benchmark never blocks a merge
+        # continue-on-error: a benchmark that errors or a pass that times out is
+        # never itself fatal — it just leaves partial tables. The GATE lives in
+        # the later "Fail on catastrophic regression" step and acts only on what
+        # benchstat could actually measure, so a flaky run degrades to "no
+        # regression detected" rather than a false failure.
+        continue-on-error: true
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
@@ -603,46 +631,128 @@ jobs:
 
           # The PR head is already checked out. Bench it first, then detach to
           # the base commit and bench that. A benchmark erroring is reported but
-          # not fatal (report-only) — partial output still feeds benchstat.
+          # not fatal — partial output still feeds benchstat and the gate only
+          # acts on benchmarks it could measure on both sides.
           echo "::group::Benchmark PR head ($HEAD_SHA)"
-          bench | tee pr.txt || echo "::warning::benchmarks reported errors on PR head (report-only)"
+          bench | tee pr.txt || echo "::warning::benchmarks reported errors on PR head (partial table kept)"
           echo "::endgroup::"
 
           echo "::group::Benchmark base ($BASE_REF @ $BASE_SHA)"
           git checkout --quiet --detach "$BASE_SHA"
-          bench | tee base.txt || echo "::warning::benchmarks reported errors on base (report-only)"
+          bench | tee base.txt || echo "::warning::benchmarks reported errors on base (partial table kept)"
           echo "::endgroup::"
 
           echo "::group::benchstat base → PR head"
+          # Human-readable table for the log / collapsed report detail, plus the
+          # machine-readable CSV the regression gate parses (sec/op in seconds,
+          # with a "vs base" delta column that is "~" when not significant).
           benchstat base.txt pr.txt | tee benchstat.txt
+          benchstat -format=csv base.txt pr.txt > benchstat.csv 2>/dev/null || true
           echo "::endgroup::"
 
-      - name: Publish benchstat report (job summary + sticky PR comment)
+      - name: Evaluate regression gate and publish report (job summary + sticky PR comment)
         if: github.event_name == 'pull_request'
-        continue-on-error: true   # report-only: reporting hiccups (e.g. fork tokens) never block
+        # Best-effort: this step parses the gate, writes the verdict to a file the
+        # FINAL step reads, and posts the report. continue-on-error so a reporting
+        # hiccup (e.g. a fork's read-only token) can never block — the actual
+        # build-failing decision lives in the next, non-continue-on-error step.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          # JSON array of this PR's label names; the gate is bypassed if it
+          # contains BENCH_REGRESS_LABEL (an intentional perf trade-off).
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: |
           set -uo pipefail
+
+          # --- Parse benchstat CSV → only the catastrophic regressions ----------
+          # A row regresses when it is ≥ BENCH_REGRESS_FACTOR× slower AND the
+          # change is statistically significant (the "vs base" column is a real
+          # delta, not "~"). Columns per metric block:
+          #   name, base, baseCI, head, headCI, vsBase, P
+          # sec/op values are in seconds; the same factor gates B/op & allocs/op.
+          : > regressions.tsv
+          if [ -s benchstat.csv ]; then
+            awk -v FACTOR="$BENCH_REGRESS_FACTOR" '
+              BEGIN { FS = ","; factor = FACTOR + 0; curpkg = "" }
+              index($0, ",") == 0 {                       # config ("key: value") or blank line
+                if ($0 ~ /^pkg:/) { p = $0; sub(/^pkg:[ \t]*/, "", p); curpkg = p }
+                next
+              }
+              $1 == "" {                                  # header / separator row sets the metric
+                unit = ($2 == "sec/op" || $2 == "B/op" || $2 == "allocs/op") ? $2 : ""
+                next
+              }
+              {                                           # data row
+                if (unit == "" || $1 == "geomean") next
+                name = $1; base = $2; head = $4; vs = $6
+                if (base == "" || head == "" || base + 0 <= 0) next
+                if (vs == "~" || vs == "") next           # within noise — not significant
+                f = (head + 0) / (base + 0)
+                if (f < factor) next                      # below the order-of-magnitude gate
+                printf "%s\t%s\t%s\t%s\t%s\t%.1f\t%s\n", unit, curpkg, name, base, head, f, vs
+              }
+            ' benchstat.csv > regressions.tsv || : > regressions.tsv
+          fi
+          count=$(grep -c . regressions.tsv || true)
+
+          # --- Override label? --------------------------------------------------
+          bypass=0
+          if printf '%s' "${PR_LABELS:-}" | grep -q "\"${BENCH_REGRESS_LABEL}\""; then
+            bypass=1
+          fi
+
+          # --- Record the verdict for the final (gating) step -------------------
+          {
+            echo "count=${count}"
+            echo "bypass=${bypass}"
+          } > gate-verdict.txt
+
+          # --- Build the sticky comment / job summary ---------------------------
           MARKER='<!-- benchstat-regression-report -->'
+          flags="\`-benchtime=$BENCH_AB_TIME -count=$BENCH_AB_COUNT -benchmem\`"
+          gatedesc="gate: a benchmark must be **≥ ${BENCH_REGRESS_FACTOR}× slower** *and* statistically significant (p<0.05) to fail — catastrophe-only, by design, because shared GitHub-hosted runners are too noisy to gate on modest deltas"
           {
             echo "$MARKER"
-            echo "## Benchmark delta vs \`$BASE_REF\` (report-only)"
+            if [ "$count" -gt 0 ] && [ "$bypass" -eq 1 ]; then
+              echo "## ⚠️ Benchmark regression gate bypassed by \`${BENCH_REGRESS_LABEL}\` — ${count} regression(s) vs \`$BASE_REF\`"
+            elif [ "$count" -gt 0 ]; then
+              echo "## ❌ Benchmark regression gate — ${count} catastrophic regression(s) vs \`$BASE_REF\`"
+            else
+              echo "## ✅ No catastrophic benchmark regressions vs \`$BASE_REF\`"
+            fi
             echo
-            echo "Base \`${BASE_SHA:0:12}\` → PR head \`${HEAD_SHA:0:12}\` · \`-benchtime=$BENCH_AB_TIME -count=$BENCH_AB_COUNT -benchmem\`"
+            echo "Base \`${BASE_SHA:0:12}\` → PR head \`${HEAD_SHA:0:12}\` · ${flags}"
             echo
-            echo "> GitHub-hosted runners are shared and noisy, so **trust benchstat's significance, not raw numbers**: \`~\` means the change is within noise, and a delta only matters with a low \`p\`-value. This check never fails the build."
+            echo "> ${gatedesc}."
             echo
+            if [ "$count" -gt 0 ]; then
+              echo "| Metric | Benchmark | Base | Head | Factor | Δ |"
+              echo "|---|---|---|---|---|---|"
+              awk -F'\t' '{
+                unit=$1; pkg=$2; name=$3; base=$4; head=$5; fac=$6; delta=$7
+                sub(/-[0-9]+$/, "", name)                 # drop the -GOMAXPROCS suffix
+                if (unit == "sec/op") { bd=sprintf("%.4g ns", base*1e9); hd=sprintf("%.4g ns", head*1e9) }
+                else { bd=sprintf("%g", base); hd=sprintf("%g", head) }
+                printf "| %s | %s · %s | %s | %s | %s× | %s |\n", unit, pkg, name, bd, hd, fac, delta
+              }' regressions.tsv
+              echo
+            else
+              echo "_Modest deltas (e.g. 20–50%) are shared-runner noise and do **not** gate — see the full table below._"
+              echo
+            fi
             if [ -s benchstat.txt ]; then
+              echo "<details><summary>Full benchstat table (all benchmarks, informational)</summary>"
+              echo
               echo '```'
               cat benchstat.txt
               echo '```'
-            else
-              echo "_No benchmark output to compare._"
+              echo
+              echo "</details>"
             fi
           } > comment.md
 
@@ -664,6 +774,35 @@ jobs:
               && echo "Posted benchstat comment." \
               || echo "::warning::Could not post PR comment (likely a fork's read-only token); see the job summary."
           fi
+
+      - name: Fail on catastrophic regression (the gate)
+        if: github.event_name == 'pull_request'
+        # The ONLY non-continue-on-error step in this job: it reads the verdict
+        # the report step recorded and fails the build on a real regression that
+        # was not waved through with the override label. Reporting hiccups in the
+        # step above cannot reach here — if the verdict file is missing (e.g. the
+        # comparison never produced CSV), treat it as "no regression" so a
+        # reporting/benchmark hiccup is conservative and never a false failure.
+        run: |
+          set -uo pipefail
+          count=0; bypass=0
+          if [ -f gate-verdict.txt ]; then
+            count=$(awk -F= '$1=="count"{print $2}' gate-verdict.txt)
+            bypass=$(awk -F= '$1=="bypass"{print $2}' gate-verdict.txt)
+          fi
+          count=${count:-0}; bypass=${bypass:-0}
+
+          if [ "$count" -le 0 ]; then
+            echo "No catastrophic benchmark regressions (≥ ${BENCH_REGRESS_FACTOR}× slower AND significant) ✔"
+            exit 0
+          fi
+          if [ "$bypass" -eq 1 ]; then
+            echo "::warning::${count} catastrophic regression(s) detected, but bypassed by the '${BENCH_REGRESS_LABEL}' label."
+            exit 0
+          fi
+          echo "::error::${count} benchmark(s) regressed ≥ ${BENCH_REGRESS_FACTOR}× AND significantly — see the report comment / job summary."
+          cat regressions.tsv 2>/dev/null || true
+          exit 1
 
   bench-report:
     # main-only: regenerate the performance report (BENCHMARKS.md), the chart
@@ -762,7 +901,7 @@ jobs:
     # when CI changes — update the `needs:` list here instead of the GitHub rule.
     name: CI Gate
     if: always()                       # run even if a dependency failed, so the gate can report
-    needs: [build, test, lint, security, examples-e2e, benchreport-test, cross-arch, fuzz]   # the blocking jobs only; report-only jobs (test-tip, benchmarks, api-compat) stay out
+    needs: [build, test, lint, security, examples-e2e, benchreport-test, cross-arch, fuzz, benchmarks]   # the blocking jobs; benchmarks now gates on catastrophic (≥10x) regressions (#114). Remaining report-only jobs (test-tip, api-compat) stay out
     runs-on: ubuntu-latest
     steps:
       - name: Require all blocking jobs to have succeeded
