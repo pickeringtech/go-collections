@@ -1,8 +1,6 @@
 package collections
 
-import (
-	"github.com/pickeringtech/go-collections/collections/dicts"
-)
+import "github.com/pickeringtech/go-collections/collections/dicts"
 
 // Pair represents a key-value pair, re-exported from the dicts package so the
 // facade examples (e.g. collections.NewDict(collections.Pair[K, V]{...})) work
