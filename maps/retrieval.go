@@ -14,7 +14,7 @@ func Clear[K comparable, V any](input map[K]V) {
 // so it constrains V to comparable and performs a shallow comparison. This
 // deliberately differs from the dicts package, whose Dict.ContainsValue
 // implementations use reflect.DeepEqual so they can also accept non-comparable
-// value types (slices, maps, funcs) and compare nested values structurally. Pick
+// value types (slices, maps) and compare nested values structurally. Pick
 // maps.ContainsValue for fast, shallow comparison of comparable values, or a
 // dicts.Dict when you need deep or non-comparable value equality.
 func ContainsValue[K, V comparable](input map[K]V, value V) bool {

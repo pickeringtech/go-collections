@@ -134,8 +134,9 @@
 // until the constructor runs, so a write to a bare CollectionType{} panics.
 //
 // Concurrent types embed their sync.Mutex / sync.RWMutex by value rather than by
-// pointer, so the lock alone is always safe to take; this does not, however,
-// initialize the backing data, so the constructor is still required.
+// pointer, so the lock alone is always safe to take and reads on the zero value
+// return empty results. They do not initialize the backing data, though, so the
+// constructor is still required before writing.
 //
 // A few types document a usable zero value as part of their contract — for
 // example deques.RingBuffer (a valid empty, unbounded deque) and dicts.Tree (a

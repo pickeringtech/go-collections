@@ -29,9 +29,10 @@ import "reflect"
 //	})
 //
 // Zero value: because Hash is a map type, its zero value is a nil map. Reads
-// (Get, Contains, Length, iteration) are safe on a nil Hash, but any write
-// (PutInPlace, FilterInPlace, Clear via delete) on a nil map panics, exactly as
-// with a built-in map. Construct a writable Hash with NewHash.
+// (Get, Contains, Length, iteration) are safe on a nil Hash, as are delete-based
+// operations (Clear, FilterInPlace), which are no-ops on a nil map. Inserting an
+// entry (PutInPlace, PutManyInPlace) panics on a nil map, exactly as with a
+// built-in map. Construct a writable Hash with NewHash.
 type Hash[K comparable, V any] map[K]V
 
 // NewHash creates a new Hash dictionary with the given key-value pairs.
