@@ -34,10 +34,8 @@ func ExampleNewConcurrentDict() {
 		dicts.Pair[string, int]{Key: "counter", Value: 0},
 	)
 
-	// Safe for concurrent access (using mutable interface)
-	if mutableDict, ok := dict.(dicts.MutableDict[string, int]); ok {
-		mutableDict.PutInPlace("counter", 42)
-	}
+	// The facade returns MutableDict, so the in-place API is directly available.
+	dict.PutInPlace("counter", 42)
 	value, found := dict.Get("counter", -1)
 	fmt.Printf("Counter: %d, found: %t\n", value, found)
 
