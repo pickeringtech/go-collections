@@ -116,9 +116,11 @@ func (a *Array[T]) Get(index int, defaultValue T) (T, bool) {
 	return a.elements[index], true
 }
 
-// AsSlice returns the underlying backing slice.
+// AsSlice returns a copy of the elements as a new slice, independent of the
+// receiver's backing array. Mutating the returned slice does not affect the
+// list. The result is non-nil even when the list is empty.
 func (a *Array[T]) AsSlice() []T {
-	return a.elements
+	return slices.Copy(a.elements)
 }
 
 // Insert returns a new List with the given elements inserted at index, without
