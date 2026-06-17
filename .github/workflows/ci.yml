@@ -40,11 +40,22 @@ name: CI
 # with a required check that never reports. To change what gates, edit `CI Gate`'s
 # `needs:` list, not the GitHub branch-protection rule.
 #
-# Test matrix (see #33): the `test` job gates Linux/macOS/Windows on the primary
-# (go.mod) Go version, plus the previous minor on Linux — 4 cells, kept small to
-# control runner-minutes. `cross-arch` (386/arm64/s390x) now gates too (#72) —
-# it's deterministic and cheap. `test-tip` (Go tip) stays report-only so that
-# experimental cell warns about upcoming toolchain changes without blocking a merge.
+# Test matrix (see #33, cost-tuned in #146): the `test` job gates
+# Linux/macOS/Windows on the primary (go.mod) Go version, plus the previous minor
+# on Linux. To control runner-minutes, the `setup` job decides the cell list per
+# event: PRs run the Linux cells only (fast, cheap, ~all real failures), while
+# push-to-main and merge_group run the FULL matrix incl. macOS (billed 10x) and
+# Windows (2x) — so cross-platform correctness still gates before a release, just
+# not on every PR iteration. `cross-arch` (386/arm64/s390x) gates on every event
+# (#72) — it's deterministic and cheap. `test-tip` (Go tip) is report-only AND
+# non-PR (#146): it gates nothing, so it warns about upcoming toolchain changes
+# on push/merge without charging every PR push for the tip-toolchain download.
+#
+# Cost controls (#146): a top-level `concurrency` block cancels a PR's superseded
+# in-progress run on each new push; the macOS/Windows cells are off the PR path
+# (above); and the heaviest PR job (`benchmarks` A/B) no-ops on docs-only PRs via
+# the `changes` job. None of this weakens a gate — every blocking job still runs
+# on every event and the cross-platform/tip coverage still runs before a release.
 #
 # API-compatibility gating (#29): the api-compat job runs gorelease against the
 # last released tag and reports the implied semver bump + any breaking changes.
@@ -64,6 +75,24 @@ on:
   push:
     branches: [main]
   pull_request:
+  # merge_group lets a GitHub merge queue (if enabled in branch protection) run
+  # the FULL gate — including the cross-platform macOS/Windows cells that no
+  # longer run on every PR push (see the `setup`/`test` jobs) — immediately
+  # before a PR lands. With no merge queue configured this event never fires and
+  # push-to-main remains the guaranteed pre-release cross-platform gate; either
+  # way cross-platform breakage is still caught before a release (issue #146).
+  merge_group:
+
+# Cost control (issue #146): cancel a PR's older, still-running CI when a newer
+# commit is pushed to the same PR, instead of letting the superseded run burn
+# the full matrix + benchmark minutes to completion. Keyed by PR number on
+# pull_request; on push-to-main / merge_group there is no PR number, so the key
+# falls back to the unique run_id — meaning those runs NEVER cancel each other
+# (a main push must not abort the contents:write bench-report job mid-commit).
+# This mirrors mutation.yml's proven keying.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -125,6 +154,69 @@ env:
   BENCH_REGRESS_LABEL: "perf-accepted" # PR label that bypasses the gate for intentional perf trade-offs
 
 jobs:
+  setup:
+    # Decide the `test` matrix per event so the expensive cross-platform cells
+    # are paid for only when they add release-gating value (issue #146).
+    #   pull_request → Linux only (primary go.mod Go + previous minor). Fast,
+    #     cheap feedback on every push; macOS at 10x and Windows at 2x dominate
+    #     the per-run dollar cost and almost never surface a Linux-green failure.
+    #   push to main / merge_group → the FULL matrix incl. macOS + Windows, so
+    #     cross-platform correctness still gates before a release (a merge queue
+    #     runs it pre-merge; push-to-main runs it as the backstop). The matrix
+    #     literals live here because `strategy.matrix` can't read `env`.
+    name: Decide test matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - name: Select Linux-only (PR) vs full cross-platform (push / merge queue)
+        id: set
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo 'matrix={"include":[{"os":"ubuntu-latest","go":"1.24"},{"os":"ubuntu-latest","go":"1.23"}]}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'matrix={"include":[{"os":"ubuntu-latest","go":"1.24"},{"os":"macos-latest","go":"1.24"},{"os":"windows-latest","go":"1.24"},{"os":"ubuntu-latest","go":"1.23"}]}' >> "$GITHUB_OUTPUT"
+          fi
+
+  changes:
+    # Detect whether a PR changes anything other than docs (**.md / docs/**), so
+    # the heaviest PR job (the benchmark A/B compare) can no-op on docs-only PRs
+    # without weakening any gate (issue #146). Uses the PR "list files" API — no
+    # checkout, no fetch-depth, a few hundred ms. On non-PR events the step is
+    # skipped and `code` is empty; the only consumer short-circuits on the event
+    # name first, so push/merge_group always run the full pipeline regardless.
+    name: Detect non-docs changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Classify changed files (code vs docs-only)
+        id: filter
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          files=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" \
+                    --paginate --jq '.[].filename')
+          echo "Changed files:"; printf '%s\n' "$files"
+          # "code" = any changed file that is NOT pure documentation. Markdown
+          # anywhere and everything under docs/ are docs; a .go file, a workflow,
+          # go.mod, a golden fixture, etc. all count as code and run the full
+          # pipeline. Fail-open: if the list is empty/unreadable, treat as code.
+          nondoc=$(printf '%s\n' "$files" | { grep -vE '(\.md$|^docs/)' || true; })
+          if [ -z "$files" ] || [ -n "$nondoc" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "→ non-docs changes present (or undetermined): running heavy jobs."
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "→ docs-only PR: heavy jobs (benchmark A/B) will no-op."
+          fi
+
   build:
     name: Build & module hygiene
     runs-on: ubuntu-latest
@@ -163,26 +255,29 @@ jobs:
   test:
     # Gating matrix: catch platform- and version-specific breakage (concurrency
     # / -race behaviour, map-iteration order, path/newline assumptions) that a
-    # single ubuntu+go.mod cell would miss. Kept deliberately small to control
-    # runner-minutes — every OS on the primary (go.mod) Go version, plus the
-    # previous minor on Linux only as a cheap backward-compat check.
-    #   Linux/macOS/Windows × Go 1.24  +  Linux × Go 1.23  = 4 cells.
-    # Wider/experimental coverage (Go tip, exotic arches) lives in the
-    # report-only `test-tip` and `cross-arch` jobs below.
+    # single ubuntu+go.mod cell would miss. The cell list is computed by the
+    # `setup` job per event (issue #146):
+    #   PR                     → Linux × {1.24, 1.23}                     (2 cells)
+    #   push main / merge_group → + macOS × 1.24 + Windows × 1.24         (4 cells)
+    # so macOS (10x) and Windows (2x) — which dominate the per-run dollar cost —
+    # are paid for only when gating a release, while every PR push still gets
+    # Linux + -race + the previous-minor backward-compat check fast and cheap.
+    # Cross-platform correctness still gates before release (push/merge queue),
+    # satisfying #146's "must still run before a release" constraint. Wider
+    # experimental coverage (Go tip, exotic arches) lives in `test-tip` (now
+    # non-PR) and `cross-arch` below.
     name: Test (race + coverage) — ${{ matrix.os }} / Go ${{ matrix.go }}
+    needs: setup
     runs-on: ${{ matrix.os }}
     strategy:
       # Don't cancel the other cells when one fails — we want every platform's
       # pass/fail visible in one run, not a single early abort.
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        go: ["1.24"]
-        include:
-          # Previous minor on Linux only: backward-compat early warning without
-          # tripling the secondary-version cost across all three OSes.
-          - os: ubuntu-latest
-            go: "1.23"
+      # Cells decided per event by `setup` (Linux-only on PRs; full cross-
+      # platform on push/merge_group). Using only `include` entries keeps the
+      # event-conditional shape in one place — the setup job — rather than
+      # smeared across matrix axes that can't read the event.
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
     defaults:
       run:
         # windows-latest defaults to PowerShell; force bash (Git Bash ships on
@@ -232,6 +327,11 @@ jobs:
 
   test-tip:
     name: Test on Go tip (report-only — early toolchain warning)
+    # Non-PR only (issue #146): tip is report-only and gates nothing, so paying
+    # to download+build the tip toolchain (~4-5 Linux min) on every PR push buys
+    # no merge signal. Running it on push-to-main / merge_group keeps the
+    # upcoming-toolchain early warning without charging every PR iteration.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # Report-only: tip is a moving target, so a failure here is an early warning
     # about an upcoming toolchain change, not a merge gate.
@@ -535,6 +635,7 @@ jobs:
 
   benchmarks:
     name: Benchmark regression (vs base)
+    needs: changes
     runs-on: ubuntu-latest
     # Performance is a mission pillar. On a PR this job benchmarks the base
     # branch and the PR head under identical settings, runs benchstat, and GATES
@@ -592,6 +693,9 @@ jobs:
       # outside the work tree, so switching the tree to the base commit can't
       # disturb it.
       - name: Install benchstat (pinned)
+        # Skip on docs-only PRs along with every bench step below — nothing here
+        # consumes benchstat then (issue #146). Always installed on push/merge.
+        if: github.event_name != 'pull_request' || needs.changes.outputs.code == 'true'
         run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
 
       # push to main: no PR base to diff against — just confirm benchmarks
@@ -601,9 +705,11 @@ jobs:
         continue-on-error: true
         run: go test -run='^$' -bench=. -benchtime=10x ./...
 
-      # pull_request: A/B compare base vs head.
+      # pull_request: A/B compare base vs head. Skipped on docs-only PRs
+      # (needs.changes.outputs.code == 'false') — no source changed, so there is
+      # nothing to regress and the ~hour-saved-by-#112 A/B pass is pure waste.
       - name: Benchmark base vs PR head, compare with benchstat
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
         # continue-on-error: a benchmark that errors or a pass that times out is
         # never itself fatal — it just leaves partial tables. The GATE lives in
         # the later "Fail on catastrophic regression" step and acts only on what
@@ -651,7 +757,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Evaluate regression gate and publish report (job summary + sticky PR comment)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
         # Best-effort: this step parses the gate, writes the verdict to a file the
         # FINAL step reads, and posts the report. continue-on-error so a reporting
         # hiccup (e.g. a fork's read-only token) can never block — the actual
@@ -779,7 +885,7 @@ jobs:
           fi
 
       - name: Fail on catastrophic regression (the gate)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
         # The ONLY non-continue-on-error step in this job: it reads the verdict
         # the report step recorded and fails the build on a real regression that
         # was not waved through with the override label. Reporting hiccups in the
@@ -904,7 +1010,15 @@ jobs:
     # when CI changes — update the `needs:` list here instead of the GitHub rule.
     name: CI Gate
     if: always()                       # run even if a dependency failed, so the gate can report
-    needs: [build, test, lint, security, examples-e2e, benchreport-test, cross-arch, fuzz, benchmarks]   # the blocking jobs; benchmarks now gates on catastrophic (≥10x) regressions (#114). Remaining report-only jobs (test-tip, api-compat) stay out
+    # The blocking jobs. `setup` (matrix decision) and `changes` (docs-only
+    # detection) are included so a failure in EITHER fails the gate rather than
+    # silently letting a downstream job skip (issue #146). Every job here runs on
+    # every event — none is ever `skipped` — so the strict "skipped == failure"
+    # check below stays valid: the docs-only optimisation lives in conditional
+    # *steps* inside `benchmarks`, which still reports `success`, not in a
+    # conditional job. benchmarks gates on catastrophic (≥10x) regressions
+    # (#114). Report-only jobs (test-tip, api-compat) stay out.
+    needs: [setup, changes, build, test, lint, security, examples-e2e, benchreport-test, cross-arch, fuzz, benchmarks]
     runs-on: ubuntu-latest
     steps:
       - name: Require all blocking jobs to have succeeded
