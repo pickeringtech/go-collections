@@ -93,16 +93,14 @@ func runCapture(args []string) error {
 	}
 
 	// Validate: the CSV must contain conforming benchmarks before we commit it.
-	ds, skipped, err := LoadDataset(strings.NewReader(raw), meta)
+	ds, stats, err := LoadDataset(strings.NewReader(raw), meta)
 	if err != nil {
 		return err
 	}
 	if len(ds.Samples) == 0 {
 		return fmt.Errorf("capture: no conforming benchmarks in input (expected names like Hash_Get/size_1000)")
 	}
-	if skipped > 0 {
-		fmt.Fprintf(os.Stderr, "note: %d non-conforming benchmark name(s) skipped\n", skipped)
-	}
+	logLoadStats(*in, stats)
 
 	content := metaPreamble(meta) + raw
 	if err := writeFile(*out, content); err != nil {
@@ -184,7 +182,7 @@ func runRender(args []string) error {
 		if err != nil {
 			return err
 		}
-		ds, skipped, err := LoadDataset(f, Meta{})
+		ds, stats, err := LoadDataset(f, Meta{})
 		f.Close()
 		if err != nil {
 			return fmt.Errorf("loading %s: %w", p, err)
@@ -193,9 +191,7 @@ func runRender(args []string) error {
 			fmt.Fprintf(os.Stderr, "warning: %s has no conforming benchmarks; skipping\n", p)
 			continue
 		}
-		if skipped > 0 {
-			fmt.Fprintf(os.Stderr, "note: %s — skipped %d non-conforming name(s)\n", p, skipped)
-		}
+		logLoadStats(p, stats)
 		datasets = append(datasets, ds)
 	}
 	if len(datasets) == 0 {
@@ -257,6 +253,23 @@ func runRender(args []string) error {
 	fmt.Fprintf(os.Stderr, "rendered %s, %s, and the %s preview region from %d environment(s): %v\n",
 		*reportPath, *svgPath, *readmePath, len(datasets), envs)
 	return nil
+}
+
+// logLoadStats writes a dataset load's non-fatal data-loss diagnostics to
+// stderr, prefixed with src to identify the input. Skipped names are an expected
+// allowlist outcome (a note); dropped rows and partial samples are silent data
+// loss the report would otherwise hide (warnings). Nothing is written for a
+// clean load.
+func logLoadStats(src string, stats LoadStats) {
+	if stats.SkippedNames > 0 {
+		fmt.Fprintf(os.Stderr, "note: %s — %d non-conforming benchmark name(s) skipped\n", src, stats.SkippedNames)
+	}
+	if stats.DroppedRows > 0 {
+		fmt.Fprintf(os.Stderr, "warning: %s — %d malformed numeric row(s) dropped\n", src, stats.DroppedRows)
+	}
+	for _, p := range stats.Partial {
+		fmt.Fprintf(os.Stderr, "warning: %s — sample %s\n", src, p)
+	}
 }
 
 func readInput(path string) (string, error) {
