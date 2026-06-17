@@ -17,9 +17,10 @@
 // using a read-write mutex. Read operations can proceed concurrently, while write
 // operations are exclusive.
 //
-// Tree Dictionary (Tree[K, V]): A binary search tree implementation that maintains
-// keys in sorted order. Provides O(log n) average case performance and ordered iteration.
-// Keys must implement constraints.Ordered (integers, floats, strings).
+// Tree Dictionary (Tree[K, V]): A self-balancing binary search tree (AVL) that
+// maintains keys in sorted order. Provides O(log n) worst-case performance for
+// lookups, inserts and removals regardless of insertion order, plus ordered
+// iteration. Keys must implement constraints.Ordered (integers, floats, strings).
 //
 // Concurrent Tree Dictionary (ConcurrentTree[K, V]): A thread-safe ordered dictionary
 // backed by the binary search tree, using a mutex for synchronization.

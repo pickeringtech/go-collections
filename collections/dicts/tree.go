@@ -8,16 +8,24 @@ import (
 )
 
 // node represents a single node in the binary search tree.
+//
+// Height is the length of the longest path from this node down to a leaf,
+// counting nodes (a leaf has Height 1). It is maintained by the AVL rebalancing
+// in insertNode/removeNode and read by the balancing helpers.
 type node[K constraints.Ordered, V any] struct {
-	Key   K
-	Value V
-	Left  *node[K, V]
-	Right *node[K, V]
+	Key    K
+	Value  V
+	Height int
+	Left   *node[K, V]
+	Right  *node[K, V]
 }
 
-// Tree is a binary search tree implementation of a dictionary.
-// It maintains keys in sorted order and provides O(log n) average case performance.
-// Note: This is a simple BST without self-balancing, so worst case is O(n).
+// Tree is a self-balancing binary search tree (AVL) implementation of a
+// dictionary. It maintains keys in sorted order and guarantees O(log n)
+// worst-case performance for Get/Contains/Put/Remove and the ordered
+// navigation operations (Floor/Ceiling/Min/Max/Range), regardless of insertion
+// order — including the degenerate sorted-insert case that turns a plain BST
+// into a linked list.
 // Keys must implement constraints.Ordered (integers, floats, strings).
 type Tree[K constraints.Ordered, V any] struct {
 	root *node[K, V]
@@ -80,35 +88,105 @@ func (t *Tree[K, V]) findNode(key K) *node[K, V] {
 
 // PutInPlace adds or updates the given key-value pair in the dictionary.
 func (t *Tree[K, V]) PutInPlace(key K, value V) {
-	if t.root == nil {
-		t.root = &node[K, V]{Key: key, Value: value}
+	t.root = t.insertNode(t.root, key, value)
+}
+
+// insertNode inserts key/value into the subtree rooted at n, rebalancing on the
+// way back up so the AVL height invariant is preserved. It returns the new root
+// of the subtree.
+func (t *Tree[K, V]) insertNode(n *node[K, V], key K, value V) *node[K, V] {
+	if n == nil {
 		t.size++
-		return
+		return &node[K, V]{Key: key, Value: value, Height: 1}
+	}
+	switch cmp.Compare(key, n.Key) {
+	case -1:
+		n.Left = t.insertNode(n.Left, key, value)
+	case 1:
+		n.Right = t.insertNode(n.Right, key, value)
+	case 0:
+		// Key already exists, update value. Structure is unchanged.
+		n.Value = value
+		return n
+	}
+	return t.rebalance(n)
+}
+
+// height returns the AVL height of n, treating a nil subtree as height 0.
+func (t *Tree[K, V]) height(n *node[K, V]) int {
+	if n == nil {
+		return 0
+	}
+	return n.Height
+}
+
+// updateHeight recomputes n.Height from its children. n must be non-nil.
+func (t *Tree[K, V]) updateHeight(n *node[K, V]) {
+	left, right := t.height(n.Left), t.height(n.Right)
+	if left > right {
+		n.Height = left + 1
+	} else {
+		n.Height = right + 1
+	}
+}
+
+// balanceFactor returns left height minus right height for n (0 for nil). A
+// magnitude greater than 1 means the subtree violates the AVL invariant.
+func (t *Tree[K, V]) balanceFactor(n *node[K, V]) int {
+	if n == nil {
+		return 0
+	}
+	return t.height(n.Left) - t.height(n.Right)
+}
+
+// rotateRight performs a right rotation around y and returns the new subtree
+// root. y must have a non-nil left child.
+func (t *Tree[K, V]) rotateRight(y *node[K, V]) *node[K, V] {
+	x := y.Left
+	y.Left = x.Right
+	x.Right = y
+	t.updateHeight(y)
+	t.updateHeight(x)
+	return x
+}
+
+// rotateLeft performs a left rotation around x and returns the new subtree
+// root. x must have a non-nil right child.
+func (t *Tree[K, V]) rotateLeft(x *node[K, V]) *node[K, V] {
+	y := x.Right
+	x.Right = y.Left
+	y.Left = x
+	t.updateHeight(x)
+	t.updateHeight(y)
+	return y
+}
+
+// rebalance updates n's height and, if n violates the AVL balance invariant,
+// performs the appropriate single or double rotation. It returns the new root
+// of the (now balanced) subtree.
+func (t *Tree[K, V]) rebalance(n *node[K, V]) *node[K, V] {
+	t.updateHeight(n)
+	balance := t.balanceFactor(n)
+
+	// Left-heavy.
+	if balance > 1 {
+		// Left-Right case: convert to Left-Left first.
+		if t.balanceFactor(n.Left) < 0 {
+			n.Left = t.rotateLeft(n.Left)
+		}
+		return t.rotateRight(n)
 	}
 
-	current := t.root
-	for {
-		switch cmp.Compare(key, current.Key) {
-		case -1:
-			if current.Left == nil {
-				current.Left = &node[K, V]{Key: key, Value: value}
-				t.size++
-				return
-			}
-			current = current.Left
-		case 1:
-			if current.Right == nil {
-				current.Right = &node[K, V]{Key: key, Value: value}
-				t.size++
-				return
-			}
-			current = current.Right
-		case 0:
-			// Key already exists, update value
-			current.Value = value
-			return
+	// Right-heavy.
+	if balance < -1 {
+		// Right-Left case: convert to Right-Right first.
+		if t.balanceFactor(n.Right) > 0 {
+			n.Right = t.rotateRight(n.Right)
 		}
+		return t.rotateLeft(n)
 	}
+
+	return n
 }
 
 // Put creates a new dictionary with the given key-value pair added or updated.
@@ -147,10 +225,11 @@ func (t *Tree[K, V]) copyNode(n *node[K, V]) *node[K, V] {
 		return nil
 	}
 	return &node[K, V]{
-		Key:   n.Key,
-		Value: n.Value,
-		Left:  t.copyNode(n.Left),
-		Right: t.copyNode(n.Right),
+		Key:    n.Key,
+		Value:  n.Value,
+		Height: n.Height,
+		Left:   t.copyNode(n.Left),
+		Right:  t.copyNode(n.Right),
 	}
 }
 
@@ -410,24 +489,19 @@ func (t *Tree[K, V]) removeNode(n *node[K, V], key K) (*node[K, V], V, bool) {
 		var removedValue V
 		var found bool
 		n.Left, removedValue, found = t.removeNode(n.Left, key)
-		return n, removedValue, found
+		return t.rebalance(n), removedValue, found
 	}
 	if comparison > 0 {
 		var removedValue V
 		var found bool
 		n.Right, removedValue, found = t.removeNode(n.Right, key)
-		return n, removedValue, found
+		return t.rebalance(n), removedValue, found
 	}
 
 	// Found the node to remove
 	removedValue := n.Value
 
-	// Case 1: Node has no children
-	if n.Left == nil && n.Right == nil {
-		return nil, removedValue, true
-	}
-
-	// Case 2: Node has only right child
+	// Case 1 & 2: Node has at most one child (right child, possibly nil).
 	if n.Left == nil {
 		return n.Right, removedValue, true
 	}
@@ -438,12 +512,13 @@ func (t *Tree[K, V]) removeNode(n *node[K, V], key K) (*node[K, V], V, bool) {
 	}
 
 	// Case 4: Node has both children
-	// Find the inorder successor (smallest node in right subtree)
+	// Find the inorder successor (smallest node in right subtree), copy it into
+	// this node, then delete it from the right subtree and rebalance up.
 	successor := t.findMin(n.Right)
 	n.Key = successor.Key
 	n.Value = successor.Value
 	n.Right, _, _ = t.removeNode(n.Right, successor.Key)
-	return n, removedValue, true
+	return t.rebalance(n), removedValue, true
 }
 
 // findMin finds the node with the minimum key in the subtree rooted at n.
