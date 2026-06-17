@@ -68,6 +68,53 @@ func TestMap_EmptyInputYieldsNonNilEmptySet(t *testing.T) {
 	}
 }
 
+func ExampleMapSorted() {
+	s := sets.NewHash("a", "ab", "abc")
+	// Map to lengths (an Ordered type); the result iterates in ascending order
+	// without a post-hoc sort.
+	byLen := sets.MapSorted(s, func(str string) int {
+		return len(str)
+	})
+	fmt.Printf("%v\n", byLen.AsSlice())
+
+	// Output:
+	// [1 2 3]
+}
+
+func TestMapSorted_PreservesAscendingOrder(t *testing.T) {
+	// Unordered Hash input mapped to ordered elements must come out sorted.
+	s := sets.NewHash(3, 1, 2)
+	got := sets.MapSorted(s, func(n int) int {
+		return n * 10
+	})
+	want := []int{10, 20, 30}
+	// AsSlice on a TreeSet-backed SortedSet is already ascending; assert directly.
+	if fmt.Sprint(got.AsSlice()) != fmt.Sprint(want) {
+		t.Errorf("MapSorted() = %v, want %v", got.AsSlice(), want)
+	}
+}
+
+func TestMapSorted_CollapsesDuplicateResults(t *testing.T) {
+	s := sets.NewHash("a", "bb", "cc", "d")
+	got := sets.MapSorted(s, func(str string) int {
+		return len(str)
+	})
+	if got.Length() != 2 {
+		t.Errorf("MapSorted() length = %d, want 2", got.Length())
+	}
+}
+
+func TestMapSorted_EmptyInputYieldsNonNilEmptySortedSet(t *testing.T) {
+	s := sets.NewHash[int]()
+	got := sets.MapSorted(s, func(n int) int { return n * 2 })
+	if got == nil {
+		t.Fatal("MapSorted() returned nil, want non-nil empty SortedSet")
+	}
+	if !got.IsEmpty() {
+		t.Errorf("MapSorted() = %v, want empty", got.AsSlice())
+	}
+}
+
 func TestReduce(t *testing.T) {
 	s := sets.NewHash(1, 2, 3, 4)
 
