@@ -744,20 +744,35 @@ jobs:
     # and the bot commit carries `[skip ci]`, which GitHub Actions honours by not
     # starting a new run — so the commit this job makes never re-triggers CI.
     #
+    # Pushing to PROTECTED main: `main` is governed by a ruleset (required check
+    # `CI Gate` + merge queue + no-force-push/no-delete). The default GITHUB_TOKEN
+    # cannot bypass it (GitHub disallows the Actions app as a bypass actor on a
+    # personal repo), so this job authenticates with a dedicated WRITE DEPLOY KEY
+    # (secret `BENCH_REPORT_DEPLOY_KEY`) that IS a ruleset bypass actor. The
+    # checkout below wires that key for SSH, so the `git push origin HEAD:main`
+    # in the commit step lands directly, bypassing the queue for this one
+    # doc/data commit — without weakening the gate for anyone else.
+    #
     # Thin wrapper over `make bench-report` so local and CI generation can't
     # drift: the Make target owns the run → benchstat → generator pipeline.
     name: Benchmark report (main-only — regenerate & commit)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # No contents:write needed: the push authenticates via the SSH deploy key
+    # (the GITHUB_TOKEN couldn't bypass the ruleset anyway), so the token stays
+    # read-only like every other job.
     permissions:
-      # push-time only; the PR report path above stays contents: read.
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
           # Full history so the rebase-on-reject retry below has something to
           # rebase onto if main advances while this job runs.
           fetch-depth: 0
+          # Authenticate as the write deploy key (a ruleset bypass actor) so the
+          # commit step can push to protected main. Also rewrites the remote to
+          # SSH, so the push/pull below go over the key, not the token.
+          ssh-key: ${{ secrets.BENCH_REPORT_DEPLOY_KEY }}
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
