@@ -72,12 +72,15 @@ func (c *ConcurrentLRU[K, V]) Get(key K) (V, bool) {
 	return c.inner.Get(key)
 }
 
-// ForEach calls fn for each entry, most- to least-recently-used. The lock is
-// held for the whole walk, so fn must not call back into this cache.
+// ForEach calls fn for each entry, most- to least-recently-used. fn is invoked
+// after the lock is released, against a point-in-time snapshot taken under the
+// lock, so fn may safely call back into the cache. Snapshotting does not affect
+// recency, exactly as Items does.
 func (c *ConcurrentLRU[K, V]) ForEach(fn EachFunc[K, V]) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.inner.ForEach(fn)
+	items := c.Items()
+	for _, entry := range items {
+		fn(entry.Key, entry.Value)
+	}
 }
 
 // All returns a range-over-func iterator over a snapshot of the entries, most-
