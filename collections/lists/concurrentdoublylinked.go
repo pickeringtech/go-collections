@@ -8,6 +8,11 @@ import (
 
 // ConcurrentDoublyLinked is a thread-safe doubly linked list implementation
 // using a mutex for synchronization. All operations are protected by a single mutex.
+//
+// Zero value: always construct with NewConcurrentDoublyLinked. The embedded mutex
+// is a value, so a bare &ConcurrentDoublyLinked{} is at least lock-safe, but its
+// inner list is nil until the constructor runs, so any operation — reads
+// included — dereferences a nil pointer and panics.
 type ConcurrentDoublyLinked[T any] struct {
 	data *DoublyLinked[T]
 	lock sync.Mutex
@@ -96,19 +101,26 @@ func (cl *ConcurrentDoublyLinked[T]) Filter(fn func(T) bool) List[T] {
 // FilterInPlace removes elements that don't satisfy the predicate. The predicate
 // is evaluated after the lock is released, against a point-in-time snapshot
 // taken under the lock, so it may safely call back into the collection.
-// Modifications made concurrently with evaluation are not reflected in the
-// retained set.
+//
+// Removal is applied as a multiset diff against the current contents: each
+// element the predicate rejected removes one deeply-equal occurrence from the
+// list as it stands at apply time. Elements inserted concurrently in the
+// evaluation window are therefore preserved rather than discarded wholesale.
 func (cl *ConcurrentDoublyLinked[T]) FilterInPlace(fn func(T) bool) {
 	cl.lock.Lock()
 	snapshot := cl.data.AsSlice()
 	cl.lock.Unlock()
 
-	retained := slices.Filter(snapshot, fn)
+	var removed []T
+	for _, element := range snapshot {
+		if !fn(element) {
+			removed = append(removed, element)
+		}
+	}
 
 	cl.lock.Lock()
-	cl.data.Clear()
-	for _, element := range retained {
-		cl.data.PushInPlace(element)
+	for _, element := range removed {
+		cl.data.RemoveInPlace(element)
 	}
 	cl.lock.Unlock()
 }

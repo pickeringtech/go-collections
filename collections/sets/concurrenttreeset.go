@@ -11,6 +11,11 @@ import (
 // for synchronization. Elements are kept in sorted order and all operations are
 // protected by a single mutex. Use it when reads and writes are balanced; prefer
 // ConcurrentTreeSetRW for read-heavy workloads.
+//
+// Zero value: always construct with NewConcurrentTreeSet. The embedded mutex is a
+// value, so a bare &ConcurrentTreeSet{} is at least lock-safe, but its inner
+// TreeSet is nil until the constructor runs, so any operation — reads included —
+// dereferences a nil pointer and panics.
 type ConcurrentTreeSet[T constraints.Ordered] struct {
 	set  *TreeSet[T]
 	lock sync.Mutex
@@ -103,8 +108,11 @@ func (ch *ConcurrentTreeSet[T]) Filter(fn func(element T) bool) Set[T] {
 // FilterInPlace removes all elements that do not satisfy the given predicate,
 // modifying the set in place. The predicate is evaluated after the lock is
 // released, against a point-in-time snapshot taken under the lock, so it may
-// safely call back into the collection. Modifications made concurrently with
-// evaluation are not reflected in the retained set.
+// safely call back into the collection.
+//
+// Only elements the predicate rejected are removed, and only if still present
+// at apply time, so elements added concurrently in the evaluation window are
+// preserved.
 func (ch *ConcurrentTreeSet[T]) FilterInPlace(fn func(element T) bool) {
 	ch.lock.Lock()
 	elements := ch.set.AsSlice()

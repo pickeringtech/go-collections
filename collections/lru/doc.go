@@ -101,6 +101,13 @@
 //	// Read-heavy workloads
 //	pages := lru.NewConcurrentLRURW[string, []byte](1_000)
 //
+// Callbacks passed to ForEach and the iterator methods (All, Keys, Values) run
+// after the lock is released, against a point-in-time snapshot taken under the
+// lock. They may therefore safely re-enter the same cache (read it, or mutate
+// it) without deadlocking. The eviction callback registered with WithOnEvict is
+// the exception: it fires while the lock is held, so it must not call back into
+// the cache — keep it cheap and non-blocking.
+//
 // # Performance
 //
 //	Operation       | Cost

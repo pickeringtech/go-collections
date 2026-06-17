@@ -1,30 +1,39 @@
 # Channels - Pipeline Processing Made Simple
 
-The `channels` package provides pipeline patterns for Go channels, letting you build concurrent data processing without managing channels by hand. Compose stages into concurrent workflows.
+The `channels` package provides pipeline patterns and utilities for Go channels, enabling concurrent data processing, stream processing, and producer-consumer patterns without hand-rolled channel coordination.
+
+Every stage transform takes a `context.Context` so cancelling it tears the whole pipeline down and reclaims its goroutines deterministically.
+
+> The snippets below mirror the package's compiled, runnable examples (`Example_quickStart`, `ExampleMap`, `ExampleFilter`, `ExampleReduce`, and friends in the `*_test.go` files), so they track the real API. For the authoritative reference, see the package godoc in [`doc.go`](doc.go).
 
 ## Quick Start
 
 ```go
-import "github.com/pickeringtech/go-collections/channels"
+import (
+    "context"
 
-// Create a data processing pipeline
-input := make(chan int, 10)
+    "github.com/pickeringtech/go-collections/channels"
+)
 
-// Build pipeline: numbers -> squares -> evens only
-pipeline := channels.NewPipeline(input).
-    Map(func(n int) int { return n * n }).
-    Filter(func(n int) bool { return n%2 == 0 })
+// A context governs the lifetime of every stage; cancelling it tears the
+// whole pipeline down and reclaims its goroutines.
+ctx := context.Background()
 
-// Send data and collect results
-go func() {
-    for i := 1; i <= 10; i++ {
-        input <- i
-    }
-    close(input)
-}()
+// Feed numbers into a channel.
+input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 
-results := pipeline.Collect()
-fmt.Printf("Results: %v\n", results) // [4, 16, 36, 64, 100]
+// Build a pipeline: square every number, then keep the even squares.
+// A Pipeline pins down the input and output types; the supplied function
+// wires the intermediate stages together with the standalone Map and Filter
+// helpers, threading the context through each one.
+pipeline := channels.NewPipeline[int, int](ctx, input, func(ctx context.Context, in <-chan int) <-chan int {
+    squares := channels.Map(ctx, in, func(n int) int { return n * n })
+    return channels.Filter(ctx, squares, func(n int) bool { return n%2 == 0 })
+})
+
+// CollectAsSlice drains the pipeline once the input channel is closed.
+results := pipeline.CollectAsSlice()
+fmt.Printf("Results: %v\n", results) // [4 16 36 64 100]
 ```
 
 ## Why Use Channel Pipelines?
@@ -61,600 +70,232 @@ for n := range evens {
 }
 ```
 
-**Channel pipelines are clean and safe:**
+**Stage helpers are clean and safe:**
 ```go
-// Pipeline approach - elegant and safe
-results := channels.NewPipeline(input).
-    Map(square).
-    Filter(isEven).
-    Collect()
+// The standalone Map, Filter, and Reduce helpers each own one stage's
+// goroutine and channel lifecycle, so the same computation reads as a straight
+// data flow. Each takes a context, so cancelling it reclaims the stage.
+squares := channels.Map(ctx, input, func(n int) int { return n * n })
+evens := channels.Filter(ctx, squares, func(n int) bool { return n%2 == 0 })
+results := channels.CollectAsSlice(evens)
 ```
 
-## Core Pipeline Operations
+## Core Concepts
 
-### Transform Operations
+Stage transforms each consume a channel and return a new channel:
 
-#### Map - Transform Each Element
+- **`Map`** — transform each element, producing a channel of the result type.
+- **`Filter`** — forward only the elements matching a predicate.
+- **`Reduce`** — fold the stream into a single running value, emitted on its own channel.
+
+Sources and sinks:
+
+- **`FromSlice` / `FromMap`** — turn a slice or map into a channel.
+- **`CollectAsSlice` / `CollectNAsSlice`** — drain a channel into a slice.
+- **`CollectAsMap` / `BuildMapFromEntries`** — drain a channel into a map.
+
+Pipeline:
+
+- **`NewPipeline`** pins the input and output types and wires the stages via a `PipelineCreationFunc`; **`Pipeline.CollectAsSlice`** drains the result.
+
+## Stage Transforms
+
+### Map - Transform Each Element
 ```go
-// Transform numbers to strings
-numbers := channels.FromSlice([]int{1, 2, 3, 4, 5})
-strings := channels.NewPipeline(numbers).
-    Map(func(n int) string { return fmt.Sprintf("num_%d", n) }).
-    Collect()
-// Result: ["num_1", "num_2", "num_3", "num_4", "num_5"]
-
-// Extract fields from structs
-users := channels.FromSlice([]User{
-    {Name: "Alice", Age: 25},
-    {Name: "Bob", Age: 30},
-})
-names := channels.NewPipeline(users).
-    Map(func(u User) string { return u.Name }).
-    Collect()
-// Result: ["Alice", "Bob"]
+ctx := context.Background()
+input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
+doubled := channels.Map(ctx, input, func(n int) int { return n * 2 })
+results := channels.CollectAsSlice(doubled)
+// results: [2 4 6 8 10]
 ```
 
-#### Filter - Keep Matching Elements
+`Map` can change the element type. The type parameters are usually inferred, but you can spell them out when it aids clarity:
 ```go
-// Filter even numbers
-numbers := channels.FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
-evens := channels.NewPipeline(numbers).
-    Filter(func(n int) bool { return n%2 == 0 }).
-    Collect()
-// Result: [2, 4, 6, 8, 10]
-
-// Filter active users
-users := channels.FromSlice([]User{
-    {Name: "Alice", Active: true},
-    {Name: "Bob", Active: false},
-    {Name: "Charlie", Active: true},
+input := channels.FromSlice(ctx, []int{1, 2, 3})
+labels := channels.Map[int, string](ctx, input, func(n int) string {
+    return fmt.Sprintf("num_%d", n)
 })
-activeUsers := channels.NewPipeline(users).
-    Filter(func(u User) bool { return u.Active }).
-    Collect()
-// Result: [Alice, Charlie]
+results := channels.CollectAsSlice(labels)
+// results: [num_1 num_2 num_3]
 ```
 
-#### FlatMap - Transform and Flatten
+### Filter - Keep Matching Elements
 ```go
-// Split sentences into words
-sentences := channels.FromSlice([]string{
-    "hello world",
-    "go is awesome",
-    "pipelines rock",
+ctx := context.Background()
+input := channels.FromSlice(ctx, []string{"hello", "everyone", "world", "goodness", "gracious"})
+output := channels.Filter(ctx, input, func(element string) bool {
+    return len(element) > 5
 })
-words := channels.NewPipeline(sentences).
-    FlatMap(func(sentence string) []string {
-        return strings.Fields(sentence)
-    }).
-    Collect()
-// Result: ["hello", "world", "go", "is", "awesome", "pipelines", "rock"]
-
-// Extract tags from posts
-posts := channels.FromSlice([]Post{
-    {Tags: []string{"go", "programming"}},
-    {Tags: []string{"tutorial", "go"}},
-})
-allTags := channels.NewPipeline(posts).
-    FlatMap(func(p Post) []string { return p.Tags }).
-    Collect()
-// Result: ["go", "programming", "tutorial", "go"]
+results := channels.CollectAsSlice(output)
+// results: [everyone goodness gracious]
 ```
 
-### Concurrent Operations
-
-#### Parallel - Process with Multiple Workers
+### Reduce - Fold a Stream
 ```go
-// Process with 3 workers for CPU-intensive tasks
-data := channels.FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
-results := channels.NewPipeline(data).
-    Parallel(3, func(n int) int {
-        // Simulate expensive computation
-        time.Sleep(100 * time.Millisecond)
-        return n * n
-    }).
-    Collect()
-// Processes 3 items concurrently, much faster than sequential
-
-// Process API requests with worker pool
-urls := channels.FromSlice([]string{
-    "https://api1.com/data",
-    "https://api2.com/data",
-    "https://api3.com/data",
-})
-responses := channels.NewPipeline(urls).
-    Parallel(5, func(url string) Response {
-        return httpClient.Get(url)
-    }).
-    Collect()
+ctx := context.Background()
+input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
+totals := channels.Reduce(ctx, input, func(acc, n int) int { return acc + n })
+total := channels.CollectAsSlice(totals)
+// total: [15]
 ```
 
-#### Batch - Group Elements
-```go
-// Process data in batches of 3
-numbers := channels.FromSlice([]int{1, 2, 3, 4, 5, 6, 7, 8, 9})
-batches := channels.NewPipeline(numbers).
-    Batch(3).
-    Collect()
-// Result: [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+`Reduce` emits its running value on a channel so it still composes with the other stages.
 
-// Batch database inserts
-users := channels.FromSlice([]User{...}) // 1000 users
-channels.NewPipeline(users).
-    Batch(100).
-    ForEach(func(batch []User) {
-        database.InsertUsers(batch) // Insert 100 at a time
+## Composing Stages
+
+Because every stage transform takes a channel and returns a channel, stages compose by nesting — the output of one becomes the input of the next:
+
+```go
+ctx := context.Background()
+input := channels.FromSlice(ctx, []string{"one", "two", "three", "four", "five"})
+
+lengths := channels.Map(ctx, input, func(s string) int { return len(s) })
+longish := channels.Filter(ctx, lengths, func(n int) bool { return n >= 4 })
+
+results := channels.CollectAsSlice(longish) // [5 4 4]
+```
+
+`NewPipeline` captures that wiring behind a single value with fixed input and output types, which is handy when a pipeline is passed around or returned. It threads its context into the supplied function so every stage shares one cancellation signal:
+
+```go
+pipeline := channels.NewPipeline[string, int](ctx, input, func(ctx context.Context, in <-chan string) <-chan int {
+    lengths := channels.Map(ctx, in, func(s string) int { return len(s) })
+    return channels.Filter(ctx, lengths, func(n int) bool { return n >= 4 })
+})
+results := pipeline.CollectAsSlice()
+```
+
+A pipeline can change types between its ends — for example, total the input and then stringify it:
+
+```go
+ctx := context.Background()
+input := channels.FromSlice(ctx, []int{1, 2, 5, 4, 3})
+
+pipeline := channels.NewPipeline[int, string](ctx, input, func(ctx context.Context, in <-chan int) <-chan string {
+    totals := channels.Reduce(ctx, in, func(acc, n int) int { return acc + n })
+    return channels.Map[int, string](ctx, totals, func(n int) string {
+        return strconv.Itoa(n)
     })
-```
-
-### Utility Operations
-
-#### Buffer - Add Buffering
-```go
-// Add buffering to prevent blocking
-input := make(chan int)
-buffered := channels.NewPipeline(input).
-    Buffer(100).  // Buffer up to 100 items
-    Map(expensiveOperation).
-    Collect()
-
-// Useful for producer-consumer rate mismatch
-fastProducer := make(chan Data)
-channels.NewPipeline(fastProducer).
-    Buffer(1000).  // Buffer fast production
-    Parallel(5, slowProcessor).  // Process with 5 workers
-    ForEach(handleResult)
-```
-
-#### Timeout - Add Timeout Handling
-```go
-// Process with timeout
-input := make(chan Request)
-results := channels.NewPipeline(input).
-    Timeout(5 * time.Second).  // Timeout after 5 seconds
-    Map(processRequest).
-    Collect()
-
-// Handle slow operations
-slowData := make(chan Data)
-channels.NewPipeline(slowData).
-    Timeout(1 * time.Minute).
-    Map(func(data Data) Result {
-        // This will timeout if it takes > 1 minute
-        return processSlowly(data)
-    }).
-    ForEach(handleResult)
-```
-
-#### Merge - Combine Multiple Channels
-```go
-// Merge multiple data sources
-source1 := make(chan Event)
-source2 := make(chan Event)
-source3 := make(chan Event)
-
-merged := channels.Merge(source1, source2, source3)
-allEvents := channels.NewPipeline(merged).
-    Filter(isImportant).
-    Collect()
-
-// Merge different types (with transformation)
-numbers := make(chan int)
-strings := make(chan string)
-
-// Convert both to common type and merge
-numberEvents := channels.NewPipeline(numbers).
-    Map(func(n int) Event { return Event{Type: "number", Value: n} })
-
-stringEvents := channels.NewPipeline(strings).
-    Map(func(s string) Event { return Event{Type: "string", Value: s} })
-
-allEvents := channels.Merge(numberEvents.Channel(), stringEvents.Channel())
-```
-
-#### Split - Distribute to Multiple Channels
-```go
-// Split data to multiple processors
-input := make(chan Task)
-outputs := channels.Split(input, 3)  // Split to 3 channels
-
-// Process each split differently
-go channels.NewPipeline(outputs[0]).
-    Map(processTypeA).
-    ForEach(handleA)
-
-go channels.NewPipeline(outputs[1]).
-    Map(processTypeB).
-    ForEach(handleB)
-
-go channels.NewPipeline(outputs[2]).
-    Map(processTypeC).
-    ForEach(handleC)
-```
-
-## Real-World Examples
-
-### Log Processing System
-```go
-// Real-time log processing pipeline
-logLines := make(chan string, 1000)
-
-// Process logs: parse -> filter errors -> extract metrics -> alert
-go channels.NewPipeline(logLines).
-    Map(parseLogLine).
-    Filter(func(log LogEntry) bool { return log.Level == "ERROR" }).
-    Map(extractErrorMetrics).
-    Batch(10).  // Process in batches of 10
-    ForEach(func(metrics []ErrorMetric) {
-        alerting.SendBatch(metrics)
-    })
-
-// Feed log lines from multiple sources
-go func() {
-    for line := range fileWatcher.Lines() {
-        logLines <- line
-    }
-}()
-
-go func() {
-    for line := range networkLogs.Lines() {
-        logLines <- line
-    }
-}()
-```
-
-### Image Processing Pipeline
-```go
-// Process images concurrently
-imageFiles := channels.FromSlice([]string{
-    "image1.jpg", "image2.jpg", "image3.jpg", // ... 1000 images
 })
 
-processedImages := channels.NewPipeline(imageFiles).
-    Parallel(8, func(filename string) ProcessedImage {
-        // CPU-intensive image processing with 8 workers
-        img := loadImage(filename)
-        resized := resize(img, 800, 600)
-        compressed := compress(resized, 0.8)
-        return ProcessedImage{
-            Original: filename,
-            Data:     compressed,
-        }
-    }).
-    Filter(func(img ProcessedImage) bool {
-        return img.Data != nil  // Filter out failed processing
-    }).
-    Collect()
-
-fmt.Printf("Processed %d images\n", len(processedImages))
+results := pipeline.CollectAsSlice() // ["15"]
 ```
 
-### API Data Aggregation
+## Sources and Sinks
+
+### FromSlice / FromMap - Build a Channel
 ```go
-// Fetch data from multiple APIs and aggregate
-apiEndpoints := []string{
-    "https://api1.com/users",
-    "https://api2.com/users",
-    "https://api3.com/users",
+ctx := context.Background()
+
+// From a slice
+nums := channels.FromSlice(ctx, []int{1, 2, 5, 4, 3})
+
+// From a map (each entry becomes a maps.Entry on the channel)
+entries := channels.FromMap(ctx, map[int]string{1: "one", 2: "two"})
+```
+
+### Collecting Results
+```go
+ctx := context.Background()
+
+// Drain everything into a slice (blocks until the channel closes).
+input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
+doubled := channels.Map(ctx, input, func(n int) int { return n * 2 })
+all := channels.CollectAsSlice(doubled) // [2 4 6 8 10]
+
+// Or take only the first N elements.
+more := channels.Map(ctx, channels.FromSlice(ctx, []int{1, 2, 3, 4, 5}), func(n int) int { return n * 2 })
+firstThree := channels.CollectNAsSlice(more, 3) // [2 4 6]
+```
+
+`CollectAsMap` drains a channel into a map by deriving a key/value entry from each element:
+```go
+ctx := context.Background()
+input := channels.FromSlice(ctx, []string{"hello", "and", "world"})
+lengths := channels.CollectAsMap(input, func(s string) maps.Entry[string, int] {
+    return maps.Entry[string, int]{Key: s, Value: len(s)}
+})
+// lengths: map[and:3 hello:5 world:5]
+```
+
+## Error Handling
+
+The stage helpers do not expose a separate error channel. The idiomatic approach is to carry the error alongside each result and partition downstream:
+
+```go
+type Result struct {
+    Value int
+    Err   error
 }
 
-input := channels.FromSlice(apiEndpoints)
+parsed := channels.Map(ctx, input, func(s string) Result {
+    n, err := strconv.Atoi(s)
+    return Result{Value: n, Err: err}
+})
 
-// Fetch from all APIs concurrently
-allUsers := channels.NewPipeline(input).
-    Parallel(3, func(url string) []User {
-        resp, err := http.Get(url)
-        if err != nil {
-            return nil
-        }
-        defer resp.Body.Close()
-
-        var users []User
-        json.NewDecoder(resp.Body).Decode(&users)
-        return users
-    }).
-    FlatMap(func(users []User) []User {
-        return users  // Flatten all user slices
-    }).
-    Filter(func(user User) bool {
-        return user.Active  // Only active users
-    }).
-    Collect()
-
-// Deduplicate and store
-uniqueUsers := deduplicateUsers(allUsers)
-database.StoreUsers(uniqueUsers)
+ok := channels.Filter(ctx, parsed, func(r Result) bool { return r.Err == nil })
+values := channels.CollectAsSlice(ok)
 ```
 
-### Stream Processing with Error Handling
-```go
-// Process data stream with error handling
-dataStream := make(chan RawData, 100)
+## Cancellation
 
-results, errors := channels.NewPipeline(dataStream).
-    MapWithError(func(raw RawData) (ProcessedData, error) {
-        return processData(raw)  // May return error
-    }).
-    Filter(func(data ProcessedData) bool {
-        return data.IsValid()
-    }).
-    Parallel(5, func(data ProcessedData) EnrichedData {
-        return enrichData(data)  // Enrich with external data
-    }).
-    CollectWithErrors()
-
-// Handle results and errors separately
-go func() {
-    for result := range results {
-        database.Store(result)
-    }
-}()
-
-go func() {
-    for err := range errors {
-        logger.Error("Processing failed", err)
-        metrics.IncrementErrorCount()
-    }
-}()
-```
-
-## Performance Guide
-
-### When to Use Pipelines vs Manual Channels
-
-| Scenario | Recommendation | Why |
-|----------|---------------|-----|
-| Complex multi-stage processing | **Pipelines** | Automatic coordination |
-| Simple point-to-point communication | **Manual channels** | Lower overhead |
-| CPU-intensive parallel work | **Pipelines** | Built-in worker pools |
-| Custom synchronization patterns | **Manual channels** | Full control |
-| Stream processing | **Pipelines** | Backpressure handling |
-
-### Performance Characteristics
-
-```
-BenchmarkPipeline/Map-16              50M    52.8 ns/op   140 B/op   2 allocs/op
-BenchmarkManual/Map-16                60M    45.2 ns/op   120 B/op   1 allocs/op
-
-BenchmarkPipeline/Filter-16           45M    58.1 ns/op   160 B/op   2 allocs/op
-BenchmarkManual/Filter-16             55M    48.7 ns/op   140 B/op   1 allocs/op
-
-BenchmarkPipeline/Parallel-16         30M    89.3 ns/op   280 B/op   4 allocs/op
-BenchmarkManual/Parallel-16           25M   105.2 ns/op   320 B/op   5 allocs/op
-```
-
-**Key Insights:**
-- Pipelines add ~15% overhead for coordination
-- Parallel operations show pipeline benefits
-- Memory usage is slightly higher due to abstractions
-- Complex workflows favor pipelines despite overhead
-
-### Optimization Tips
+Every stage transform takes a context. Cancelling it stops each stage's goroutine and reclaims it, so a pipeline never leaks goroutines when its consumer goes away:
 
 ```go
-// Good: Use appropriate buffer sizes
-input := make(chan Data, 100)  // Buffer based on expected load
+ctx, cancel := context.WithCancel(context.Background())
+defer cancel()
 
-// Good: Chain operations to minimize intermediate channels
-result := channels.NewPipeline(input).
-    Map(transform1).
-    Filter(condition).
-    Map(transform2).
-    Collect()
+input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
+doubled := channels.Map(ctx, input, func(n int) int { return n * 2 })
 
-// Avoid: Creating separate pipelines for each operation
-stage1 := channels.NewPipeline(input).Map(transform1).Channel()
-stage2 := channels.NewPipeline(stage1).Filter(condition).Channel()
-result := channels.NewPipeline(stage2).Map(transform2).Collect()
-
-// Good: Use Parallel for CPU-intensive work
-results := channels.NewPipeline(input).
-    Parallel(runtime.NumCPU(), expensiveComputation).
-    Collect()
-
-// Good: Use Batch for I/O operations
-channels.NewPipeline(input).
-    Batch(100).
-    ForEach(func(batch []Item) {
-        database.InsertBatch(batch)  // Batch I/O is more efficient
-    })
+// Take what you need, then cancel to tear the rest of the pipeline down.
+firstTwo := channels.CollectNAsSlice(doubled, 2)
+cancel()
 ```
+
+## Performance Considerations
+
+Channel pipelines add per-element goroutine and channel overhead in exchange for streaming, backpressure, and composable stages. Use them for data- and stream-processing workflows; prefer the [`slices`](../slices) package (or a hand-written loop) for in-memory data on a performance-critical hot path.
 
 ## Integration with Other Packages
 
-Channels work seamlessly with slices and collections:
+Channels interoperate with the `slices` and `collections` packages — drain a pipeline into a slice, then build a collection from it:
 
 ```go
-// Process slice data through pipeline
-data := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-input := channels.FromSlice(data)
+ctx := context.Background()
+input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
+evens := channels.Filter(ctx, input, func(n int) bool { return n%2 == 0 })
+results := channels.CollectAsSlice(evens)
 
-// Use slices package for additional processing
-processed := channels.NewPipeline(input).
-    Map(func(n int) int { return n * n }).
-    Collect()
-
-// Further processing with slices
-filtered := slices.Filter(processed, func(n int) bool { return n > 25 })
-unique := slices.Unique(filtered)
-
-// Store in collections
-resultSet := collections.NewSet(unique...)
+resultSet := collections.NewSet(results...)
 resultDict := collections.NewDict(
-    slices.Map(unique, func(n int) collections.Pair[int, string] {
-        return collections.Pair[int, string]{Key: n, Value: fmt.Sprintf("value_%d", n)}
-    })...
+    slices.Map(results, func(n int) collections.Pair[int, int] {
+        return collections.Pair[int, int]{Key: n, Value: n * n}
+    })...,
 )
-
-// Create pipeline from collections
-dictValues := collections.NewDict(...).Values()
-valueChannel := channels.FromSlice(dictValues)
-channels.NewPipeline(valueChannel).
-    Filter(someCondition).
-    ForEach(processValue)
-```
-
-## Best Practices
-
-### 1. Design for Composability
-```go
-// Good: Create reusable pipeline stages
-func validateData(input <-chan RawData) <-chan ValidData {
-    return channels.NewPipeline(input).
-        Filter(func(data RawData) bool { return data.IsValid() }).
-        Map(func(data RawData) ValidData { return ValidData(data) }).
-        Channel()
-}
-
-func enrichData(input <-chan ValidData) <-chan EnrichedData {
-    return channels.NewPipeline(input).
-        Parallel(5, func(data ValidData) EnrichedData {
-            return callExternalAPI(data)
-        }).
-        Channel()
-}
-
-// Compose stages
-rawData := make(chan RawData)
-validated := validateData(rawData)
-enriched := enrichData(validated)
-results := channels.NewPipeline(enriched).Collect()
-```
-
-### 2. Handle Errors Gracefully
-```go
-// Good: Use error handling pipelines
-results, errors := channels.NewPipeline(input).
-    MapWithError(func(item Item) (Result, error) {
-        return processItem(item)
-    }).
-    CollectWithErrors()
-
-// Handle errors appropriately
-go func() {
-    for err := range errors {
-        logger.Error("Processing failed", err)
-        metrics.IncrementErrorCount()
-
-        // Implement retry logic if needed
-        if isRetryable(err) {
-            retryQueue <- item
-        }
-    }
-}()
-```
-
-### 3. Use Appropriate Concurrency
-```go
-// Good: Match workers to workload type
-cpuIntensive := channels.NewPipeline(input).
-    Parallel(runtime.NumCPU(), computeHeavyTask).  // CPU-bound: use CPU count
-    Collect()
-
-ioIntensive := channels.NewPipeline(input).
-    Parallel(50, func(item Item) Result {           // I/O-bound: higher count
-        return callExternalAPI(item)
-    }).
-    Collect()
-
-// Good: Use buffering for rate mismatches
-fastProducer := make(chan Data, 1000)  // Buffer for bursty production
-channels.NewPipeline(fastProducer).
-    Buffer(500).                        // Additional buffering
-    Parallel(10, slowProcessor).        // Process with limited workers
-    ForEach(handleResult)
-```
-
-### 4. Manage Resources
-```go
-// Good: Always close channels when done
-func processData(data []Item) {
-    input := make(chan Item, len(data))
-    defer close(input)  // Ensure channel is closed
-
-    // Send data
-    go func() {
-        for _, item := range data {
-            input <- item
-        }
-    }()
-
-    // Process
-    results := channels.NewPipeline(input).
-        Map(processItem).
-        Collect()
-
-    handleResults(results)
-}
-
-// Good: Use context for cancellation
-func processWithContext(ctx context.Context, input <-chan Data) {
-    channels.NewPipeline(input).
-        WithContext(ctx).  // Respect context cancellation
-        Map(processData).
-        ForEach(handleResult)
-}
-```
-
-### 5. Monitor and Debug
-```go
-// Good: Add monitoring to pipelines
-channels.NewPipeline(input).
-    Map(func(item Item) Item {
-        metrics.IncrementProcessed()
-        start := time.Now()
-        defer func() {
-            metrics.RecordProcessingTime(time.Since(start))
-        }()
-        return processItem(item)
-    }).
-    Filter(func(item Item) bool {
-        valid := item.IsValid()
-        if !valid {
-            metrics.IncrementInvalid()
-        }
-        return valid
-    }).
-    ForEach(handleResult)
 ```
 
 ## Quick Reference
 
-### Essential Operations
 ```go
-// Create pipeline
-pipeline := channels.NewPipeline(inputChannel)
+// Sources
+channels.FromSlice(ctx, []T{...})            // slice  -> channel
+channels.FromMap(ctx, map[K]V{...})          // map    -> channel of maps.Entry[K, V]
 
-// Transform
-.Map(transformFunc)                    // Transform each element
-.Filter(predicateFunc)                 // Keep matching elements
-.FlatMap(func(T) []U)                 // Transform and flatten
+// Stage transforms (each: channel -> channel)
+channels.Map(ctx, in, func(I) O)             // transform each element
+channels.Filter(ctx, in, func(T) bool)       // keep matching elements
+channels.Reduce(ctx, in, func(O, I) O)       // fold to a running value
 
-// Concurrent
-.Parallel(workers, processFunc)       // Process with worker pool
-.Batch(size)                          // Group into batches
+// Pipeline (fixed input/output types)
+pipeline := channels.NewPipeline[I, O](ctx, in, func(ctx, in) <-chan O { ... })
+pipeline.CollectAsSlice()                    // drain the pipeline into a slice
 
-// Utility
-.Buffer(size)                         // Add buffering
-.Timeout(duration)                    // Add timeout
-.WithContext(ctx)                     // Add cancellation
-
-// Collect
-.Collect()                            // Get all results as slice
-.ForEach(func(T))                     // Process each result
-.Channel()                            // Get output channel
+// Sinks
+channels.CollectAsSlice(in)                  // channel -> []T
+channels.CollectNAsSlice(in, n)              // channel -> first n elements
+channels.CollectAsMap(in, func(I) maps.Entry[OK, OV]) // channel -> map[OK]OV
+channels.BuildMapFromEntries(entries)        // []maps.Entry[K, V] -> map[K]V
 ```
 
-### Channel Utilities
-```go
-// Create channels
-channels.FromSlice([]T)               // Channel from slice
-channels.Merge(ch1, ch2, ch3)         // Merge multiple channels
-channels.Split(input, count)          // Split to multiple channels
-
-// Error handling
-.MapWithError(func(T) (U, error))     // Transform with errors
-.CollectWithErrors()                  // Collect results and errors
-```
-
-Start with Map and Filter, then add Parallel processing and patterns like Batch and Merge as your needs grow.
+Start with `Map` and `Filter`, reach for `Reduce` when folding a stream, and wrap a multi-stage flow in `NewPipeline` when you need to pass it around by value.

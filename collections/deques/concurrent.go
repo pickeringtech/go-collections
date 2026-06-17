@@ -9,6 +9,13 @@ import (
 // that is safe for concurrent use. Every operation is guarded by a sync.Mutex.
 // Operating on it yields another ConcurrentRingBuffer, so thread-safe in means
 // thread-safe out.
+//
+// Zero value: always construct with NewConcurrentRingBuffer (or
+// NewBoundedConcurrentRingBuffer). Unlike the plain RingBuffer, whose zero value
+// is a valid empty deque, the concurrent wrapper holds its RingBuffer by pointer.
+// The embedded mutex is a value, so a bare &ConcurrentRingBuffer{} is at least
+// lock-safe, but its inner buffer is nil until the constructor runs, so any
+// operation — reads included — dereferences a nil pointer and panics.
 type ConcurrentRingBuffer[T any] struct {
 	inner *RingBuffer[T]
 	lock  sync.Mutex

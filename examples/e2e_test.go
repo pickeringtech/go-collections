@@ -57,6 +57,16 @@ func cases() []e2eCase {
 			app:  "collection-transform",
 			args: []string{"-words", "the,quick,brown,fox,the,lazy,dog"},
 		},
+		{
+			name: "leaderboard",
+			app:  "leaderboard",
+			args: []string{"-events", "alice:5,bob:3,alice:2,carol:9,bob:4,alice:1,carol:1", "-top", "3"},
+		},
+		{
+			name: "stream-cache",
+			app:  "stream-cache",
+			args: []string{"-keys", "a,b,c,a,d,b,e,a,f", "-cap", "3", "-window", "4", "-limit", "6"},
+		},
 	}
 }
 

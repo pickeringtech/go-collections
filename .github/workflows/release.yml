@@ -1,0 +1,125 @@
+name: Release checks (tag-triggered)
+
+# Release-driven checks that are only meaningful when cutting a release, so they
+# trigger on a version tag rather than on every PR (issue #150).
+#
+#   - api-compat (gorelease). Reports the implied semver bump and any breaking
+#     changes of the just-tagged release against the PREVIOUS released tag.
+#     Pre-1.0 this is REPORT-ONLY (continue-on-error): breaking changes are
+#     permitted while the major version is 0, so the output informs the CHANGELOG
+#     and the next version-bump decision rather than gating. Post-v1.0, flip it
+#     to blocking (drop continue-on-error and fail when gorelease reports
+#     incompatible changes to the stable API), per the project's "ratchet the
+#     gates" pattern. (Moved off the per-PR path in #146/#150 — a gorelease verdict
+#     pre-1.0 is informational and only actionable at release time.)
+#
+# workflow_dispatch lets a maintainer preview the API delta of the working tree
+# (or any ref) against the latest release before tagging.
+
+on:
+  push:
+    tags: ["v*"]            # a release tag — compare it against the previous one
+  workflow_dispatch:         # on-demand preview against the latest release
+
+permissions:
+  contents: read
+
+env:
+  # gorelease lives in x/exp, which has no per-command tags — pin the pseudo-version.
+  GORELEASE_VERSION: "v0.0.0-20260611194520-c48552f49976"
+
+jobs:
+  api-compat:
+    name: API compatibility (gorelease vs previous release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gorelease and the tag lookup both need the full tag history, which
+          # the default shallow checkout omits.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      # Cache the compiled gorelease binary, keyed on its pinned version + OS
+      # (issue #151). Restore-then-`go install`: install is a fast no-op on a hit
+      # and only recompiles on a deliberate version bump.
+      - name: Cache gorelease binary
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gorelease
+          key: ${{ runner.os }}-tool-gorelease-${{ env.GORELEASE_VERSION }}
+      - name: Report API compatibility and implied semver bump
+        # Report-only pre-1.0 (see the header): breaking changes are allowed while
+        # major version is 0, so this surfaces the verdict without gating.
+        # gorelease itself also exits 0 for a pre-1.0 base even when the API breaks
+        # (it just suggests a minor bump), so continue-on-error is a belt-and-braces
+        # guard, not the only thing keeping the job green.
+        continue-on-error: true
+        env:
+          # The ref that triggered this run: a tag name (e.g. v0.1.0) on a tag
+          # push, or the branch name on workflow_dispatch.
+          CURRENT_REF: ${{ github.ref_name }}
+        run: |
+          set -uo pipefail
+          go install "golang.org/x/exp/cmd/gorelease@${GORELEASE_VERSION}"
+
+          # Latest released semver tag (vMAJOR.MINOR.PATCH; skip pre-releases),
+          # EXCLUDING the tag that triggered this run so a tag push compares
+          # against the PREVIOUS release, not against itself. On workflow_dispatch
+          # CURRENT_REF is a branch name, so nothing is excluded and we compare
+          # the working tree against the latest release.
+          base=$(git tag --sort=-version:refname \
+                   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                   | { grep -vFx "$CURRENT_REF" || true; } | head -1)
+          if [ -z "$base" ]; then
+            echo "No prior released semver tag found — nothing to diff against yet."
+            echo "No prior released tag to compare against." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "Comparing the public API of ${CURRENT_REF} against $base ..."
+
+          # Write the report OUTSIDE the repo: gorelease treats any untracked file
+          # in the working tree as "uncommitted changes" and aborts, so a report.txt
+          # created in-place by the redirect would make it fail on itself.
+          report="$(mktemp)"
+          # gorelease exits non-zero only for a *failed* analysis (not for finding
+          # breaking changes pre-1.0), so capture the status to distinguish the two.
+          gorelease -base "$base" > "$report" 2>&1 && status=0 || status=$?
+          cat "$report"
+
+          suggested=$(grep -i 'Suggested version' "$report" | head -1 | sed 's/.*: //')
+          # Count change lines that fall under a "## incompatible changes" header.
+          incompat=$(awk '
+            /^## incompatible changes/ {f=1; next}
+            /^## compatible changes/   {f=0; next}
+            /^# /                      {f=0; next}   # new package section ("# path")
+            f && NF                    {c++}
+            END                        {print c+0}' "$report")
+
+          {
+            echo "## API compatibility: ${CURRENT_REF} vs ${base}"
+            echo
+            if [ -z "$suggested" ] && [ "$status" -ne 0 ]; then
+              # gorelease aborted (e.g. couldn't resolve the base) — don't imply a
+              # clean bill of health from an analysis that never produced a verdict.
+              echo "⚠️ gorelease could not complete the analysis (exit ${status}); see the job log."
+            else
+              [ -n "$suggested" ] && echo "**Suggested version:** ${suggested}"
+              echo
+              if [ "${incompat:-0}" -gt 0 ]; then
+                echo "⚠️ **${incompat} incompatible (breaking) change(s)** detected — report-only"
+                echo "pre-1.0. Flag these in the CHANGELOG and the version-bump decision."
+              else
+                echo "✅ No incompatible changes detected."
+              fi
+            fi
+            echo
+            echo "<details><summary>Full gorelease report</summary>"
+            echo
+            echo '```'
+            cat "$report"
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
