@@ -164,8 +164,10 @@ func (c *ConcurrentSetMultimap[K, V]) Filter(fn func(key K, value V) bool) Multi
 // FilterInPlace removes every entry that does not satisfy the predicate. The
 // predicate is evaluated after the lock is released, against a point-in-time
 // snapshot taken under the lock, so it may safely call back into the multimap.
-// Modifications made concurrently with evaluation are not reflected in the
-// retained set.
+//
+// Each rejected (key, value) entry removes one matching entry from the multimap
+// as it stands at apply time, so entries added concurrently in the evaluation
+// window are preserved.
 func (c *ConcurrentSetMultimap[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	c.lock.Lock()
 	entries := c.data.Entries()

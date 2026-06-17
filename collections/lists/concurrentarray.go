@@ -120,17 +120,31 @@ func (a *ConcurrentArray[T]) Filter(fun func(T) bool) List[T] {
 // FilterInPlace retains only the elements for which fn returns true, modifying
 // the receiver. The predicate is evaluated after the lock is released, against
 // a point-in-time snapshot taken under the lock, so it may safely call back into
-// the collection. Modifications made concurrently with evaluation are not
-// reflected in the retained set. It is safe for concurrent use.
+// the collection. It is safe for concurrent use.
+//
+// Removal is applied as a multiset diff against the current contents: each
+// element the predicate rejected removes one deeply-equal occurrence from the
+// list as it stands at apply time. Elements inserted concurrently in the
+// evaluation window are therefore preserved rather than discarded wholesale.
 func (a *ConcurrentArray[T]) FilterInPlace(fn func(T) bool) {
 	a.lock.Lock()
 	snapshot := slices.Copy(a.elements)
 	a.lock.Unlock()
 
-	retained := slices.Filter(snapshot, fn)
+	var removed []T
+	for _, element := range snapshot {
+		if !fn(element) {
+			removed = append(removed, element)
+		}
+	}
 
 	a.lock.Lock()
-	a.elements = retained
+	for _, element := range removed {
+		index := indexOfDeepEqual(a.elements, element)
+		if index >= 0 {
+			a.elements = slices.Delete(a.elements, index)
+		}
+	}
 	a.lock.Unlock()
 }
 
