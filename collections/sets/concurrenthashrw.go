@@ -51,25 +51,37 @@ func (ch *ConcurrentHashRW[T]) IsEmpty() bool {
 	return len(ch.data) == 0
 }
 
-// ForEach executes the given function for each element.
+// ForEach executes the given function for each element. fn is invoked after the
+// lock is released, against a point-in-time snapshot taken under the lock, so fn
+// may safely call back into the collection.
 func (ch *ConcurrentHashRW[T]) ForEach(fn func(element T)) {
 	ch.lock.RLock()
-	defer ch.lock.RUnlock()
-
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.RUnlock()
+
+	for _, element := range elements {
 		fn(element)
 	}
 }
 
 // Filter returns a new set containing only the elements
 // that satisfy the given predicate function. The returned set is a new
-// thread-safe ConcurrentHashRW, independent of the receiver.
+// thread-safe ConcurrentHashRW, independent of the receiver. The predicate is
+// evaluated after the lock is released, against a point-in-time snapshot taken
+// under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentHashRW[T]) Filter(fn func(element T) bool) Set[T] {
 	ch.lock.RLock()
-	defer ch.lock.RUnlock()
+	elements := make([]T, 0, len(ch.data))
+	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.RUnlock()
 
 	result := NewConcurrentHashRW[T]()
-	for element := range ch.data {
+	for _, element := range elements {
 		if fn(element) {
 			result.data[element] = struct{}{}
 		}
@@ -78,25 +90,45 @@ func (ch *ConcurrentHashRW[T]) Filter(fn func(element T) bool) Set[T] {
 }
 
 // FilterInPlace removes all elements that do not satisfy
-// the given predicate function, modifying the set in place.
+// the given predicate function, modifying the set in place. The predicate is
+// evaluated after the lock is released, against a point-in-time snapshot taken
+// under the lock, so it may safely call back into the collection. Modifications
+// made concurrently with evaluation are not reflected in the retained set.
 func (ch *ConcurrentHashRW[T]) FilterInPlace(fn func(element T) bool) {
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
+	ch.lock.RLock()
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.RUnlock()
+
+	var toRemove []T
+	for _, element := range elements {
 		if !fn(element) {
-			delete(ch.data, element)
+			toRemove = append(toRemove, element)
 		}
 	}
+
+	ch.lock.Lock()
+	for _, element := range toRemove {
+		delete(ch.data, element)
+	}
+	ch.lock.Unlock()
 }
 
 // Find returns the first element that satisfies the given predicate.
-// Returns the element and true if found; zero value and false otherwise.
+// Returns the element and true if found; zero value and false otherwise. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentHashRW[T]) Find(fn func(element T) bool) (T, bool) {
 	ch.lock.RLock()
-	defer ch.lock.RUnlock()
-
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.RUnlock()
+
+	for _, element := range elements {
 		if fn(element) {
 			return element, true
 		}
@@ -105,12 +137,18 @@ func (ch *ConcurrentHashRW[T]) Find(fn func(element T) bool) (T, bool) {
 	return zero, false
 }
 
-// AllMatch returns true if all elements satisfy the given predicate.
+// AllMatch returns true if all elements satisfy the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentHashRW[T]) AllMatch(fn func(element T) bool) bool {
 	ch.lock.RLock()
-	defer ch.lock.RUnlock()
-
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.RUnlock()
+
+	for _, element := range elements {
 		if !fn(element) {
 			return false
 		}
@@ -118,12 +156,18 @@ func (ch *ConcurrentHashRW[T]) AllMatch(fn func(element T) bool) bool {
 	return true
 }
 
-// AnyMatch returns true if any element satisfies the given predicate.
+// AnyMatch returns true if any element satisfies the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentHashRW[T]) AnyMatch(fn func(element T) bool) bool {
 	ch.lock.RLock()
-	defer ch.lock.RUnlock()
-
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.RUnlock()
+
+	for _, element := range elements {
 		if fn(element) {
 			return true
 		}
@@ -131,12 +175,18 @@ func (ch *ConcurrentHashRW[T]) AnyMatch(fn func(element T) bool) bool {
 	return false
 }
 
-// NoneMatch returns true if no element satisfies the given predicate.
+// NoneMatch returns true if no element satisfies the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (ch *ConcurrentHashRW[T]) NoneMatch(fn func(element T) bool) bool {
 	ch.lock.RLock()
-	defer ch.lock.RUnlock()
-
+	elements := make([]T, 0, len(ch.data))
 	for element := range ch.data {
+		elements = append(elements, element)
+	}
+	ch.lock.RUnlock()
+
+	for _, element := range elements {
 		if fn(element) {
 			return false
 		}
@@ -208,6 +258,12 @@ func (ch *ConcurrentHashRW[T]) Union(other Set[T]) Set[T] {
 	for e := range ch.data {
 		result.data[e] = struct{}{}
 	}
+	// Self-union is just a copy; calling other.ForEach would re-acquire ch.lock
+	// (read-locking a held read lock can deadlock if a writer is queued) when
+	// other is the receiver.
+	if other == Set[T](ch) {
+		return result
+	}
 	other.ForEach(func(element T) {
 		result.data[element] = struct{}{}
 	})
@@ -237,6 +293,11 @@ func (ch *ConcurrentHashRW[T]) UnionInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
+	// Unioning a set with itself is a no-op; bail out before other.ForEach
+	// read-locks the write-held ch.lock and deadlocks.
+	if other == Set[T](ch) {
+		return
+	}
 	other.ForEach(func(element T) {
 		ch.data[element] = struct{}{}
 	})
@@ -285,6 +346,12 @@ func (ch *ConcurrentHashRW[T]) Difference(other Set[T]) Set[T] {
 	defer ch.lock.RUnlock()
 
 	result := NewConcurrentHashRW[T]()
+	// Self-difference is empty; calling other.Contains would re-acquire ch.lock
+	// (a queued writer can deadlock recursive read locks) when other is the
+	// receiver.
+	if other == Set[T](ch) {
+		return result
+	}
 	for element := range ch.data {
 		if !other.Contains(element) {
 			result.data[element] = struct{}{}
@@ -321,6 +388,13 @@ func (ch *ConcurrentHashRW[T]) DifferenceInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
+	// Removing a set's own elements from itself empties it; do that directly
+	// rather than calling other.ForEach, which would read-lock the write-held
+	// ch.lock and deadlock when other is the receiver.
+	if other == Set[T](ch) {
+		clear(ch.data)
+		return
+	}
 	other.ForEach(func(element T) {
 		delete(ch.data, element)
 	})
@@ -343,6 +417,15 @@ func (ch *ConcurrentHashRW[T]) Intersection(other Set[T]) Set[T] {
 	defer ch.lock.RUnlock()
 
 	result := NewConcurrentHashRW[T]()
+	// Self-intersection is just a copy; calling other.Contains would re-acquire
+	// ch.lock (a queued writer can deadlock recursive read locks) when other is
+	// the receiver.
+	if other == Set[T](ch) {
+		for element := range ch.data {
+			result.data[element] = struct{}{}
+		}
+		return result
+	}
 	for element := range ch.data {
 		if other.Contains(element) {
 			result.data[element] = struct{}{}
@@ -356,6 +439,12 @@ func (ch *ConcurrentHashRW[T]) IsSubsetOf(other Set[T]) bool {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
 
+	// A set is always a subset of itself; bail out before other.Contains
+	// re-acquires ch.lock (recursive read locks can deadlock with a queued
+	// writer).
+	if other == Set[T](ch) {
+		return true
+	}
 	for element := range ch.data {
 		if !other.Contains(element) {
 			return false
@@ -374,6 +463,12 @@ func (ch *ConcurrentHashRW[T]) IsDisjoint(other Set[T]) bool {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
 
+	// A set is disjoint with itself only when empty; answer directly rather than
+	// calling other.Contains, which would re-acquire ch.lock (recursive read
+	// locks can deadlock with a queued writer) when other is the receiver.
+	if other == Set[T](ch) {
+		return len(ch.data) == 0
+	}
 	for element := range ch.data {
 		if other.Contains(element) {
 			return false
@@ -387,6 +482,12 @@ func (ch *ConcurrentHashRW[T]) Equals(other Set[T]) bool {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
 
+	// A set always equals itself; bail out before other.Length/other.Contains
+	// re-acquires ch.lock (recursive read locks can deadlock with a queued
+	// writer).
+	if other == Set[T](ch) {
+		return true
+	}
 	if len(ch.data) != other.Length() {
 		return false
 	}
@@ -403,6 +504,11 @@ func (ch *ConcurrentHashRW[T]) IntersectionInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
+	// Intersecting a set with itself is a no-op; bail out before other.Contains
+	// read-locks the write-held ch.lock and deadlocks.
+	if other == Set[T](ch) {
+		return
+	}
 	for element := range ch.data {
 		if !other.Contains(element) {
 			delete(ch.data, element)
