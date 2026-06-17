@@ -101,11 +101,11 @@
 //
 //	ch := dicts.NewConcurrentHash[string, int]()
 //
-//	// Safe to use from multiple goroutines
+//	// Safe to use from multiple goroutines. UpdateInPlace runs the whole
+//	// read-modify-write under one lock acquisition, so concurrent increments
+//	// don't lose updates (a separate Get + PutInPlace would race).
 //	go func() {
-//	    if mutableDict, ok := ch.(dicts.MutableDict[string, int]); ok {
-//	        mutableDict.PutInPlace("key", 42)
-//	    }
+//	    ch.UpdateInPlace("key", func(old int, _ bool) int { return old + 1 })
 //	}()
 //
 // Tree Dictionary (Sorted):
