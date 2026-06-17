@@ -1,6 +1,9 @@
 package dicts
 
-import "sync"
+import (
+	"reflect"
+	"sync"
+)
 
 // ConcurrentHashRW is a thread-safe dictionary implementation using Go's built-in map
 // with a read-write mutex for synchronization. Read operations use read locks for better
@@ -289,12 +292,16 @@ func (ch *ConcurrentHashRW[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 }
 
 // ContainsValue checks if the given value exists in the dictionary.
+//
+// Values are compared with reflect.DeepEqual, matching the equality semantics
+// used by list removal. This supports non-comparable value types (slices, maps,
+// funcs) without panicking.
 func (ch *ConcurrentHashRW[K, V]) ContainsValue(value V) bool {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
 
 	for _, v := range ch.data {
-		if any(v) == any(value) {
+		if reflect.DeepEqual(v, value) {
 			return true
 		}
 	}

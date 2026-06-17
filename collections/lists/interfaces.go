@@ -1,5 +1,7 @@
 package lists
 
+import "iter"
+
 // Filterable is implemented by collections that can be filtered into a new
 // slice without modifying the receiver.
 type Filterable[T any] interface {
@@ -41,10 +43,20 @@ type MutableInsertable[T any] interface {
 }
 
 // Iterable is implemented by collections that can be iterated over, with or
-// without element indices.
+// without element indices, via callbacks or range-over-func iterators.
 type Iterable[T any] interface {
 	ForEach(fn EachFunc[T])
 	ForEachWithIndex(fn IndexedEachFunc[T])
+	// All returns an iterator over index/value pairs, front to back, suitable
+	// for use with range-over-func.
+	All() iter.Seq2[int, T]
+	// Values returns an iterator over values, front to back, suitable for use
+	// with range-over-func.
+	Values() iter.Seq[T]
+	// Backward returns an iterator over index/value pairs, back to front;
+	// indices still count from the front (the last element has index
+	// Length()-1).
+	Backward() iter.Seq2[int, T]
 }
 
 // Removable is implemented by collections that can produce a new slice with an

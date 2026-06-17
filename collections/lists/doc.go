@@ -86,6 +86,19 @@
 //	list.FilterInPlace(predicate)           // Modifies list
 //	list.SortInPlace(compareFn)             // Modifies list
 //
+// # Iterators (range-over-func)
+//
+// Every list is iterator-native, integrating with Go 1.23+ range-over-func and
+// the wider iter ecosystem:
+//
+//	for i, v := range list.All() { ... }      // index/value pairs, front to back
+//	for v := range list.Values() { ... }      // values, front to back
+//	for i, v := range list.Backward() { ... } // index/value pairs, back to front
+//
+// FromSeq builds a list from any iter.Seq, completing the round-trip:
+//
+//	list := lists.FromSeq(other.Values())
+//
 // # Thread Safety
 //
 // Choose the right concurrent implementation:

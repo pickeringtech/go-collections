@@ -226,9 +226,10 @@ func writeFullTables(b *strings.Builder, samples []Sample) {
 
 // RenderReadmeRegion produces the marker-delimited preview injected into the
 // README: the primary (reference) headline table + chart, a one-line provenance
-// stamp per environment, and a link to the full report. Idempotent for fixed
-// inputs.
-func RenderReadmeRegion(datasets []Dataset, svgPath, reportPath string) string {
+// stamp per environment, a link to the full report, and — once the trend store
+// has data (trendLink non-empty) — a deep link to the long-term trend section.
+// Idempotent for fixed inputs.
+func RenderReadmeRegion(datasets []Dataset, svgPath, reportPath, trendLink string) string {
 	ordered := orderDatasets(datasets)
 	primary := ordered[0]
 	rows, _ := resolveHeadlines(indexSamples(primary.Samples))
@@ -250,6 +251,9 @@ func RenderReadmeRegion(datasets []Dataset, svgPath, reportPath string) string {
 			runner(d.Meta), orUnknown(d.Meta.GoVersion))
 	}
 	fmt.Fprintf(&b, "Full report → [%s](%s)\n", reportPath, reportPath)
+	if trendLink != "" {
+		fmt.Fprintf(&b, "\nPerformance trend across recent commits → [%s](%s)\n", reportPath, trendLink)
+	}
 	return b.String()
 }
 

@@ -7,19 +7,29 @@ name: CI
 #   - Blocking:    build, module hygiene, zero-dependency guard, tests
 #                  (race + shuffle) across the OS × Go-version matrix below,
 #                  coverage floor, gofmt, go vet, govulncheck, golangci-lint
-#                  (incl. cyclop/gocognit complexity), gosec and the examples
-#                  golden-output E2E (build + run + assert stdout, see #30).
-#   - Report-only: Go tip; cross-arch (386 build+vet+test, arm64/s390x
-#                  build+vet only); fuzz; benchmarks; API compatibility. These
-#                  print findings/early warnings but do not fail the build (per
-#                  #7's gating policy). On a PR the benchmark job also
+#                  (incl. cyclop/gocognit complexity), gosec, the examples
+#                  golden-output E2E (build + run + assert stdout, see #30),
+#                  cross-arch (386 build+vet+test, arm64/s390x build+vet) and
+#                  the fuzz smoke run. The last two were promoted from report-only
+#                  to gates (#72): both are deterministic — cross-arch is a fixed
+#                  cross-compile/run, and fuzz is now count-based (-fuzztime=NNNNx,
+#                  not a wall-clock budget) — so a failure is a real signal, not
+#                  runner noise.
+#   - Report-only: Go tip (intentionally unstable — gating would block merges on
+#                  upstream toolchain breakage); benchmarks (GitHub-hosted runners
+#                  are too noisy for a hard micro-benchmark gate); API compatibility
+#                  (breaking changes are allowed pre-1.0). These print findings/early
+#                  warnings but do not fail the build. On a PR the benchmark job also
 #                  A/B-compares against the base branch with benchstat and posts
 #                  the delta table — still advisory (see the job for the
 #                  documented path to a future regression gate).
 #   - main-only:   bench-report regenerates BENCHMARKS.md, docs/bench.svg and
-#                  the README preview, then bot-commits with `[skip ci]` (issue
-#                  #50). It runs only on push to main and is the sole job with
-#                  contents:write; the `[skip ci]` tag stops it re-triggering CI.
+#                  the README preview, archives this commit into the long-term
+#                  trend store (docs/bench/history/, issue #51) and re-renders the
+#                  trend section + report-only regression check, then bot-commits
+#                  with `[skip ci]` (issue #50). It runs only on push to main and
+#                  is the sole job with contents:write; the `[skip ci]` tag stops
+#                  it re-triggering CI.
 #
 # Branch protection (#41): the ONLY required check is the `CI Gate` job, which
 # `needs:` every blocking job and fails unless they all succeed. Requiring a
@@ -30,8 +40,9 @@ name: CI
 #
 # Test matrix (see #33): the `test` job gates Linux/macOS/Windows on the primary
 # (go.mod) Go version, plus the previous minor on Linux — 4 cells, kept small to
-# control runner-minutes. `test-tip` (Go tip) and `cross-arch` (386/arm64/s390x)
-# are report-only so exotic/experimental cells warn without blocking a merge.
+# control runner-minutes. `cross-arch` (386/arm64/s390x) now gates too (#72) —
+# it's deterministic and cheap. `test-tip` (Go tip) stays report-only so that
+# experimental cell warns about upcoming toolchain changes without blocking a merge.
 #
 # API-compatibility gating (#29): the api-compat job runs gorelease against the
 # last released tag and reports the implied semver bump + any breaking changes.
@@ -203,13 +214,14 @@ jobs:
         run: gotip test -race -shuffle=on ./...
 
   cross-arch:
-    # Report-only build/test across non-amd64 arches to catch word-size and
+    # Blocking (#72): build/test across non-amd64 arches to catch word-size and
     # endianness assumptions. 386 binaries execute on the amd64 host (pure-Go,
     # statically linked); arm64/s390x can't run here, so they are build+vet only.
     # s390x is big-endian — the cheapest way to surface endianness bugs.
-    name: Cross-arch build/test (report-only) — GOARCH=${{ matrix.goarch }}
+    # Deterministic and cheap (a fixed cross-compile/run, no runner-noise), so it
+    # now gates rather than merely warning — promoted per the ratchet pattern.
+    name: Cross-arch build/test — GOARCH=${{ matrix.goarch }}
     runs-on: ubuntu-latest
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -387,7 +399,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   fuzz:
-    name: Fuzz (short run per target) — report-only
+    name: Fuzz (short run per target)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -395,21 +407,22 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Run every fuzz target for a fixed iteration count, in parallel
-        # Report-only smoke run. Two levers keep this job under budget and keep
+        # Blocking smoke run (#72). Two levers keep this job under budget and keep
         # it there as targets are added (see #25):
         #   1. Count-based -fuzztime (2000x, mirroring the benchmark job's
         #      -benchtime=10x) instead of a 30s wall-clock budget. The job's
         #      purpose is to confirm each target compiles, runs, and survives
         #      its seed corpus + a burst of generated inputs — not to fuzz
         #      deeply — so a fixed iteration count is sub-second per target and
-        #      deterministic. Deep fuzzing belongs in a separate scheduled job.
+        #      deterministic. Because the run is count-based (not wall-clock), a
+        #      failure is a reproducible crasher, not runner noise — which is why
+        #      this now gates. Deep fuzzing belongs in a separate scheduled job.
         #   2. Fan the targets out across cores with `xargs -P $(nproc)` after
         #      warming the build cache once, so wall-clock is ~ceil(targets /
         #      cores) rather than the serial sum.
         # Parallel stdout interleaves unreadably, so each target writes its own
         # log file which is replayed under a ::group:: afterwards, keeping output
         # attributable. No-ops gracefully when there are no targets yet.
-        continue-on-error: true
         run: |
           set -uo pipefail
           go test -run='^$' ./...   # warm the build cache once, serially
@@ -452,11 +465,11 @@ jobs:
 
           failed=$(find "$logdir" -name '*.FAILED' -printf '%f\n' | sed 's/\.FAILED$//')
           if [ -n "$failed" ]; then
-            echo "::warning::Some fuzz targets reported failures (report-only, non-gating):"
+            echo "::error::Some fuzz targets found a crasher (see the grouped logs above):"
             echo "$failed"
-          else
-            echo "All $count fuzz target(s) passed the count-based smoke run ✔"
+            exit 1
           fi
+          echo "All $count fuzz target(s) passed the count-based smoke run ✔"
 
   benchmarks:
     name: Benchmark regression (vs base) — report-only
@@ -628,23 +641,41 @@ jobs:
       - name: Install benchstat (pinned)
         # Same pinned version as the PR A/B job, for a reproducible CSV format.
         run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
-      - name: Capture CI dataset and regenerate the combined report
-        # Captures the *ci* (secondary/indicative) environment only, then
-        # re-renders the combined report from it + the committed reference
-        # dataset. Uses the repo's BENCH_TIME/BENCH_COUNT knobs (exported from
-        # env above) rather than the 10x smoke, so the numbers are meaningful.
+      - name: Capture CI dataset, archive trend snapshot, and regenerate the report
+        # Captures the *ci* (secondary/indicative) environment only, archives this
+        # commit's raw multi-sample run into the long-term trend store
+        # (BENCH_HISTORY=1, issue #51), then re-renders the combined report —
+        # including the trend section — from it + the committed reference dataset.
+        # Uses the repo's BENCH_TIME/BENCH_COUNT knobs (exported from env above)
+        # rather than the 10x smoke, so the numbers are meaningful. Only this
+        # consistent CI environment feeds the trend store, so commit-to-commit
+        # drift is comparable; the cap prunes the oldest snapshots to bound growth.
         run: |
           make bench-report \
             BENCH_ENV=ci \
             BENCH_TIER=secondary \
+            BENCH_HISTORY=1 \
             BENCH_LABEL="CI — GitHub-hosted runner (ubuntu-latest)" \
             BENCH_MACHINE="shared ubuntu-latest runner (noisy)"
+      - name: Publish the trend regression check to the run summary (report-only)
+        # The trend store can flag a headline that regressed significantly across
+        # two consecutive commits. There's no PR to comment on at push time, so
+        # surface the verdict in the job summary. Never gates (issue #51): noisy
+        # shared runners make a hard block untrustworthy.
+        if: always()
+        run: |
+          if [ -s "build/bench-alert.md" ]; then
+            cat build/bench-alert.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No trend regression check produced (insufficient history yet)." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Commit regenerated artifacts (if changed) with [skip ci]
         run: |
           set -euo pipefail
           # The reference dataset (docs/bench/reference.csv) is maintainer-owned
-          # and never touched here — only the ci dataset + the rendered outputs.
-          paths="BENCHMARKS.md docs/bench.svg docs/bench/ci.csv README.md"
+          # and never touched here — only the ci dataset, the rendered outputs,
+          # and the appended/pruned trend snapshots under docs/bench/history/.
+          paths="BENCHMARKS.md docs/bench.svg docs/bench/ci.csv docs/bench/history README.md"
           changed=$(git status --porcelain -- $paths)
           if [ -z "$changed" ]; then
             echo "No benchmark-artifact changes — nothing to commit."
@@ -674,7 +705,7 @@ jobs:
     # when CI changes — update the `needs:` list here instead of the GitHub rule.
     name: CI Gate
     if: always()                       # run even if a dependency failed, so the gate can report
-    needs: [build, test, lint, security, examples-e2e]   # the blocking jobs only; report-only jobs stay out
+    needs: [build, test, lint, security, examples-e2e, cross-arch, fuzz]   # the blocking jobs only; report-only jobs (test-tip, benchmarks, api-compat) stay out
     runs-on: ubuntu-latest
     steps:
       - name: Require all blocking jobs to have succeeded

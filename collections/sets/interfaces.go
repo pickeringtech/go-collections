@@ -22,6 +22,10 @@ type Indexable[T comparable] interface {
 type Iterable[T comparable] interface {
 	// ForEach executes the given function for each element.
 	ForEach(fn func(element T))
+
+	// All returns an iterator over the elements, suitable for use with
+	// range-over-func. Iteration order is unspecified.
+	All() iter.Seq[T]
 }
 
 // Filterable provides filtering capabilities for sets.
