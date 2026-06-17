@@ -95,6 +95,20 @@ func (t *Tree[K, V]) PutInPlace(key K, value V) {
 	t.root = t.insertNode(t.root, key, value)
 }
 
+// UpdateInPlace reads the value at key, applies fn to it, and stores the result
+// back under key, returning the new value. fn receives the current value (the
+// zero value if the key is absent) and whether the key existed.
+func (t *Tree[K, V]) UpdateInPlace(key K, fn func(old V, existed bool) V) V {
+	var old V
+	existed := false
+	if node := t.findNode(key); node != nil {
+		old, existed = node.Value, true
+	}
+	newValue := fn(old, existed)
+	t.root = t.insertNode(t.root, key, newValue)
+	return newValue
+}
+
 // insertNode inserts key/value into the subtree rooted at n, rebalancing on the
 // way back up so the AVL height invariant is preserved. It returns the new root
 // of the subtree.
