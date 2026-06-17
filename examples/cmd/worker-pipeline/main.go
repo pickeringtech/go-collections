@@ -12,6 +12,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -26,6 +27,10 @@ func main() {
 	n := flag.Int("n", 12, "process the integers 1..n")
 	workers := flag.Int("workers", 4, "maximum number of concurrent workers")
 	flag.Parse()
+
+	// A single context governs every channel stage; cancelling it (e.g. on shutdown) would tear the whole
+	// pipeline down and reclaim its goroutines. This short-lived command runs to completion, so it never cancels.
+	ctx := context.Background()
 
 	// Guard the inputs: a negative -n panics slices.Generate, and a -workers of
 	// zero or less deadlocks (unbuffered) or panics (negative buffer) the limiter.
@@ -42,7 +47,7 @@ func main() {
 	inputs := slices.Generate(*n, func(i int) int { return i + 1 })
 
 	// channels: present the inputs as a stream to fan out from.
-	stream := channels.FromSlice(inputs)
+	stream := channels.FromSlice(ctx, inputs)
 
 	// concurrency: a bounded pool squares each item; no more than `workers`
 	// run concurrently. The mutex-guarded append is the fan-in.
@@ -63,8 +68,8 @@ func main() {
 	limiter.Run(work)
 
 	// channels: reduce the fanned-in results to a single sum.
-	sum := channels.NewPipeline[int, int](channels.FromSlice(squares), func(in <-chan int) <-chan int {
-		return channels.Reduce(in, func(acc, x int) int { return acc + x })
+	sum := channels.NewPipeline[int, int](ctx, channels.FromSlice(ctx, squares), func(ctx context.Context, in <-chan int) <-chan int {
+		return channels.Reduce(ctx, in, func(acc, x int) int { return acc + x })
 	}).CollectAsSlice()
 
 	fmt.Printf("inputs:  %v\n", inputs)

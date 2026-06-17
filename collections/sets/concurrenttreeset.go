@@ -13,15 +13,14 @@ import (
 // ConcurrentTreeSetRW for read-heavy workloads.
 type ConcurrentTreeSet[T constraints.Ordered] struct {
 	set  *TreeSet[T]
-	lock *sync.Mutex
+	lock sync.Mutex
 }
 
 // NewConcurrentTreeSet creates a new ConcurrentTreeSet with the given elements.
 // Duplicate elements are automatically removed.
 func NewConcurrentTreeSet[T constraints.Ordered](elements ...T) *ConcurrentTreeSet[T] {
 	return &ConcurrentTreeSet[T]{
-		set:  NewTreeSet[T](elements...),
-		lock: &sync.Mutex{},
+		set: NewTreeSet[T](elements...),
 	}
 }
 
@@ -33,7 +32,7 @@ var _ MutableSortedSet[string] = &ConcurrentTreeSet[string]{}
 
 // wrapConcurrentTreeSet builds a new ConcurrentTreeSet, with its own lock, around the given set.
 func wrapConcurrentTreeSet[T constraints.Ordered](set *TreeSet[T]) *ConcurrentTreeSet[T] {
-	return &ConcurrentTreeSet[T]{set: set, lock: &sync.Mutex{}}
+	return &ConcurrentTreeSet[T]{set: set}
 }
 
 // snapshotOperand returns a non-locking, point-in-time copy of other suitable for

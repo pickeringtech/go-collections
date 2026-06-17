@@ -9,7 +9,7 @@ import (
 // for concurrent use. Every operation is guarded by a sync.Mutex.
 type ConcurrentArray[T any] struct {
 	elements []T
-	lock     *sync.Mutex
+	lock     sync.Mutex
 }
 
 // NewConcurrentArray creates a new ConcurrentArray seeded with the given
@@ -17,7 +17,6 @@ type ConcurrentArray[T any] struct {
 func NewConcurrentArray[T any](elements ...T) *ConcurrentArray[T] {
 	return &ConcurrentArray[T]{
 		elements: elements,
-		lock:     &sync.Mutex{},
 	}
 }
 
