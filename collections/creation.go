@@ -7,8 +7,10 @@ import (
 	"github.com/pickeringtech/go-collections/collections/dicts"
 	"github.com/pickeringtech/go-collections/collections/heaps"
 	"github.com/pickeringtech/go-collections/collections/lists"
+	"github.com/pickeringtech/go-collections/collections/lru"
 	"github.com/pickeringtech/go-collections/collections/multimaps"
 	"github.com/pickeringtech/go-collections/collections/sets"
+	"github.com/pickeringtech/go-collections/constraints"
 )
 
 // NewList creates a List backed by an array (slice) with the given values.
@@ -174,6 +176,66 @@ func NewConcurrentDoublyLinkedList[T any](elements ...T) lists.List[T] {
 // NewConcurrentRWDoublyLinkedList creates a thread-safe List backed by a doubly linked list, optimised for concurrent reads, with the given elements.
 func NewConcurrentRWDoublyLinkedList[T any](elements ...T) lists.List[T] {
 	return lists.NewConcurrentRWDoublyLinked[T](elements...)
+}
+
+// NewHeap creates a Heap (priority queue) ordered by the given comparator, seeded with the given values. The values are heapified in O(n).
+func NewHeap[T any](less heaps.LessFunc[T], values ...T) heaps.Heap[T] {
+	return heaps.New(less, values...)
+}
+
+// NewMinHeap creates a min-heap over an ordered type (the smallest element leaves the heap first), seeded with the given values.
+func NewMinHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+	return heaps.NewMin(values...)
+}
+
+// NewMaxHeap creates a max-heap over an ordered type (the largest element leaves the heap first), seeded with the given values.
+func NewMaxHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+	return heaps.NewMax(values...)
+}
+
+// NewConcurrentHeap creates a thread-safe Heap (mutex-guarded) ordered by the given comparator, seeded with the given values.
+func NewConcurrentHeap[T any](less heaps.LessFunc[T], values ...T) heaps.Heap[T] {
+	return heaps.NewConcurrent(less, values...)
+}
+
+// NewConcurrentMinHeap creates a thread-safe min-heap (mutex-guarded) over an ordered type, seeded with the given values.
+func NewConcurrentMinHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+	return heaps.NewConcurrentMin(values...)
+}
+
+// NewConcurrentMaxHeap creates a thread-safe max-heap (mutex-guarded) over an ordered type, seeded with the given values.
+func NewConcurrentMaxHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+	return heaps.NewConcurrentMax(values...)
+}
+
+// NewConcurrentRWHeap creates a thread-safe Heap optimised for concurrent reads (RWMutex-guarded) ordered by the given comparator, seeded with the given values.
+func NewConcurrentRWHeap[T any](less heaps.LessFunc[T], values ...T) heaps.Heap[T] {
+	return heaps.NewConcurrentRW(less, values...)
+}
+
+// NewConcurrentRWMinHeap creates a thread-safe min-heap optimised for concurrent reads (RWMutex-guarded) over an ordered type, seeded with the given values.
+func NewConcurrentRWMinHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+	return heaps.NewConcurrentRWMin(values...)
+}
+
+// NewConcurrentRWMaxHeap creates a thread-safe max-heap optimised for concurrent reads (RWMutex-guarded) over an ordered type, seeded with the given values.
+func NewConcurrentRWMaxHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+	return heaps.NewConcurrentRWMax(values...)
+}
+
+// NewLRU creates a bounded least-recently-used cache holding at most capacity entries; inserting beyond that evicts the least-recently-used entry. A capacity below 1 is treated as 1. Configure optional behaviour (an eviction callback, seed entries) with lru.Option values. It returns a MutableCache because an LRU is inherently stateful — its defining recency-marking read, Get, is a mutation.
+func NewLRU[K comparable, V any](capacity int, opts ...lru.Option[K, V]) lru.MutableCache[K, V] {
+	return lru.NewLRU[K, V](capacity, opts...)
+}
+
+// NewConcurrentLRU creates a thread-safe LRU cache (mutex-guarded) bounded to capacity entries. It accepts the same lru.Option values as NewLRU.
+func NewConcurrentLRU[K comparable, V any](capacity int, opts ...lru.Option[K, V]) lru.MutableCache[K, V] {
+	return lru.NewConcurrentLRU[K, V](capacity, opts...)
+}
+
+// NewConcurrentRWLRU creates a thread-safe LRU cache optimised for concurrent reads (RWMutex-guarded) bounded to capacity entries. It accepts the same lru.Option values as NewLRU.
+func NewConcurrentRWLRU[K comparable, V any](capacity int, opts ...lru.Option[K, V]) lru.MutableCache[K, V] {
+	return lru.NewConcurrentLRURW[K, V](capacity, opts...)
 }
 
 // ListFromSeq creates a List backed by an array from the values produced by seq,
