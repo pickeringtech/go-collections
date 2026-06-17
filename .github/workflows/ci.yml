@@ -9,6 +9,7 @@ name: CI
 #                  coverage floor, gofmt, go vet, govulncheck, golangci-lint
 #                  (incl. cyclop/gocognit complexity), gosec, the examples
 #                  golden-output E2E (build + run + assert stdout, see #30),
+#                  the tools/benchreport satellite-module tests (#90),
 #                  cross-arch (386 build+vet+test, arm64/s390x build+vet) and
 #                  the fuzz smoke run. The last two were promoted from report-only
 #                  to gates (#72): both are deterministic — cross-arch is a fixed
@@ -319,6 +320,31 @@ jobs:
         # assert its stdout against testdata/*.golden. (No -race: the suite shells
         # out via `go run`, so the detector wouldn't see inside the child anyway.)
         working-directory: examples
+        run: go test -shuffle=on ./...
+
+  benchreport-test:
+    # Blocking: tools/benchreport is a SEPARATE module (own go.mod) housing the
+    # benchmark-report generator that `make bench-report` and the main-only
+    # bench-report job invoke. The root build/test jobs run `./...` on the root
+    # module only and never descend into it, so without this job its unit tests
+    # (CSV parsing, stats, trend store, Markdown/SVG rendering) run nowhere in CI
+    # — broken generator logic could merge undetected and only surface when the
+    # bench-report job fails on main (#90). This dedicated job gates that gap,
+    # mirroring the examples-e2e job's per-satellite-module structure.
+    name: Benchreport tests (separate module)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Drive the toolchain from the benchreport module's own go.mod.
+          go-version-file: tools/benchreport/go.mod
+          cache-dependency-path: tools/benchreport/go.mod
+      - name: Test the benchmark-report generator
+        # -shuffle=on surfaces order-dependence. No -race: the generator is
+        # single-threaded (pure CSV→Markdown/SVG), so the detector adds cost
+        # without coverage — matching the examples-e2e job's rationale.
+        working-directory: tools/benchreport
         run: go test -shuffle=on ./...
 
   api-compat:
@@ -705,7 +731,7 @@ jobs:
     # when CI changes — update the `needs:` list here instead of the GitHub rule.
     name: CI Gate
     if: always()                       # run even if a dependency failed, so the gate can report
-    needs: [build, test, lint, security, examples-e2e, cross-arch, fuzz]   # the blocking jobs only; report-only jobs (test-tip, benchmarks, api-compat) stay out
+    needs: [build, test, lint, security, examples-e2e, benchreport-test, cross-arch, fuzz]   # the blocking jobs only; report-only jobs (test-tip, benchmarks, api-compat) stay out
     runs-on: ubuntu-latest
     steps:
       - name: Require all blocking jobs to have succeeded
