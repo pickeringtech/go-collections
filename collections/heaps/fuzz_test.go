@@ -23,9 +23,32 @@ func isMinHeap(data []byte) bool {
 	return true
 }
 
-// FuzzBinaryOracle is a differential fuzz test: for arbitrary input bytes it
-// checks the heap against a native sort oracle and asserts the structural heap
-// invariant, exercising heapify, sift-up and sift-down on real data.
+// heapFuzzFactories returns the heap constructors to fuzz, each producing a
+// fresh MutableHeap[uint8] from the given comparator and values. The concurrent
+// variants share the sequential heap's semantics, so they must satisfy the same
+// oracle.
+func heapFuzzFactories() []struct {
+	name string
+	make func(heaps.LessFunc[uint8], ...uint8) heaps.MutableHeap[uint8]
+} {
+	return []struct {
+		name string
+		make func(heaps.LessFunc[uint8], ...uint8) heaps.MutableHeap[uint8]
+	}{
+		{"Binary", func(l heaps.LessFunc[uint8], v ...uint8) heaps.MutableHeap[uint8] { return heaps.New(l, v...) }},
+		{"ConcurrentBinary", func(l heaps.LessFunc[uint8], v ...uint8) heaps.MutableHeap[uint8] {
+			return heaps.NewConcurrent(l, v...)
+		}},
+		{"ConcurrentRWBinary", func(l heaps.LessFunc[uint8], v ...uint8) heaps.MutableHeap[uint8] {
+			return heaps.NewConcurrentRW(l, v...)
+		}},
+	}
+}
+
+// FuzzBinaryOracle is a differential fuzz test: for every heap backend and for
+// arbitrary input bytes it checks the heap against a native sort oracle and
+// asserts the structural heap invariant, exercising heapify, sift-up and
+// sift-down on real data.
 func FuzzBinaryOracle(f *testing.F) {
 	f.Add([]byte(nil))
 	f.Add([]byte{})
@@ -44,55 +67,60 @@ func FuzzBinaryOracle(f *testing.F) {
 		sort.Slice(want, func(i, j int) bool { return want[i] < want[j] })
 
 		minLess := func(a, b uint8) bool { return a < b }
-		built := heaps.New(minLess, values...)
-
-		// Length and Peek agree with the oracle.
-		if built.Length() != len(want) {
-			t.Fatalf("Length() = %d, want %d", built.Length(), len(want))
-		}
-		if len(want) > 0 {
-			top, ok := built.Peek()
-			if !ok || top != want[0] {
-				t.Fatalf("Peek() = (%d, %v), want (%d, true)", top, ok, want[0])
-			}
-		}
-
-		// The heap-array snapshot honours the heap invariant.
-		snapshot := built.AsSlice()
-		if !isMinHeap(snapshot) {
-			t.Fatalf("AsSlice() = %v violates the min-heap invariant", snapshot)
-		}
-
-		// Heapify-built and incrementally-pushed heaps both drain to the oracle.
-		gotHeapify := drainUint8(t, heaps.New(minLess, values...))
-		assertUint8Equal(t, "heapify drain", gotHeapify, want)
-
-		incremental := heaps.New(minLess)
-		for _, v := range values {
-			incremental.PushInPlace(v)
-		}
-		assertUint8Equal(t, "incremental drain", drainUint8(t, incremental), want)
-
-		// AsSortedSlice is non-mutating and matches the oracle too.
-		assertUint8Equal(t, "AsSortedSlice", built.AsSortedSlice(), want)
-		if built.Length() != len(want) {
-			t.Fatalf("AsSortedSlice mutated the heap: Length() = %d, want %d", built.Length(), len(want))
-		}
-
-		// FromSeq(All) round-trips back to a heap that drains to the oracle.
-		assertUint8Equal(t, "FromSeq", heaps.FromSeq(heaps.Min[uint8], built.All()).AsSortedSlice(), want)
+		maxLess := func(a, b uint8) bool { return a > b }
 
 		// The max-heap drains to the reverse of the ascending oracle.
 		maxWant := make([]uint8, len(want))
 		for i, v := range want {
 			maxWant[len(want)-1-i] = v
 		}
-		maxHeap := heaps.New(func(a, b uint8) bool { return a > b }, values...)
-		assertUint8Equal(t, "max drain", maxHeap.AsSortedSlice(), maxWant)
+
+		for _, backend := range heapFuzzFactories() {
+			built := backend.make(minLess, values...)
+
+			// Length and Peek agree with the oracle.
+			if built.Length() != len(want) {
+				t.Fatalf("%s: Length() = %d, want %d", backend.name, built.Length(), len(want))
+			}
+			if len(want) > 0 {
+				top, ok := built.Peek()
+				if !ok || top != want[0] {
+					t.Fatalf("%s: Peek() = (%d, %v), want (%d, true)", backend.name, top, ok, want[0])
+				}
+			}
+
+			// The heap-array snapshot honours the heap invariant.
+			snapshot := built.AsSlice()
+			if !isMinHeap(snapshot) {
+				t.Fatalf("%s: AsSlice() = %v violates the min-heap invariant", backend.name, snapshot)
+			}
+
+			// Heapify-built and incrementally-pushed heaps both drain to the oracle.
+			gotHeapify := drainUint8(t, backend.make(minLess, values...))
+			assertUint8Equal(t, backend.name+" heapify drain", gotHeapify, want)
+
+			incremental := backend.make(minLess)
+			for _, v := range values {
+				incremental.PushInPlace(v)
+			}
+			assertUint8Equal(t, backend.name+" incremental drain", drainUint8(t, incremental), want)
+
+			// AsSortedSlice is non-mutating and matches the oracle too.
+			assertUint8Equal(t, backend.name+" AsSortedSlice", built.AsSortedSlice(), want)
+			if built.Length() != len(want) {
+				t.Fatalf("%s: AsSortedSlice mutated the heap: Length() = %d, want %d", backend.name, built.Length(), len(want))
+			}
+
+			// FromSeq(All) round-trips back to a heap that drains to the oracle.
+			assertUint8Equal(t, backend.name+" FromSeq", heaps.FromSeq(heaps.Min[uint8], built.All()).AsSortedSlice(), want)
+
+			maxHeap := backend.make(maxLess, values...)
+			assertUint8Equal(t, backend.name+" max drain", maxHeap.AsSortedSlice(), maxWant)
+		}
 	})
 }
 
-func drainUint8(t *testing.T, h *heaps.Binary[uint8]) []uint8 {
+func drainUint8(t *testing.T, h heaps.MutableHeap[uint8]) []uint8 {
 	t.Helper()
 	out := make([]uint8, 0, h.Length())
 	for {

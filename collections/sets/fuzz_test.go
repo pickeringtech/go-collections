@@ -61,9 +61,26 @@ func assertSetIterator(t *testing.T, name string, s sets.Set[uint8], oracle map[
 	}
 }
 
-// FuzzSetOracle is a differential fuzz test: it builds two sets and compares
-// every set operation against the equivalent operation on native
-// map[uint8]struct{} oracles.
+// hashSetFuzzFactories returns the hash-set constructors to fuzz, each producing
+// a fresh Set[uint8] from the given elements. The concurrent variants share the
+// same semantics as the plain hash set, so they must satisfy the same oracle.
+func hashSetFuzzFactories() []struct {
+	name string
+	make func(...uint8) sets.Set[uint8]
+} {
+	return []struct {
+		name string
+		make func(...uint8) sets.Set[uint8]
+	}{
+		{"Hash", func(e ...uint8) sets.Set[uint8] { return sets.NewHash(e...) }},
+		{"ConcurrentHash", func(e ...uint8) sets.Set[uint8] { return sets.NewConcurrentHash(e...) }},
+		{"ConcurrentHashRW", func(e ...uint8) sets.Set[uint8] { return sets.NewConcurrentHashRW(e...) }},
+	}
+}
+
+// FuzzSetOracle is a differential fuzz test: for every hash-set backend it builds
+// two sets and compares every set operation against the equivalent operation on
+// native map[uint8]struct{} oracles.
 func FuzzSetOracle(f *testing.F) {
 	f.Add([]byte(nil), []byte(nil))
 	f.Add([]byte{}, []byte{1})
@@ -72,82 +89,85 @@ func FuzzSetOracle(f *testing.F) {
 	f.Add([]byte{1, 2}, []byte{3, 4}) // disjoint
 
 	f.Fuzz(func(t *testing.T, a, b []byte) {
-		setA := sets.NewHash(a...)
-		setB := sets.NewHash(b...)
 		oa := nativeSet(a)
 		ob := nativeSet(b)
 
-		// Construction matches the oracle exactly.
-		assertMatchesOracle(t, "A", setA, oa)
-		assertMatchesOracle(t, "B", setB, ob)
+		for _, backend := range hashSetFuzzFactories() {
+			setA := backend.make(a...)
+			setB := backend.make(b...)
 
-		// AsSlice yields exactly the unique elements, with no duplicates.
-		slice := setA.AsSlice()
-		if len(slice) != len(oa) {
-			t.Fatalf("AsSlice length = %d, want %d", len(slice), len(oa))
-		}
-		seen := map[uint8]struct{}{}
-		for _, e := range slice {
-			if _, dup := seen[e]; dup {
-				t.Fatalf("AsSlice contains duplicate %d", e)
+			// Construction matches the oracle exactly.
+			assertMatchesOracle(t, backend.name+" A", setA, oa)
+			assertMatchesOracle(t, backend.name+" B", setB, ob)
+
+			// AsSlice yields exactly the unique elements, with no duplicates.
+			slice := setA.AsSlice()
+			if len(slice) != len(oa) {
+				t.Fatalf("%s: AsSlice length = %d, want %d", backend.name, len(slice), len(oa))
 			}
-			seen[e] = struct{}{}
-			if _, ok := oa[e]; !ok {
-				t.Fatalf("AsSlice contains element %d not in set", e)
+			seen := map[uint8]struct{}{}
+			for _, e := range slice {
+				if _, dup := seen[e]; dup {
+					t.Fatalf("%s: AsSlice contains duplicate %d", backend.name, e)
+				}
+				seen[e] = struct{}{}
+				if _, ok := oa[e]; !ok {
+					t.Fatalf("%s: AsSlice contains element %d not in set", backend.name, e)
+				}
 			}
-		}
 
-		// Union.
-		union := map[uint8]struct{}{}
-		for k := range oa {
-			union[k] = struct{}{}
-		}
-		for k := range ob {
-			union[k] = struct{}{}
-		}
-		assertMatchesOracle(t, "A∪B", setA.Union(setB), union)
-
-		// Intersection.
-		inter := map[uint8]struct{}{}
-		for k := range oa {
-			if _, ok := ob[k]; ok {
-				inter[k] = struct{}{}
+			// Union.
+			union := map[uint8]struct{}{}
+			for k := range oa {
+				union[k] = struct{}{}
 			}
-		}
-		assertMatchesOracle(t, "A∩B", setA.Intersection(setB), inter)
-
-		// Difference (A \ B).
-		diff := map[uint8]struct{}{}
-		for k := range oa {
-			if _, ok := ob[k]; !ok {
-				diff[k] = struct{}{}
+			for k := range ob {
+				union[k] = struct{}{}
 			}
-		}
-		assertMatchesOracle(t, "A\\B", setA.Difference(setB), diff)
+			assertMatchesOracle(t, backend.name+" A∪B", setA.Union(setB), union)
 
-		// Relational predicates against the oracle.
-		if got, want := setA.IsSubsetOf(setB), isSubset(oa, ob); got != want {
-			t.Fatalf("IsSubsetOf = %v, want %v", got, want)
-		}
-		if got, want := setA.IsSupersetOf(setB), isSubset(ob, oa); got != want {
-			t.Fatalf("IsSupersetOf = %v, want %v", got, want)
-		}
-		if got, want := setA.IsDisjoint(setB), len(inter) == 0; got != want {
-			t.Fatalf("IsDisjoint = %v, want %v", got, want)
-		}
-		if got, want := setA.Equals(setB), len(oa) == len(ob) && isSubset(oa, ob); got != want {
-			t.Fatalf("Equals = %v, want %v", got, want)
-		}
+			// Intersection.
+			inter := map[uint8]struct{}{}
+			for k := range oa {
+				if _, ok := ob[k]; ok {
+					inter[k] = struct{}{}
+				}
+			}
+			assertMatchesOracle(t, backend.name+" A∩B", setA.Intersection(setB), inter)
 
-		// Structural invariants that must hold regardless of input.
-		if !setA.Equals(setA) {
-			t.Fatalf("set is not equal to itself")
-		}
-		if !setA.Union(setB).IsSupersetOf(setA) {
-			t.Fatalf("A∪B is not a superset of A")
-		}
-		if !setA.IsSupersetOf(setA.Intersection(setB)) {
-			t.Fatalf("A is not a superset of A∩B")
+			// Difference (A \ B).
+			diff := map[uint8]struct{}{}
+			for k := range oa {
+				if _, ok := ob[k]; !ok {
+					diff[k] = struct{}{}
+				}
+			}
+			assertMatchesOracle(t, backend.name+" A\\B", setA.Difference(setB), diff)
+
+			// Relational predicates against the oracle.
+			if got, want := setA.IsSubsetOf(setB), isSubset(oa, ob); got != want {
+				t.Fatalf("%s: IsSubsetOf = %v, want %v", backend.name, got, want)
+			}
+			if got, want := setA.IsSupersetOf(setB), isSubset(ob, oa); got != want {
+				t.Fatalf("%s: IsSupersetOf = %v, want %v", backend.name, got, want)
+			}
+			if got, want := setA.IsDisjoint(setB), len(inter) == 0; got != want {
+				t.Fatalf("%s: IsDisjoint = %v, want %v", backend.name, got, want)
+			}
+			if got, want := setA.Equals(setB), len(oa) == len(ob) && isSubset(oa, ob); got != want {
+				t.Fatalf("%s: Equals = %v, want %v", backend.name, got, want)
+			}
+
+			// Structural invariants that must hold regardless of input.
+			if !setA.Equals(setA) {
+				t.Fatalf("%s: set is not equal to itself", backend.name)
+			}
+			if !setA.Union(setB).IsSupersetOf(setA) {
+				t.Fatalf("%s: A∪B is not a superset of A", backend.name)
+			}
+			if !setA.IsSupersetOf(setA.Intersection(setB)) {
+				t.Fatalf("%s: A is not a superset of A∩B", backend.name)
+			}
 		}
 	})
 }
