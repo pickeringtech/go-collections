@@ -257,8 +257,9 @@ These work over any `List` implementation (`Array`, `Linked`, the concurrent
 types, …) because they take the interface, and they always return an
 `Array`-backed `List` regardless of the input's backing (a `Linked` input does
 not yield a `Linked` output) — the package-wide return policy that keeps results
-chaining uniformly. Order is always preserved. Empty or nil input yields an
-initialised, non-nil empty `List`.
+chaining uniformly. Order is always preserved. An empty input list yields an
+initialised, non-nil empty `List` (the input itself must be a non-nil `List`;
+these helpers call methods on it and do not guard against a nil `List` value).
 
 ### Removal, Emptiness, and Clearing
 ```go

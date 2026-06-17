@@ -9,8 +9,10 @@ package lists
 //
 // Like Filter and the other immutable list operations, these functions return
 // the List interface (backed by the default Array implementation) so their
-// results chain straight into other collection helpers. Empty or nil input
-// yields an initialised, non-nil empty List, matching slices.Map.
+// results chain straight into other collection helpers. An empty input list
+// yields an initialised, non-nil empty List, mirroring slices.Map on an empty
+// slice. The input itself must be a non-nil List: these helpers call methods on
+// it and do not guard against a nil List value.
 
 // Map applies fn to every element of l, in order, returning a new List holding
 // the results. The output element type U may differ from the input type T.
@@ -39,8 +41,8 @@ func FlatMap[T, U any](l List[T], fn func(T) List[U]) List[U] {
 }
 
 // Reduce folds l into a single accumulated value of type A, starting from init
-// and applying fn to each element in order. For an empty or nil List it returns
-// init unchanged.
+// and applying fn to each element in order. For an empty List it returns init
+// unchanged.
 func Reduce[T, A any](l List[T], init A, fn func(A, T) A) A {
 	accumulator := init
 	l.ForEach(func(element T) {

@@ -10,8 +10,9 @@ import "github.com/pickeringtech/go-collections/constraints"
 //
 // Unlike Filter, which a Set implements directly, Map returns the Set interface
 // (backed by the default Hash implementation) so its result chains straight
-// into other collection helpers. Empty or nil input yields an initialised,
-// non-nil empty Set.
+// into other collection helpers. An empty input Set yields an initialised,
+// non-nil empty Set. The input itself must be a non-nil Set: these helpers call
+// methods on it and do not guard against a nil Set value.
 
 // Map applies fn to every element of s, returning a new Set holding the results.
 // The output element type U may differ from the input type T. Because a Set
@@ -50,8 +51,7 @@ func MapSorted[T comparable, U constraints.Ordered](s Set[T], fn func(T) U) Sort
 
 // Reduce folds s into a single accumulated value of type A, starting from init
 // and applying fn to each element. Iteration order over a Set is unspecified, so
-// fn should be order-independent. For an empty or nil Set it returns init
-// unchanged.
+// fn should be order-independent. For an empty Set it returns init unchanged.
 func Reduce[T comparable, A any](s Set[T], init A, fn func(A, T) A) A {
 	accumulator := init
 	s.ForEach(func(element T) {

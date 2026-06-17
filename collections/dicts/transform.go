@@ -10,8 +10,9 @@ import "github.com/pickeringtech/go-collections/constraints"
 //
 // Unlike Filter, which a Dict implements directly, Map returns the Dict
 // interface (backed by the default Hash implementation) so its result chains
-// straight into other collection helpers. Empty or nil input yields an
-// initialised, non-nil empty Dict.
+// straight into other collection helpers. An empty input Dict yields an
+// initialised, non-nil empty Dict. The input itself must be a non-nil Dict:
+// these helpers call methods on it and do not guard against a nil Dict value.
 //
 // FlatMap is intentionally omitted: flattening a dictionary of dictionaries has
 // no unambiguous key-merging semantics, so it is left out until a concrete
@@ -57,8 +58,8 @@ func MapSorted[K comparable, V any, OK constraints.Ordered, OV any](d Dict[K, V]
 
 // Reduce folds d into a single accumulated value of type A, starting from init
 // and applying fn to each key-value pair. Iteration order over a Dict is
-// unspecified, so fn should be order-independent. For an empty or nil Dict it
-// returns init unchanged.
+// unspecified, so fn should be order-independent. For an empty Dict it returns
+// init unchanged.
 func Reduce[K comparable, V any, A any](d Dict[K, V], init A, fn func(A, K, V) A) A {
 	accumulator := init
 	d.ForEach(func(key K, value V) {
