@@ -111,6 +111,11 @@ func TestNumericSlice_Max(t *testing.T) {
 			want: 1000,
 		},
 		{
+			name: "selects the highest value from all-negative input",
+			n:    []int{-10, -3, -7},
+			want: -3,
+		},
+		{
 			name: "empty input results in zero output",
 			n:    []int{},
 			want: 0,
@@ -456,6 +461,13 @@ func TestMax(t *testing.T) {
 				input: []int{1, 2, 1, 1, 5, 0, 3, 4},
 			},
 			want: 5,
+		},
+		{
+			name: "finds the largest element in all-negative input",
+			args: args{
+				input: []int{-10, -3, -7},
+			},
+			want: -3,
 		},
 		{
 			name: "nil input provides zero",
