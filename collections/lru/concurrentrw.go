@@ -133,9 +133,12 @@ func (c *ConcurrentLRURW[K, V]) AsMap() map[K]V {
 // exceeded. The receiver is read-locked and not modified.
 func (c *ConcurrentLRURW[K, V]) Put(key K, value V) Cache[K, V] {
 	c.lock.RLock()
-	defer c.lock.RUnlock()
 	dup := c.inner.clone()
-	dup.putInPlace(key, value)
+	evicted, ok := dup.putInPlace(key, value)
+	c.lock.RUnlock()
+	// Fire the eviction callback after releasing the lock so it can re-enter the
+	// cache without deadlocking (issue #155).
+	dup.fireEvict(evicted, ok)
 	return &ConcurrentLRURW[K, V]{inner: dup}
 }
 
@@ -143,8 +146,11 @@ func (c *ConcurrentLRURW[K, V]) Put(key K, value V) Cache[K, V] {
 // the least-recently-used entry if the capacity is exceeded.
 func (c *ConcurrentLRURW[K, V]) PutInPlace(key K, value V) {
 	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.inner.PutInPlace(key, value)
+	evicted, ok := c.inner.putInPlace(key, value)
+	c.lock.Unlock()
+	// Fire the eviction callback after releasing the lock so it can re-enter the
+	// cache without deadlocking (issue #155).
+	c.inner.fireEvict(evicted, ok)
 }
 
 // Remove returns a new thread-safe cache with key absent; the receiver is
