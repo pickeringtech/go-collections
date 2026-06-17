@@ -11,6 +11,11 @@ import (
 // using a read-write mutex for synchronization. Read operations use read locks for better
 // performance when there are many concurrent readers.
 //
+// Zero value: always construct with NewConcurrentRWDoublyLinked. The embedded
+// mutex is a value, so a bare &ConcurrentRWDoublyLinked{} is at least lock-safe,
+// but its inner list is nil until the constructor runs, so any operation — reads
+// included — dereferences a nil pointer and panics.
+//
 // ConcurrentRWDoublyLinked must not be copied after first use; copying after construction
 // produces an independent lock over shared backing data, which breaks the
 // thread-safety contract. go vet reports any such copy.
@@ -103,19 +108,26 @@ func (cl *ConcurrentRWDoublyLinked[T]) Filter(fn func(T) bool) List[T] {
 // FilterInPlace removes elements that don't satisfy the predicate. The predicate
 // is evaluated after the lock is released, against a point-in-time snapshot
 // taken under the lock, so it may safely call back into the collection.
-// Modifications made concurrently with evaluation are not reflected in the
-// retained set.
+//
+// Removal is applied as a multiset diff against the current contents: each
+// element the predicate rejected removes one deeply-equal occurrence from the
+// list as it stands at apply time. Elements inserted concurrently in the
+// evaluation window are therefore preserved rather than discarded wholesale.
 func (cl *ConcurrentRWDoublyLinked[T]) FilterInPlace(fn func(T) bool) {
 	cl.lock.RLock()
 	snapshot := cl.data.AsSlice()
 	cl.lock.RUnlock()
 
-	retained := slices.Filter(snapshot, fn)
+	var removed []T
+	for _, element := range snapshot {
+		if !fn(element) {
+			removed = append(removed, element)
+		}
+	}
 
 	cl.lock.Lock()
-	cl.data.Clear()
-	for _, element := range retained {
-		cl.data.PushInPlace(element)
+	for _, element := range removed {
+		cl.data.RemoveInPlace(element)
 	}
 	cl.lock.Unlock()
 }

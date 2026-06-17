@@ -1,0 +1,9 @@
+events: 7 scored across 3 players
+totals (by name):
+  alice    8
+  bob      7
+  carol    10
+top 3 (by score):
+  1. carol    10
+  2. alice    8
+  3. bob      7

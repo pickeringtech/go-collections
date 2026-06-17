@@ -12,6 +12,13 @@ import (
 // operations take a read lock so they can proceed concurrently; mutations take
 // the full lock. Favour it over ConcurrentRingBuffer for read-heavy workloads.
 //
+// Zero value: always construct with NewConcurrentRWRingBuffer (or
+// NewBoundedConcurrentRWRingBuffer). Unlike the plain RingBuffer, whose zero
+// value is a valid empty deque, the concurrent wrapper holds its RingBuffer by
+// pointer. The embedded mutex is a value, so a bare &ConcurrentRWRingBuffer{} is
+// at least lock-safe, but its inner buffer is nil until the constructor runs, so
+// any operation — reads included — dereferences a nil pointer and panics.
+//
 // ConcurrentRWRingBuffer must not be copied after first use; copying after construction
 // produces an independent lock over shared backing data, which breaks the
 // thread-safety contract. go vet reports any such copy.

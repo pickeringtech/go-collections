@@ -28,6 +28,8 @@ concern, covered by the gorelease gate.)
 | [`worker-pipeline`](./cmd/worker-pipeline)     | Fan-out/fan-in a stream through a bounded worker pool   | `channels`, `concurrency`      |
 | [`ordered-processing`](./cmd/ordered-processing)| Reverse (stack), replay (queue) and sort a list         | `lists`, `slices`              |
 | [`collection-transform`](./cmd/collection-transform)| Map / FlatMap / Reduce over the list, dict and set interfaces | `lists`, `dicts`, `sets`|
+| [`leaderboard`](./cmd/leaderboard)             | Tally scores (concurrent UpdateInPlace), order by name (MapSorted), rank top-N (heap) | `collections`, `dicts`         |
+| [`stream-cache`](./cmd/stream-cache)           | Replay key accesses through an LRU + bounded deque over a context-cancelled stream | `collections`, `channels`, `deques`, `lru` |
 
 ## Running an app
 
@@ -39,6 +41,8 @@ go run ./cmd/set-algebra -a apple,banana,cherry -b banana,cherry,fig
 go run ./cmd/worker-pipeline -n 8 -workers 3
 go run ./cmd/ordered-processing -nums 5,3,8,1,9,2
 go run ./cmd/collection-transform -words the,quick,brown,fox,the,lazy,dog
+go run ./cmd/leaderboard -events alice:5,bob:3,alice:2,carol:9,bob:4,alice:1,carol:1 -top 3
+go run ./cmd/stream-cache -keys a,b,c,a,d,b,e,a,f -cap 3 -window 4 -limit 6
 ```
 
 ## Running the E2E tests

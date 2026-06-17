@@ -10,10 +10,11 @@ type Array[T any] struct {
 }
 
 // NewArray creates a new Array seeded with the given elements, preserving their
-// order.
+// order. The elements are copied, so the list owns its backing array and is
+// unaffected by later mutations of the caller's slice.
 func NewArray[T any](elements ...T) *Array[T] {
 	return &Array[T]{
-		elements: elements,
+		elements: slices.Copy(elements),
 	}
 }
 

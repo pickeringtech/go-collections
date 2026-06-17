@@ -28,6 +28,14 @@ type node[K constraints.Ordered, V any] struct {
 // into a linked list.
 // Keys must implement constraints.Ordered (integers, floats, strings).
 //
+// Float keys, including NaN, are supported and well-defined: the tree orders
+// keys exclusively through cmp.Compare, which imposes a total order on floats.
+// Every NaN compares equal to every other NaN — so all NaN keys collapse to a
+// single entry — and a NaN sorts as less than every non-NaN value (it is the
+// minimum, ahead of -Inf). Likewise -0.0 and +0.0 are the same key. This makes
+// the tree better behaved than a native Go map, where a NaN key can be stored
+// but never read back and accumulates a fresh entry on every insert.
+//
 // Zero value: a &Tree{} is a valid, empty tree ready for use (its root is nil
 // and grows on the first PutInPlace). NewTree remains the recommended way to
 // construct one, especially when seeding initial entries.

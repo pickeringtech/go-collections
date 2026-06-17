@@ -14,6 +14,11 @@ import (
 // It wraps a plain LRU and adds synchronisation only; the eviction semantics,
 // O(1) costs and recency ordering are exactly those of LRU.
 //
+// Zero value: always construct with NewConcurrentLRU. The embedded mutex is a
+// value, so a bare &ConcurrentLRU{} is at least lock-safe, but its inner LRU is
+// nil until the constructor runs, so any operation — reads included —
+// dereferences a nil pointer and panics.
+//
 // ConcurrentLRU must not be copied after first use; copying after construction
 // produces an independent lock over shared backing data, which breaks the
 // thread-safety contract. go vet reports any such copy.
@@ -136,9 +141,12 @@ func (c *ConcurrentLRU[K, V]) AsMap() map[K]V {
 // exceeded. The receiver is not modified.
 func (c *ConcurrentLRU[K, V]) Put(key K, value V) Cache[K, V] {
 	c.lock.Lock()
-	defer c.lock.Unlock()
 	dup := c.inner.clone()
-	dup.putInPlace(key, value)
+	evicted, ok := dup.putInPlace(key, value)
+	c.lock.Unlock()
+	// Fire the eviction callback after releasing the lock so it can re-enter the
+	// cache without deadlocking (issue #155).
+	dup.fireEvict(evicted, ok)
 	return &ConcurrentLRU[K, V]{inner: dup}
 }
 
@@ -146,8 +154,11 @@ func (c *ConcurrentLRU[K, V]) Put(key K, value V) Cache[K, V] {
 // the least-recently-used entry if the capacity is exceeded.
 func (c *ConcurrentLRU[K, V]) PutInPlace(key K, value V) {
 	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.inner.PutInPlace(key, value)
+	evicted, ok := c.inner.putInPlace(key, value)
+	c.lock.Unlock()
+	// Fire the eviction callback after releasing the lock so it can re-enter the
+	// cache without deadlocking (issue #155).
+	c.inner.fireEvict(evicted, ok)
 }
 
 // Remove returns a new thread-safe cache with key absent; the receiver is not

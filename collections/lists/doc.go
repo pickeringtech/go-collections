@@ -116,6 +116,12 @@
 //	// Read-heavy workloads (concurrent reads)
 //	cache := lists.NewConcurrentRWDoublyLinked[CacheItem]()
 //
+// Callbacks passed to the traversal and predicate methods — ForEach,
+// ForEachWithIndex, Filter, AllMatch, AnyMatch and Find — run after the lock is
+// released, against a point-in-time snapshot taken under the lock. They may
+// therefore safely re-enter the same list (read it, or mutate it) without
+// deadlocking.
+//
 // # Common Patterns
 //
 // Producer-consumer queue:

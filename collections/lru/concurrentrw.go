@@ -17,6 +17,11 @@ import (
 // the recency list. A workload dominated by Get therefore sees little benefit
 // from the RW variant; reach for Peek when a lookup need not count as a use.
 //
+// Zero value: always construct with NewConcurrentLRURW. The embedded mutex is a
+// value, so a bare &ConcurrentLRURW{} is at least lock-safe, but its inner LRU
+// is nil until the constructor runs, so any operation — reads included —
+// dereferences a nil pointer and panics.
+//
 // ConcurrentLRURW must not be copied after first use; copying after construction
 // produces an independent lock over shared backing data, which breaks the
 // thread-safety contract. go vet reports any such copy.
@@ -140,9 +145,12 @@ func (c *ConcurrentLRURW[K, V]) AsMap() map[K]V {
 // exceeded. The receiver is read-locked and not modified.
 func (c *ConcurrentLRURW[K, V]) Put(key K, value V) Cache[K, V] {
 	c.lock.RLock()
-	defer c.lock.RUnlock()
 	dup := c.inner.clone()
-	dup.putInPlace(key, value)
+	evicted, ok := dup.putInPlace(key, value)
+	c.lock.RUnlock()
+	// Fire the eviction callback after releasing the lock so it can re-enter the
+	// cache without deadlocking (issue #155).
+	dup.fireEvict(evicted, ok)
 	return &ConcurrentLRURW[K, V]{inner: dup}
 }
 
@@ -150,8 +158,11 @@ func (c *ConcurrentLRURW[K, V]) Put(key K, value V) Cache[K, V] {
 // the least-recently-used entry if the capacity is exceeded.
 func (c *ConcurrentLRURW[K, V]) PutInPlace(key K, value V) {
 	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.inner.PutInPlace(key, value)
+	evicted, ok := c.inner.putInPlace(key, value)
+	c.lock.Unlock()
+	// Fire the eviction callback after releasing the lock so it can re-enter the
+	// cache without deadlocking (issue #155).
+	c.inner.fireEvict(evicted, ok)
 }
 
 // Remove returns a new thread-safe cache with key absent; the receiver is

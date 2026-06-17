@@ -66,6 +66,12 @@
 // Operating on a thread-safe multimap yields a thread-safe result: immutable
 // operations return a new multimap of the same concurrent type.
 //
+// Callbacks passed to the traversal and predicate methods — ForEach, ForEachKey,
+// Filter, AllMatch, AnyMatch, Find and the iterator methods (All, Keys, Values)
+// — run after the lock is released, against a point-in-time snapshot taken under
+// the lock. They may therefore safely re-enter the same multimap (read it, or
+// mutate it) without deadlocking.
+//
 // # Immutable vs Mutable Operations
 //
 // Every collection supports both paradigms:

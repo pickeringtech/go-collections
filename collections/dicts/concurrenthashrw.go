@@ -147,12 +147,15 @@ func (ch *ConcurrentHashRW[K, V]) Filter(fn func(key K, value V) bool) Dict[K, V
 	return result
 }
 
-// FilterInPlace removes all key-value pairs that do not satisfy
-// the given predicate function, modifying the dictionary in place. The
-// predicate is evaluated after the lock is released, against a point-in-time
-// snapshot taken under the lock, so it may safely call back into the
-// collection. Modifications made concurrently with evaluation are not
-// reflected in the retained set.
+// FilterInPlace removes all key-value pairs that do not satisfy the given
+// predicate function, modifying the dictionary in place. The predicate is
+// evaluated after the lock is released, against a point-in-time snapshot taken
+// under the lock, so it may safely call back into the collection.
+//
+// Removal is applied conditionally: a rejected key is deleted only if its
+// current value still equals (reflect.DeepEqual) the value the predicate saw,
+// so a concurrent write that changes or replaces the value in the evaluation
+// window is preserved rather than silently discarded.
 func (ch *ConcurrentHashRW[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	ch.lock.RLock()
 	items := make([]Pair[K, V], 0, len(ch.data))
@@ -161,16 +164,19 @@ func (ch *ConcurrentHashRW[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	}
 	ch.lock.RUnlock()
 
-	var toRemove []K
+	var toRemove []Pair[K, V]
 	for _, item := range items {
 		if !fn(item.Key, item.Value) {
-			toRemove = append(toRemove, item.Key)
+			toRemove = append(toRemove, item)
 		}
 	}
 
 	ch.lock.Lock()
-	for _, key := range toRemove {
-		delete(ch.data, key)
+	for _, item := range toRemove {
+		current, exists := ch.data[item.Key]
+		if exists && reflect.DeepEqual(current, item.Value) {
+			delete(ch.data, item.Key)
+		}
 	}
 	ch.lock.Unlock()
 }

@@ -71,7 +71,9 @@ cache := lru.NewLRU[string, *os.File](100,
 ```
 
 The callback fires **only** for capacity-driven evictions, never for entries you
-remove explicitly via `Remove`, `RemoveInPlace` or `Clear`.
+remove explicitly via `Remove`, `RemoveInPlace` or `Clear`. On the concurrent
+caches it runs after the lock is released, so it may safely call back into the
+same cache without deadlocking.
 
 ## Implementations
 

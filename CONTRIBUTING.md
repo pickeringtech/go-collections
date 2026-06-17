@@ -49,7 +49,10 @@ make help             # list the developer entry points
 (golangci-lint, govulncheck, gosec), so a green local run predicts a green PR.
 Each gate is also a standalone target (`make lint`, `make security`,
 `make cover`, `make cross-arch`, `make fuzz`, `make hygiene`) so you can
-reproduce a single failing job.
+reproduce a single failing job. For a full reference of every target and
+variable — including the benchmark pipeline (`make bench`, `make bench-report`)
+and how to refresh the reference baseline — see
+[docs/makefile.md](docs/makefile.md).
 
 ### Multi-module layout
 
@@ -153,24 +156,31 @@ job-name changes (#41). The full policy and rationale live at the top of
 
 **Blocking** (these must pass — reproduce each locally before pushing).
 `make ci` runs the whole column in one shot; each row's target reproduces a
-single gate:
+single gate. Triggers are rationalised by what changes each job's verdict
+(issue #150): cheap, diff-sensitive jobs gate **every PR push**; expensive jobs
+whose verdict only needs confirming just before landing gate **once per merge in
+the merge queue**:
 
-| CI job | What it checks | Reproduce locally |
-|---|---|---|
-| Build & module hygiene | compiles; `go.mod` tidy; **zero deps**; module integrity | `make hygiene` |
-| Test (race + coverage) | suite on Linux/macOS/Windows × Go 1.24 (+ Go 1.23 Linux); 100% floor | `make cover` |
-| Lint, format & complexity | `gofmt`, `go vet`, golangci-lint (staticcheck, revive, cyclop, gocognit…) | `make lint` |
-| Security | known-vuln scan + security lint | `make security` |
-| Examples E2E | the separate `examples/` module builds and matches golden stdout | `make test-nested` |
-| Benchreport tests | the separate `tools/benchreport/` module's generator tests | `make test-nested` |
-| Cross-arch | 386/arm64/s390x build+vet (+ run 386 tests) | `make cross-arch` |
-| Fuzz | count-based smoke run of every `FuzzXxx` target | `make fuzz` |
+| CI job | What it checks | When | Reproduce locally |
+|---|---|---|---|
+| Build & module hygiene | compiles; `go.mod` tidy; **zero deps**; module integrity | every PR | `make hygiene` |
+| Test (race + coverage) | suite on Linux × Go 1.24 (+ Go 1.23) on PRs; **+ macOS/Windows in the merge queue**; 100% floor | PR (Linux) / merge queue (+ macOS/Win) | `make cover` |
+| Lint, format & complexity | `gofmt`, `go vet`, golangci-lint (staticcheck, revive, cyclop, gocognit…) | every PR | `make lint` |
+| Security lint (gosec) | static security analysis (code-dependent) | every PR | `make security` |
+| Examples E2E | the separate `examples/` module builds and matches golden stdout | every PR | `make test-nested` |
+| Benchreport tests | the separate `tools/benchreport/` module's generator tests | every PR | `make test-nested` |
+| Cross-arch | 386/arm64/s390x build+vet (+ run 386 tests) | every PR | `make cross-arch` |
+| Fuzz | count-based smoke run of every `FuzzXxx` target | every PR | `make fuzz` |
+| Benchmark regression | base-vs-head benchstat; gates a ≥10× catastrophic regression | **merge queue** | `make bench` |
 
-**Report-only** (surface findings/warnings, never block a merge): Go tip, the
-benchmark base-vs-head benchstat table, and API-compatibility (`gorelease`,
-report-only pre-1.0). **main-only:**
-`bench-report` regenerates `BENCHMARKS.md`, `docs/bench.svg` and the README
-preview and bot-commits them with `[skip ci]` — don't hand-edit those.
+**Time/release-driven** (moved off the per-PR path in #150 — their verdict tracks
+time or external state, not your diff): **govulncheck** runs daily on `main`
+(`maintenance.yml`); **Go tip** runs weekly there (report-only); **API
+compatibility** (`gorelease`, report-only pre-1.0) runs on release **tags**
+(`release.yml`). Scoped **mutation** testing runs once per merge in the queue
+(`mutation.yml`, report-only). **main-only:** `bench-report` regenerates
+`BENCHMARKS.md`, `docs/bench.svg` and the README preview and bot-commits them
+with `[skip ci]` — don't hand-edit those.
 
 ## PR workflow
 

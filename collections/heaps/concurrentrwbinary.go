@@ -16,6 +16,12 @@ import (
 // Immutable operations (Push, PushMany, Pop) return another ConcurrentRWBinary,
 // honouring the thread-safe-in / thread-safe-out contract.
 //
+// Zero value: always construct with NewConcurrentRW (or NewConcurrentRWMin /
+// NewConcurrentRWMax). The embedded mutex is a value, so a bare
+// &ConcurrentRWBinary{} is at least lock-safe, but its inner heap is nil until
+// the constructor runs, so any operation — reads included — dereferences a nil
+// pointer and panics.
+//
 // ConcurrentRWBinary must not be copied after first use; copying after construction
 // produces an independent lock over shared backing data, which breaks the
 // thread-safety contract. go vet reports any such copy.

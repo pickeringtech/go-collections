@@ -178,6 +178,25 @@ cache = collections.NewLRU[string, int](100,
 **Use when**: You need a fixed-memory cache with automatic eviction —
 hot-key caches, memoisation with a budget, or any bounded most-recently-seen store.
 
+## Iterator Bridge (Go 1.23+)
+
+Build collections straight from any range-over-func iterator — the inbound
+counterpart to each collection's `Values`/`All` iterators:
+
+```go
+import "slices" // std-lib, for slices.Values
+
+// From a value iterator (iter.Seq)
+list := collections.ListFromSeq(slices.Values([]int{3, 1, 2}))
+set := collections.SetFromSeq(slices.Values([]string{"a", "b", "a"}))
+
+// From a key/value iterator (iter.Seq2) — last value wins per key
+prices := collections.DictFromSeq2(other.All())
+```
+
+`DequeFromSeq`, `HeapFromSeq`, `ListMultimapFromSeq2` and `SetMultimapFromSeq2`
+cover the remaining families.
+
 ## Thread Safety
 
 All collections offer thread-safe variants:

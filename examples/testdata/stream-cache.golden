@@ -1,0 +1,5 @@
+processed 6 of 9 accesses (1 hit, 5 miss)
+stream closed after cancel: true
+evicted (oldest first): b, c
+cache (most→least recent): b, d, a
+recent window (front→back): c, a, d, b

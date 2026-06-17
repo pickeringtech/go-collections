@@ -12,6 +12,13 @@ import (
 // Operating on it yields another ConcurrentRingBuffer, so thread-safe in means
 // thread-safe out.
 //
+// Zero value: always construct with NewConcurrentRingBuffer (or
+// NewBoundedConcurrentRingBuffer). Unlike the plain RingBuffer, whose zero value
+// is a valid empty deque, the concurrent wrapper holds its RingBuffer by pointer.
+// The embedded mutex is a value, so a bare &ConcurrentRingBuffer{} is at least
+// lock-safe, but its inner buffer is nil until the constructor runs, so any
+// operation — reads included — dereferences a nil pointer and panics.
+//
 // ConcurrentRingBuffer must not be copied after first use; copying after construction
 // produces an independent lock over shared backing data, which breaks the
 // thread-safety contract. go vet reports any such copy.

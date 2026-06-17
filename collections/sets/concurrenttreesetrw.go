@@ -13,6 +13,11 @@ import (
 // readers can proceed concurrently, while writes are exclusive. Elements are
 // kept in sorted order. Prefer it over ConcurrentTreeSet for read-heavy workloads.
 //
+// Zero value: always construct with NewConcurrentTreeSetRW. The embedded mutex is
+// a value, so a bare &ConcurrentTreeSetRW{} is at least lock-safe, but its inner
+// TreeSet is nil until the constructor runs, so any operation — reads included —
+// dereferences a nil pointer and panics.
+//
 // ConcurrentTreeSetRW must not be copied after first use; copying after construction
 // produces an independent lock over shared backing data, which breaks the
 // thread-safety contract. go vet reports any such copy.
@@ -109,8 +114,11 @@ func (ch *ConcurrentTreeSetRW[T]) Filter(fn func(element T) bool) Set[T] {
 // FilterInPlace removes all elements that do not satisfy the given predicate,
 // modifying the set in place. The predicate is evaluated after the lock is
 // released, against a point-in-time snapshot taken under the lock, so it may
-// safely call back into the collection. Modifications made concurrently with
-// evaluation are not reflected in the retained set.
+// safely call back into the collection.
+//
+// Only elements the predicate rejected are removed, and only if still present
+// at apply time, so elements added concurrently in the evaluation window are
+// preserved.
 func (ch *ConcurrentTreeSetRW[T]) FilterInPlace(fn func(element T) bool) {
 	ch.lock.RLock()
 	elements := ch.set.AsSlice()

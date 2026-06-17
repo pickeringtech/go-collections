@@ -13,6 +13,11 @@ import (
 // return another ConcurrentBinary, so a thread-safe heap in yields a
 // thread-safe heap out.
 //
+// Zero value: always construct with NewConcurrent (or NewConcurrentMin /
+// NewConcurrentMax). The embedded mutex is a value, so a bare &ConcurrentBinary{}
+// is at least lock-safe, but its inner heap is nil until the constructor runs, so
+// any operation — reads included — dereferences a nil pointer and panics.
+//
 // ConcurrentBinary must not be copied after first use; copying after construction
 // produces an independent lock over shared backing data, which breaks the
 // thread-safety contract. go vet reports any such copy.

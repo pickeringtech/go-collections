@@ -10,8 +10,8 @@ import "iter"
 // return types of dicts.Filter (Dict[K,V]) and sets.Filter (Set[T]), and the
 // lists.Map free function (List[U]). The concrete value is an Array-backed
 // List[T] regardless of the receiver's implementation; callers that need a raw
-// slice call AsSlice on the result (zero-overhead for Array, whose AsSlice
-// returns its backing slice). AsSlice on the Convertible interface remains the
+// slice call AsSlice on the result, which returns an independent copy of the
+// elements (see Convertible). AsSlice on the Convertible interface remains the
 // single, explicit slice escape hatch.
 
 // Filterable is implemented by collections that can be filtered into a new

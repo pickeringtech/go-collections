@@ -96,11 +96,14 @@ func (ch *ConcurrentHash[T]) Filter(fn func(element T) bool) Set[T] {
 	return result
 }
 
-// FilterInPlace removes all elements that do not satisfy
-// the given predicate function, modifying the set in place. The predicate is
-// evaluated after the lock is released, against a point-in-time snapshot taken
-// under the lock, so it may safely call back into the collection. Modifications
-// made concurrently with evaluation are not reflected in the retained set.
+// FilterInPlace removes all elements that do not satisfy the given predicate
+// function, modifying the set in place. The predicate is evaluated after the
+// lock is released, against a point-in-time snapshot taken under the lock, so
+// it may safely call back into the collection.
+//
+// Only elements the predicate rejected are removed, and only if still present
+// at apply time, so elements added concurrently in the evaluation window are
+// preserved.
 func (ch *ConcurrentHash[T]) FilterInPlace(fn func(element T) bool) {
 	ch.lock.Lock()
 	elements := make([]T, 0, len(ch.data))
