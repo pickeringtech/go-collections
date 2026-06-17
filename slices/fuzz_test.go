@@ -158,13 +158,22 @@ func FuzzPaginate(f *testing.F) {
 	f.Add([]byte{1}, 1)
 	f.Add([]byte{1, 2, 3, 4, 5}, 2)
 	f.Add([]byte{1, 2, 3}, 10)
+	f.Add([]byte{1, 2, 3}, 0)
+	f.Add([]byte{1, 2, 3, 4, 5}, -2)
 
 	f.Fuzz(func(t *testing.T, data []byte, pageSize int) {
-		// Negative/zero page sizes are outside the meaningful domain.
+		input := bytesToInts(data)
+
+		// A non-positive page size has no meaningful page: every page index
+		// must return nil without panicking.
 		if pageSize <= 0 {
+			for _, pageIndex := range []int{-1, 0, 1, 2} {
+				if page := slices.Paginate(input, pageIndex, pageSize); page != nil {
+					t.Fatalf("Paginate(_, %d, %d) = %v, want nil for non-positive pageSize", pageIndex, pageSize, page)
+				}
+			}
 			return
 		}
-		input := bytesToInts(data)
 
 		// Compute the exact page count up front. This avoids ever calling
 		// Paginate with a pageIndex large enough to overflow pageSize*pageIndex,
