@@ -14,6 +14,11 @@ import (
 // Note that Get is a write here: marking an entry most-recently-used re-orders
 // the recency list. A workload dominated by Get therefore sees little benefit
 // from the RW variant; reach for Peek when a lookup need not count as a use.
+//
+// Zero value: always construct with NewConcurrentLRURW. The embedded mutex is a
+// value, so a bare &ConcurrentLRURW{} is at least lock-safe, but its inner LRU
+// is nil until the constructor runs, so any operation — reads included —
+// dereferences a nil pointer and panics.
 type ConcurrentLRURW[K comparable, V any] struct {
 	inner *LRU[K, V]
 	lock  sync.RWMutex

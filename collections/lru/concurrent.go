@@ -11,6 +11,11 @@ import (
 //
 // It wraps a plain LRU and adds synchronisation only; the eviction semantics,
 // O(1) costs and recency ordering are exactly those of LRU.
+//
+// Zero value: always construct with NewConcurrentLRU. The embedded mutex is a
+// value, so a bare &ConcurrentLRU{} is at least lock-safe, but its inner LRU is
+// nil until the constructor runs, so any operation — reads included —
+// dereferences a nil pointer and panics.
 type ConcurrentLRU[K comparable, V any] struct {
 	inner *LRU[K, V]
 	lock  sync.Mutex
