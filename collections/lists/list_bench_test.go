@@ -16,15 +16,12 @@ import (
 // allocs/op are all captured. The benchreport generator parses exactly this
 // shape, so keep new list benchmarks to the same naming and structure.
 
-// listSizes is the representative element-count matrix for read-style
-// benchmarks (Get/Filter/ForEach), which build the list once and reuse it.
+// listSizes is the representative element-count matrix shared by every list
+// benchmark. Read-style benchmarks (Get/Filter/ForEach) build the list once and
+// reuse it; the mutating Push benchmark also builds once and undoes its single
+// push each iteration (see benchPush), so it carries no per-iteration rebuild
+// and can run the full ladder without the CI blow-up of issue #112.
 var listSizes = []int{10, 100, 1000, 10000}
-
-// mutateSizes caps the matrix for benchmarks that rebuild the list under
-// StopTimer every iteration (Push). The rebuild is wall-clock the framework
-// can't amortise, so the 10k cell would dominate CI time for little signal —
-// mirroring the existing dicts BenchmarkHash_Put, which stops at 1000.
-var mutateSizes = []int{10, 100, 1000}
 
 // listCtor builds a MutableList of the implementation under test, pre-filled
 // with elements 0..n-1. Each implementation supplies one of these so the
@@ -56,20 +53,24 @@ func benchGet(b *testing.B, ctor listCtor) {
 }
 
 // benchPush measures appending a single element to a list already holding
-// `size` elements. The list is rebuilt under StopTimer each iteration so the
-// timed work is a single PushInPlace, not unbounded growth across b.N.
+// `size` elements. The list is built once and each iteration pushes an element
+// then pops it back off, measuring a push+pop round-trip at a steady length.
+// Rebuilding the whole list under StopTimer every iteration instead made
+// wall-time ≈ b.N × O(size), unbounded by -benchtime — the hour-plus CI blow-up
+// of issue #112. The cheap O(1) inverse is timed rather than excluded with a
+// per-iteration b.StopTimer(), which reads memstats under -benchmem and would
+// re-introduce the blow-up at the ns scale these ops run at.
 func benchPush(b *testing.B, ctor listCtor) {
-	for _, size := range mutateSizes {
+	for _, size := range listSizes {
 		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
-			b.ResetTimer()
+			l := ctor(seq(size)...)
+
 			b.ReportAllocs()
+			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				b.StopTimer()
-				l := ctor(seq(size)...)
-				b.StartTimer()
-
-				l.PushInPlace(size + i)
+				l.PushInPlace(size)
+				l.PopInPlace()
 			}
 		})
 	}

@@ -200,18 +200,18 @@ func TestConcurrentRWArray_Dequeue(t *testing.T) {
 			wantSli: []int{2, 3, 4, 5},
 		},
 		{
-			name:    "dequeueing last element returns true, but nil slice",
+			name:    "dequeueing last element returns true, but empty (non-nil) slice",
 			a:       lists.NewConcurrentRWArray[int](1),
 			want:    1,
 			wantOK:  true,
-			wantSli: nil,
+			wantSli: []int{},
 		},
 		{
-			name:    "dequeueing empty input returns false, and nil slice",
+			name:    "dequeueing empty input returns false, and empty (non-nil) slice",
 			a:       lists.NewConcurrentRWArray[int](),
 			want:    0,
 			wantOK:  false,
-			wantSli: nil,
+			wantSli: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -1187,11 +1187,11 @@ func TestConcurrentRWArray_Pop(t *testing.T) {
 			wantSli: []int{1, 2, 3, 4},
 		},
 		{
-			name:    "empty ConcurrentRWArray yields zero value output and nil slice",
+			name:    "empty ConcurrentRWArray yields zero value output and empty (non-nil) slice",
 			a:       lists.NewConcurrentRWArray[int](),
 			want:    0,
 			wantOK:  false,
-			wantSli: nil,
+			wantSli: []int{},
 		},
 	}
 	for _, tt := range tests {
