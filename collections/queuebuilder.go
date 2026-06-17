@@ -35,11 +35,11 @@ func (b QueueBuilder[T]) Add(values ...T) QueueBuilder[T] {
 
 // Build constructs the Queue described by the builder.
 func (b QueueBuilder[T]) Build() lists.Queue[T] {
-	//if b.isRW {
-	//	return NewConcurrentRWList[T](b.values...)
-	//}
-	if b.isConcurrent {
-		return NewConcurrentList[T](b.values...)
+	if b.isConcurrent && b.isRW {
+		return NewConcurrentRWQueue[T](b.values...)
 	}
-	return NewList[T](b.values...)
+	if b.isConcurrent {
+		return NewConcurrentQueue[T](b.values...)
+	}
+	return NewQueue[T](b.values...)
 }
