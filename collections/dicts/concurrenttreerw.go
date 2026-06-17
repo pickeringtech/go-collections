@@ -296,7 +296,7 @@ func (ch *ConcurrentTreeRW[K, V]) AsMap() map[K]V {
 func (ch *ConcurrentTreeRW[K, V]) Put(key K, value V) Dict[K, V] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
-	return wrapConcurrentTreeRW(ch.tree.Put(key, value).(*Tree[K, V]))
+	return wrapConcurrentTreeRW(ch.tree.put(key, value))
 }
 
 // PutMany creates a new dictionary with all given key-value pairs added or updated.
@@ -304,7 +304,7 @@ func (ch *ConcurrentTreeRW[K, V]) Put(key K, value V) Dict[K, V] {
 func (ch *ConcurrentTreeRW[K, V]) PutMany(pairs ...Pair[K, V]) Dict[K, V] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
-	return wrapConcurrentTreeRW(ch.tree.PutMany(pairs...).(*Tree[K, V]))
+	return wrapConcurrentTreeRW(ch.tree.putMany(pairs...))
 }
 
 // PutInPlace adds or updates the given key-value pair in the dictionary.
@@ -326,7 +326,7 @@ func (ch *ConcurrentTreeRW[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 func (ch *ConcurrentTreeRW[K, V]) Remove(key K) Dict[K, V] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
-	return wrapConcurrentTreeRW(ch.tree.Remove(key).(*Tree[K, V]))
+	return wrapConcurrentTreeRW(ch.tree.remove(key))
 }
 
 // RemoveMany creates a new dictionary with all given keys removed.
@@ -334,7 +334,7 @@ func (ch *ConcurrentTreeRW[K, V]) Remove(key K) Dict[K, V] {
 func (ch *ConcurrentTreeRW[K, V]) RemoveMany(keys ...K) Dict[K, V] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
-	return wrapConcurrentTreeRW(ch.tree.RemoveMany(keys...).(*Tree[K, V]))
+	return wrapConcurrentTreeRW(ch.tree.removeMany(keys...))
 }
 
 // RemoveInPlace removes the given key from the dictionary.
