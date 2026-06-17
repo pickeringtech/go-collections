@@ -189,6 +189,30 @@ func TestRun_Acceptance(t *testing.T) {
 	})
 }
 
+func TestReadGoMod(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "go.mod"), "module example.com/x\n\ngo 1.23\n")
+	modPath, goVersion, err := readGoMod(root)
+	if err != nil {
+		t.Fatalf("readGoMod: %v", err)
+	}
+	if modPath != "example.com/x" || goVersion != "1.23" {
+		t.Errorf("readGoMod = (%q, %q), want (example.com/x, 1.23)", modPath, goVersion)
+	}
+}
+
+// TestRun_NoPackages guards the empty-libImports edge: a root with no Go
+// packages must fail loudly, not silently pass (and not build a `\b()\.`
+// over-broad library matcher).
+func TestRun_NoPackages(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "go.mod"), "module example.com/empty\n\ngo 1.24\n")
+	_, err := run(root, false)
+	if err == nil {
+		t.Fatal("expected an error for a root with no library packages, got nil")
+	}
+}
+
 func mustWrite(t *testing.T, path, content string) {
 	t.Helper()
 	err := os.MkdirAll(filepath.Dir(path), 0o755)

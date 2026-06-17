@@ -111,13 +111,19 @@ func run(root string, verbose bool) ([]problem, error) {
 	if err != nil {
 		return nil, err
 	}
-	modPath, err := readModulePath(absRoot)
+	modPath, goVersion, err := readGoMod(absRoot)
 	if err != nil {
 		return nil, err
 	}
 	api, libImports, err := indexAPI(absRoot, modPath)
 	if err != nil {
 		return nil, fmt.Errorf("indexing library API: %w", err)
+	}
+	if len(libImports) == 0 {
+		// No packages were indexed — almost certainly a wrong -root. Fail loudly
+		// rather than silently passing every doc (and rather than letting the
+		// compile gate build an over-broad `\b()\.` matcher, see compileEntries).
+		return nil, fmt.Errorf("no library packages found under %s — is -root correct?", absRoot)
 	}
 	docFiles, err := findDocFiles(absRoot)
 	if err != nil {
@@ -151,7 +157,7 @@ func run(root string, verbose bool) ([]problem, error) {
 		}
 	}
 
-	cprobs, err := compileEntries(modPath, absRoot, libImports, entries)
+	cprobs, err := compileEntries(modPath, goVersion, absRoot, libImports, entries)
 	if err != nil {
 		return nil, err
 	}
@@ -166,19 +172,31 @@ func run(root string, verbose bool) ([]problem, error) {
 	return problems, nil
 }
 
-// readModulePath returns the module path declared in <root>/go.mod.
-func readModulePath(absRoot string) (string, error) {
+// readGoMod returns the module path and the `go` directive declared in
+// <root>/go.mod. The go version is reused for the synthesized doc-check module
+// so it tracks the repo's toolchain instead of a hard-coded literal that could
+// drift on a future Go bump.
+func readGoMod(absRoot string) (modPath, goVersion string, err error) {
 	data, err := os.ReadFile(filepath.Join(absRoot, "go.mod"))
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "module ") {
-			return strings.TrimSpace(strings.TrimPrefix(line, "module ")), nil
+		switch {
+		case strings.HasPrefix(line, "module "):
+			modPath = strings.TrimSpace(strings.TrimPrefix(line, "module "))
+		case strings.HasPrefix(line, "go "):
+			goVersion = strings.TrimSpace(strings.TrimPrefix(line, "go "))
 		}
 	}
-	return "", fmt.Errorf("no module path found in go.mod")
+	if modPath == "" {
+		return "", "", fmt.Errorf("no module path found in go.mod")
+	}
+	if goVersion == "" {
+		return "", "", fmt.Errorf("no go directive found in go.mod")
+	}
+	return modPath, goVersion, nil
 }
 
 // indexAPI walks the root module and records, per package, the set of exported
@@ -443,8 +461,11 @@ type compileEntry struct {
 // the errors that implicate a library package. Each block is its own package
 // (its own subdirectory) so a name clash or an undefined identifier in one block
 // can never affect another.
-func compileEntries(modPath, absRoot string, libImports map[string]string, entries []compileEntry) ([]problem, error) {
-	if len(entries) == 0 {
+func compileEntries(modPath, goVersion, absRoot string, libImports map[string]string, entries []compileEntry) ([]problem, error) {
+	keys := sortedKeys(libImports)
+	if len(entries) == 0 || len(keys) == 0 {
+		// No blocks to compile, or no library packages to attribute errors to —
+		// the latter would make `\b()\.` match broadly, so don't gate at all.
 		return nil, nil
 	}
 	tmp, err := os.MkdirTemp("", "doccompile-")
@@ -453,7 +474,7 @@ func compileEntries(modPath, absRoot string, libImports map[string]string, entri
 	}
 	defer os.RemoveAll(tmp)
 
-	gomod := fmt.Sprintf("module doccheck\n\ngo 1.24\n\nrequire %s v0.0.0\n\nreplace %s => %s\n", modPath, modPath, absRoot)
+	gomod := fmt.Sprintf("module doccheck\n\ngo %s\n\nrequire %s v0.0.0\n\nreplace %s => %s\n", goVersion, modPath, modPath, absRoot)
 	err = os.WriteFile(filepath.Join(tmp, "go.mod"), []byte(gomod), 0o644)
 	if err != nil {
 		return nil, err
@@ -501,7 +522,7 @@ func compileEntries(modPath, absRoot string, libImports map[string]string, entri
 		}
 	}
 
-	libQualRE := regexp.MustCompile(`\b(` + strings.Join(sortedKeys(libImports), "|") + `)\.[A-Za-z_]`)
+	libQualRE := regexp.MustCompile(`\b(` + strings.Join(keys, "|") + `)\.[A-Za-z_]`)
 	var ps []problem
 	for _, m := range errLineRE.FindAllStringSubmatch(string(out), -1) {
 		dirName, msg := m[1], m[2]
