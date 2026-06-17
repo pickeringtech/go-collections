@@ -38,9 +38,31 @@ other dependencies.
 ```bash
 go build ./...        # compile every package
 go test ./...         # run the suite (Examples are verified here too)
-make test             # the suite with -race -shuffle=on (what CI runs)
+make test             # every module's suite with -shuffle=on (what CI runs)
 make help             # list the developer entry points
 ```
+
+### Multi-module layout
+
+The repo is **three Go modules**: the root library, plus two satellites with
+their own `go.mod` — [`examples/`](examples/) (downstream-consumer apps) and
+[`tools/benchreport/`](tools/benchreport/) (the benchmark-report generator). A
+root `go test ./...` does **not** descend into the satellites, so test each
+explicitly — or let `make test` do it for you:
+
+```bash
+make test                              # root + every nested module (what CI gates)
+make test-root                         # root library only, with -race
+go test ./...                          # root only (no satellites)
+cd examples && go test ./...           # the examples module
+cd tools/benchreport && go test ./...  # the benchreport module
+```
+
+`make test-nested` discovers nested modules dynamically (any nested `go.mod`),
+so a new satellite is picked up locally with no Makefile edit. In CI each
+satellite has its own gating job (**Examples E2E**, **Benchreport tests**); when
+you add a module, add a matching job to [`ci.yml`](.github/workflows/ci.yml) and
+to the `ci-gate` `needs:` list so it gates too.
 
 ## Design conventions
 
@@ -126,6 +148,7 @@ job-name changes (#41). The full policy and rationale live at the top of
 | Lint, format & complexity | `gofmt`, `go vet`, golangci-lint (staticcheck, revive, cyclop, gocognit…) | `gofmt -l .` · `go vet ./...` · `golangci-lint run` |
 | Security | known-vuln scan + security lint | `govulncheck ./...` · `gosec ./...` |
 | Examples E2E | the separate `examples/` module builds and matches golden stdout | `cd examples && go test -shuffle=on ./...` |
+| Benchreport tests | the separate `tools/benchreport/` module's generator tests | `cd tools/benchreport && go test -shuffle=on ./...` |
 
 **Report-only** (surface findings/warnings, never block a merge): Go tip,
 cross-arch (386/arm64/s390x), fuzz smoke, the benchmark base-vs-head benchstat
