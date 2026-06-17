@@ -109,7 +109,9 @@ func (dl *DoublyLinked[T]) FindIndex(fn func(T) bool) int {
 
 // Filter returns a new List containing only elements that satisfy the predicate.
 func (dl *DoublyLinked[T]) Filter(fn func(T) bool) List[T] {
-	var result []T
+	// Initialise non-nil so an empty result yields an initialised, non-nil empty
+	// List, matching slices.Filter and the slice-backed Array implementation.
+	result := []T{}
 	current := dl.head
 	for current != nil {
 		if fn(current.value) {

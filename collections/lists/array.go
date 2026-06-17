@@ -41,7 +41,9 @@ func (a *Array[T]) NoneMatch(fn func(T) bool) bool {
 // Dequeue returns the first element, whether one was present, and a new List
 // with that element removed, without modifying the receiver.
 func (a *Array[T]) Dequeue() (T, bool, List[T]) {
-	res, ok, rest := slices.PopFront(a.elements)
+	// Operate on a copy so the returned List is independent of the receiver's
+	// backing array (PopFront returns a sub-slice of its input).
+	res, ok, rest := slices.PopFront(slices.Copy(a.elements))
 	return res, ok, NewArray(rest...)
 }
 
@@ -56,7 +58,9 @@ func (a *Array[T]) DequeueInPlace() (T, bool) {
 // Enqueue returns a new List with element appended to the end, without
 // modifying the receiver.
 func (a *Array[T]) Enqueue(element T) List[T] {
-	return NewArray(slices.Push(a.elements, element)...)
+	// Operate on a copy so the returned List is independent of the receiver's
+	// backing array (Push may append into shared capacity).
+	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
 }
 
 // EnqueueInPlace appends element to the end of the receiver.
@@ -200,7 +204,9 @@ func (a *Array[T]) PeekFront() (T, bool) {
 // Pop returns the last element, whether one was present, and a new List with
 // that element removed, without modifying the receiver.
 func (a *Array[T]) Pop() (T, bool, List[T]) {
-	res, ok, rest := slices.Pop(a.elements)
+	// Operate on a copy so the returned List is independent of the receiver's
+	// backing array (Pop returns a sub-slice of its input).
+	res, ok, rest := slices.Pop(slices.Copy(a.elements))
 	return res, ok, NewArray(rest...)
 }
 
@@ -215,7 +221,9 @@ func (a *Array[T]) PopInPlace() (T, bool) {
 // Push returns a new List with element appended to the end, without modifying
 // the receiver.
 func (a *Array[T]) Push(element T) List[T] {
-	return NewArray(slices.Push(a.elements, element)...)
+	// Operate on a copy so the returned List is independent of the receiver's
+	// backing array (Push may append into shared capacity).
+	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
 }
 
 // PushInPlace appends element to the end of the receiver.
