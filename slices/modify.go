@@ -64,10 +64,13 @@ func FillTo[T any](input []T, value T, toIndex int) []T {
 	return FillFromTo[T](input, value, 0, toIndex)
 }
 
-// Insert adds the specified elements to the input slice at the specified index, returning the resulting slice.
+// Insert adds the specified elements to the input slice at the specified index, returning the resulting slice. The
+// index may range over 0 <= startIdx <= len(input): a startIdx equal to the length appends the elements to the end
+// (so inserting into an empty slice yields just the elements). An out-of-range index (startIdx < 0 || startIdx >
+// len(input)) leaves the input unchanged.
 func Insert[T any](input []T, startIdx int, elements ...T) []T {
-	if startIdx < 0 || startIdx >= len(input) {
-		return nil
+	if startIdx < 0 || startIdx > len(input) {
+		return input
 	}
 	// Build a fresh slice so neither the input nor the caller-provided elements
 	// (whose backing array is shared via the variadic argument) are mutated.

@@ -257,6 +257,11 @@ func (ch *ConcurrentHash[T]) Union(other Set[T]) Set[T] {
 	for e := range ch.data {
 		result.data[e] = struct{}{}
 	}
+	// Self-union is just a copy; calling other.ForEach would re-acquire ch.lock
+	// (non-reentrant) and deadlock when other is the receiver.
+	if other == Set[T](ch) {
+		return result
+	}
 	other.ForEach(func(element T) {
 		result.data[element] = struct{}{}
 	})
@@ -286,6 +291,11 @@ func (ch *ConcurrentHash[T]) UnionInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
+	// Unioning a set with itself is a no-op; bail out before other.ForEach
+	// re-acquires ch.lock (non-reentrant) and deadlocks.
+	if other == Set[T](ch) {
+		return
+	}
 	other.ForEach(func(element T) {
 		ch.data[element] = struct{}{}
 	})
@@ -334,6 +344,11 @@ func (ch *ConcurrentHash[T]) Difference(other Set[T]) Set[T] {
 	defer ch.lock.Unlock()
 
 	result := NewConcurrentHash[T]()
+	// Self-difference is empty; calling other.Contains would re-acquire ch.lock
+	// (non-reentrant) and deadlock when other is the receiver.
+	if other == Set[T](ch) {
+		return result
+	}
 	for element := range ch.data {
 		if !other.Contains(element) {
 			result.data[element] = struct{}{}
@@ -370,6 +385,13 @@ func (ch *ConcurrentHash[T]) DifferenceInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
+	// Removing a set's own elements from itself empties it; do that directly
+	// rather than calling other.ForEach, which would re-acquire ch.lock
+	// (non-reentrant) and deadlock when other is the receiver.
+	if other == Set[T](ch) {
+		clear(ch.data)
+		return
+	}
 	other.ForEach(func(element T) {
 		delete(ch.data, element)
 	})
@@ -392,6 +414,14 @@ func (ch *ConcurrentHash[T]) Intersection(other Set[T]) Set[T] {
 	defer ch.lock.Unlock()
 
 	result := NewConcurrentHash[T]()
+	// Self-intersection is just a copy; calling other.Contains would re-acquire
+	// ch.lock (non-reentrant) and deadlock when other is the receiver.
+	if other == Set[T](ch) {
+		for element := range ch.data {
+			result.data[element] = struct{}{}
+		}
+		return result
+	}
 	for element := range ch.data {
 		if other.Contains(element) {
 			result.data[element] = struct{}{}
@@ -405,6 +435,11 @@ func (ch *ConcurrentHash[T]) IsSubsetOf(other Set[T]) bool {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
+	// A set is always a subset of itself; bail out before other.Contains
+	// re-acquires ch.lock (non-reentrant) and deadlocks.
+	if other == Set[T](ch) {
+		return true
+	}
 	for element := range ch.data {
 		if !other.Contains(element) {
 			return false
@@ -423,6 +458,12 @@ func (ch *ConcurrentHash[T]) IsDisjoint(other Set[T]) bool {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
+	// A set is disjoint with itself only when empty; answer directly rather than
+	// calling other.Contains, which would re-acquire ch.lock (non-reentrant) and
+	// deadlock when other is the receiver.
+	if other == Set[T](ch) {
+		return len(ch.data) == 0
+	}
 	for element := range ch.data {
 		if other.Contains(element) {
 			return false
@@ -436,6 +477,11 @@ func (ch *ConcurrentHash[T]) Equals(other Set[T]) bool {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
+	// A set always equals itself; bail out before other.Length/other.Contains
+	// re-acquires ch.lock (non-reentrant) and deadlocks.
+	if other == Set[T](ch) {
+		return true
+	}
 	if len(ch.data) != other.Length() {
 		return false
 	}
@@ -452,6 +498,11 @@ func (ch *ConcurrentHash[T]) IntersectionInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
+	// Intersecting a set with itself is a no-op; bail out before other.Contains
+	// re-acquires ch.lock (non-reentrant) and deadlocks.
+	if other == Set[T](ch) {
+		return
+	}
 	for element := range ch.data {
 		if !other.Contains(element) {
 			delete(ch.data, element)

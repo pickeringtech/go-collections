@@ -210,6 +210,12 @@ func (ch *ConcurrentTreeSetRW[T]) AddMany(elements ...T) Set[T] {
 func (ch *ConcurrentTreeSetRW[T]) Union(other Set[T]) Set[T] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
+	// When other is the receiver, operate on the inner (non-locking) set so the
+	// delegated call doesn't re-acquire ch.lock (recursive read locks can
+	// deadlock with a queued writer).
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return wrapConcurrentTreeSetRW(ch.set.Union(other).(*TreeSet[T]))
 }
 
@@ -231,6 +237,9 @@ func (ch *ConcurrentTreeSetRW[T]) AddManyInPlace(elements ...T) {
 func (ch *ConcurrentTreeSetRW[T]) UnionInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	ch.set.UnionInPlace(other)
 }
 
@@ -255,6 +264,9 @@ func (ch *ConcurrentTreeSetRW[T]) RemoveMany(elements ...T) Set[T] {
 func (ch *ConcurrentTreeSetRW[T]) Difference(other Set[T]) Set[T] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return wrapConcurrentTreeSetRW(ch.set.Difference(other).(*TreeSet[T]))
 }
 
@@ -277,6 +289,9 @@ func (ch *ConcurrentTreeSetRW[T]) RemoveManyInPlace(elements ...T) {
 func (ch *ConcurrentTreeSetRW[T]) DifferenceInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	ch.set.DifferenceInPlace(other)
 }
 
@@ -292,6 +307,9 @@ func (ch *ConcurrentTreeSetRW[T]) Clear() {
 func (ch *ConcurrentTreeSetRW[T]) Intersection(other Set[T]) Set[T] {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return wrapConcurrentTreeSetRW(ch.set.Intersection(other).(*TreeSet[T]))
 }
 
@@ -299,6 +317,9 @@ func (ch *ConcurrentTreeSetRW[T]) Intersection(other Set[T]) Set[T] {
 func (ch *ConcurrentTreeSetRW[T]) IsSubsetOf(other Set[T]) bool {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return ch.set.IsSubsetOf(other)
 }
 
@@ -311,6 +332,9 @@ func (ch *ConcurrentTreeSetRW[T]) IsSupersetOf(other Set[T]) bool {
 func (ch *ConcurrentTreeSetRW[T]) IsDisjoint(other Set[T]) bool {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return ch.set.IsDisjoint(other)
 }
 
@@ -318,6 +342,9 @@ func (ch *ConcurrentTreeSetRW[T]) IsDisjoint(other Set[T]) bool {
 func (ch *ConcurrentTreeSetRW[T]) Equals(other Set[T]) bool {
 	ch.lock.RLock()
 	defer ch.lock.RUnlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	return ch.set.Equals(other)
 }
 
@@ -325,6 +352,9 @@ func (ch *ConcurrentTreeSetRW[T]) Equals(other Set[T]) bool {
 func (ch *ConcurrentTreeSetRW[T]) IntersectionInPlace(other Set[T]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	if other == Set[T](ch) {
+		other = ch.set
+	}
 	ch.set.IntersectionInPlace(other)
 }
 
