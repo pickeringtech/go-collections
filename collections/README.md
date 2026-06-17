@@ -90,9 +90,9 @@ longTasks := tasks.Filter(func(task string) bool {
 ```
 
 **Available Implementations:**
-- `NewList()` - Linked list
+- `NewList()` - Array/slice-backed list
 - `NewDoublyLinkedList()` - Bidirectional linked list
-- `NewConcurrentList()` - Thread-safe linked list
+- `NewConcurrentList()` - Thread-safe array/slice-backed list
 - `NewConcurrentDoublyLinkedList()` - Thread-safe bidirectional list
 - `NewConcurrentRWList()` - Read-optimized thread-safe list
 
