@@ -38,10 +38,13 @@ func (a *Array[T]) NoneMatch(fn func(T) bool) bool {
 	return !slices.AnyMatch(a.elements, fn)
 }
 
-// Dequeue returns the first element, whether one was present, and a new slice
+// Dequeue returns the first element, whether one was present, and a new List
 // with that element removed, without modifying the receiver.
-func (a *Array[T]) Dequeue() (T, bool, []T) {
-	return slices.PopFront(a.elements)
+func (a *Array[T]) Dequeue() (T, bool, List[T]) {
+	// Operate on a copy so the returned List is independent of the receiver's
+	// backing array (PopFront returns a sub-slice of its input).
+	res, ok, rest := slices.PopFront(slices.Copy(a.elements))
+	return res, ok, NewArray(rest...)
 }
 
 // DequeueInPlace removes and returns the first element, reporting whether one
@@ -52,10 +55,12 @@ func (a *Array[T]) DequeueInPlace() (T, bool) {
 	return res, ok
 }
 
-// Enqueue returns a new slice with element appended to the end, without
+// Enqueue returns a new List with element appended to the end, without
 // modifying the receiver.
-func (a *Array[T]) Enqueue(element T) []T {
-	return slices.Push(a.elements, element)
+func (a *Array[T]) Enqueue(element T) List[T] {
+	// Operate on a copy so the returned List is independent of the receiver's
+	// backing array (Push may append into shared capacity).
+	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
 }
 
 // EnqueueInPlace appends element to the end of the receiver.
@@ -63,10 +68,10 @@ func (a *Array[T]) EnqueueInPlace(element T) {
 	a.elements = slices.Push(a.elements, element)
 }
 
-// Filter returns a new slice containing only the elements for which fn returns
+// Filter returns a new List containing only the elements for which fn returns
 // true, without modifying the receiver.
-func (a *Array[T]) Filter(fn func(T) bool) []T {
-	return slices.Filter(a.elements, fn)
+func (a *Array[T]) Filter(fn func(T) bool) List[T] {
+	return NewArray(slices.Filter(a.elements, fn)...)
 }
 
 // FilterInPlace retains only the elements for which fn returns true, modifying
@@ -111,17 +116,19 @@ func (a *Array[T]) Get(index int, defaultValue T) (T, bool) {
 	return a.elements[index], true
 }
 
-// AsSlice returns the underlying backing slice.
+// AsSlice returns a copy of the elements as a new slice, independent of the
+// receiver's backing array. Mutating the returned slice does not affect the
+// list. The result is non-nil even when the list is empty.
 func (a *Array[T]) AsSlice() []T {
-	return a.elements
+	return slices.Copy(a.elements)
 }
 
-// Insert returns a new slice with the given elements inserted at index, without
+// Insert returns a new List with the given elements inserted at index, without
 // modifying the receiver. The index may range over 0 <= index <= Length(): an
 // index equal to the length appends. An out-of-range index returns the elements
 // unchanged.
-func (a *Array[T]) Insert(index int, element ...T) []T {
-	return slices.Insert(a.elements, index, element...)
+func (a *Array[T]) Insert(index int, element ...T) List[T] {
+	return NewArray(slices.Insert(a.elements, index, element...)...)
 }
 
 // InsertInPlace inserts the given elements at index, modifying the receiver. The
@@ -141,19 +148,19 @@ func (a *Array[T]) IsEmpty() bool {
 	return a.Length() == 0
 }
 
-// RemoveAt returns a new, independent slice with the element at index removed,
+// RemoveAt returns a new, independent List with the element at index removed,
 // without modifying the receiver. If index is out of bounds the elements are
 // returned unchanged.
-func (a *Array[T]) RemoveAt(index int) []T {
-	return deleteOwned(slices.Copy(a.elements), index)
+func (a *Array[T]) RemoveAt(index int) List[T] {
+	return NewArray(deleteOwned(slices.Copy(a.elements), index)...)
 }
 
-// Remove returns a new, independent slice with the first element deeply equal to
+// Remove returns a new, independent List with the first element deeply equal to
 // element removed, without modifying the receiver. If no element matches, the
 // elements are returned unchanged.
-func (a *Array[T]) Remove(element T) []T {
+func (a *Array[T]) Remove(element T) List[T] {
 	elements := slices.Copy(a.elements)
-	return deleteOwned(elements, indexOfDeepEqual(elements, element))
+	return NewArray(deleteOwned(elements, indexOfDeepEqual(elements, element))...)
 }
 
 // RemoveAtInPlace removes the element at index, returning it and whether the
@@ -196,10 +203,13 @@ func (a *Array[T]) PeekFront() (T, bool) {
 	return slices.PeekFront(a.elements)
 }
 
-// Pop returns the last element, whether one was present, and a new slice with
+// Pop returns the last element, whether one was present, and a new List with
 // that element removed, without modifying the receiver.
-func (a *Array[T]) Pop() (T, bool, []T) {
-	return slices.Pop(a.elements)
+func (a *Array[T]) Pop() (T, bool, List[T]) {
+	// Operate on a copy so the returned List is independent of the receiver's
+	// backing array (Pop returns a sub-slice of its input).
+	res, ok, rest := slices.Pop(slices.Copy(a.elements))
+	return res, ok, NewArray(rest...)
 }
 
 // PopInPlace removes and returns the last element, reporting whether one was
@@ -210,10 +220,12 @@ func (a *Array[T]) PopInPlace() (T, bool) {
 	return res, ok
 }
 
-// Push returns a new slice with element appended to the end, without modifying
+// Push returns a new List with element appended to the end, without modifying
 // the receiver.
-func (a *Array[T]) Push(element T) []T {
-	return slices.Push(a.elements, element)
+func (a *Array[T]) Push(element T) List[T] {
+	// Operate on a copy so the returned List is independent of the receiver's
+	// backing array (Push may append into shared capacity).
+	return NewArray(slices.Push(slices.Copy(a.elements), element)...)
 }
 
 // PushInPlace appends element to the end of the receiver.
@@ -221,10 +233,10 @@ func (a *Array[T]) PushInPlace(element T) {
 	a.elements = slices.Push(a.elements, element)
 }
 
-// Sort returns a new slice sorted according to the less-than function fn,
+// Sort returns a new List sorted according to the less-than function fn,
 // without modifying the receiver.
-func (a *Array[T]) Sort(fn func(T, T) bool) []T {
-	return slices.Sort(a.elements, fn)
+func (a *Array[T]) Sort(fn func(T, T) bool) List[T] {
+	return NewArray(slices.Sort(a.elements, fn)...)
 }
 
 // SortInPlace sorts the receiver's elements according to the less-than function

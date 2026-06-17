@@ -80,7 +80,7 @@ func TestLinked_Circular(t *testing.T) {
 	if idx := l.FindIndex(func(n int) bool { return n == 99 }); idx != -1 {
 		t.Errorf("FindIndex(==99) = %d, want -1", idx)
 	}
-	if got := l.Filter(func(n int) bool { return n != 2 }); !reflect.DeepEqual(got, []int{1, 3}) {
+	if got := l.Filter(func(n int) bool { return n != 2 }); !reflect.DeepEqual(got.AsSlice(), []int{1, 3}) {
 		t.Errorf("Filter(!=2) = %v, want [1 3]", got)
 	}
 	got, found := l.Get(99, -1)
@@ -147,7 +147,7 @@ func TestLinked_CircularPopAndDequeue(t *testing.T) {
 
 func TestLinked_Enqueue(t *testing.T) {
 	l := lists.NewLinked(1, 2)
-	if got := l.Enqueue(3); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+	if got := l.Enqueue(3); !reflect.DeepEqual(got.AsSlice(), []int{1, 2, 3}) {
 		t.Errorf("Enqueue(3) = %v, want [1 2 3]", got)
 	}
 	l.EnqueueInPlace(3)
@@ -185,7 +185,7 @@ func TestDoublyLinked_Circular(t *testing.T) {
 	if idx := dl.FindIndex(func(n int) bool { return n == 4 }); idx != 3 {
 		t.Errorf("FindIndex(==4) = %d, want 3", idx)
 	}
-	if got := dl.Filter(func(n int) bool { return n%2 == 0 }); !reflect.DeepEqual(got, []int{2, 4}) {
+	if got := dl.Filter(func(n int) bool { return n%2 == 0 }); !reflect.DeepEqual(got.AsSlice(), []int{2, 4}) {
 		t.Errorf("Filter(even) = %v, want [2 4]", got)
 	}
 
@@ -233,10 +233,10 @@ func TestDoublyLinked_InsertInPlace(t *testing.T) {
 
 func TestDoublyLinked_Insert(t *testing.T) {
 	dl := lists.NewDoublyLinked(1, 2, 3)
-	if got := dl.Insert(1, 9); !reflect.DeepEqual(got, []int{1, 9, 2, 3}) {
+	if got := dl.Insert(1, 9); !reflect.DeepEqual(got.AsSlice(), []int{1, 9, 2, 3}) {
 		t.Errorf("Insert(1,9) = %v, want [1 9 2 3]", got)
 	}
-	if got := dl.Insert(-1, 9); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+	if got := dl.Insert(-1, 9); !reflect.DeepEqual(got.AsSlice(), []int{1, 2, 3}) {
 		t.Errorf("Insert(-1,9) = %v, want [1 2 3]", got)
 	}
 }
@@ -270,22 +270,22 @@ func TestDoublyLinked_GetFromHeadHalf(t *testing.T) {
 func TestDoublyLinked_StackQueueAndSort(t *testing.T) {
 	dl := lists.NewDoublyLinked(3, 1, 2)
 
-	if got := dl.Push(4); !reflect.DeepEqual(got, []int{3, 1, 2, 4}) {
+	if got := dl.Push(4); !reflect.DeepEqual(got.AsSlice(), []int{3, 1, 2, 4}) {
 		t.Errorf("Push(4) = %v, want [3 1 2 4]", got)
 	}
-	if got := dl.Enqueue(4); !reflect.DeepEqual(got, []int{3, 1, 2, 4}) {
+	if got := dl.Enqueue(4); !reflect.DeepEqual(got.AsSlice(), []int{3, 1, 2, 4}) {
 		t.Errorf("Enqueue(4) = %v, want [3 1 2 4]", got)
 	}
-	if got := dl.Sort(func(a, b int) bool { return a < b }); !reflect.DeepEqual(got, []int{1, 2, 3}) {
+	if got := dl.Sort(func(a, b int) bool { return a < b }); !reflect.DeepEqual(got.AsSlice(), []int{1, 2, 3}) {
 		t.Errorf("Sort(asc) = %v, want [1 2 3]", got)
 	}
 
 	val, ok, rest := dl.Pop()
-	if !ok || val != 2 || !reflect.DeepEqual(rest, []int{3, 1}) {
+	if !ok || val != 2 || !reflect.DeepEqual(rest.AsSlice(), []int{3, 1}) {
 		t.Errorf("Pop() = (%d, %v, %v), want (2, true, [3 1])", val, ok, rest)
 	}
 	val, ok, rest = dl.Dequeue()
-	if !ok || val != 3 || !reflect.DeepEqual(rest, []int{1, 2}) {
+	if !ok || val != 3 || !reflect.DeepEqual(rest.AsSlice(), []int{1, 2}) {
 		t.Errorf("Dequeue() = (%d, %v, %v), want (3, true, [1 2])", val, ok, rest)
 	}
 

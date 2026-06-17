@@ -15,25 +15,25 @@ type concurrentList interface {
 	AnyMatch(fn func(int) bool) bool
 	Find(fn func(int) bool) (int, bool)
 	FindIndex(fn func(int) bool) int
-	Filter(fn func(int) bool) []int
+	Filter(fn func(int) bool) lists.List[int]
 	FilterInPlace(fn func(int) bool)
 	Get(index int, defaultValue int) (int, bool)
 	Length() int
 	ForEach(fn lists.EachFunc[int])
 	ForEachWithIndex(fn lists.IndexedEachFunc[int])
 	AsSlice() []int
-	Insert(index int, elements ...int) []int
+	Insert(index int, elements ...int) lists.List[int]
 	InsertInPlace(index int, elements ...int)
-	Sort(lessThan func(int, int) bool) []int
+	Sort(lessThan func(int, int) bool) lists.List[int]
 	SortInPlace(lessThan func(int, int) bool)
-	Push(element int) []int
+	Push(element int) lists.List[int]
 	PushInPlace(element int)
-	Pop() (int, bool, []int)
+	Pop() (int, bool, lists.List[int])
 	PopInPlace() (int, bool)
 	PeekEnd() (int, bool)
-	Enqueue(element int) []int
+	Enqueue(element int) lists.List[int]
 	EnqueueInPlace(element int)
-	Dequeue() (int, bool, []int)
+	Dequeue() (int, bool, lists.List[int])
 	DequeueInPlace() (int, bool)
 	PeekFront() (int, bool)
 }
@@ -86,7 +86,7 @@ func TestConcurrentLists_ReadOperations(t *testing.T) {
 				t.Errorf("FindIndex(>100) = %d, want -1", idx)
 			}
 
-			if got := cl.Filter(isEven); !reflect.DeepEqual(got, []int{2, 4}) {
+			if got := cl.Filter(isEven); !reflect.DeepEqual(got.AsSlice(), []int{2, 4}) {
 				t.Errorf("Filter(isEven) = %v, want [2 4]", got)
 			}
 
@@ -142,25 +142,25 @@ func TestConcurrentLists_Iteration(t *testing.T) {
 func TestConcurrentLists_ImmutableOperations(t *testing.T) {
 	for name, cl := range concurrentListFactories(1, 2, 3) {
 		t.Run(name, func(t *testing.T) {
-			if got := cl.Insert(1, 99); !reflect.DeepEqual(got, []int{1, 99, 2, 3}) {
+			if got := cl.Insert(1, 99); !reflect.DeepEqual(got.AsSlice(), []int{1, 99, 2, 3}) {
 				t.Errorf("Insert(1, 99) = %v, want [1 99 2 3]", got)
 			}
-			if got := cl.Push(4); !reflect.DeepEqual(got, []int{1, 2, 3, 4}) {
+			if got := cl.Push(4); !reflect.DeepEqual(got.AsSlice(), []int{1, 2, 3, 4}) {
 				t.Errorf("Push(4) = %v, want [1 2 3 4]", got)
 			}
-			if got := cl.Enqueue(4); !reflect.DeepEqual(got, []int{1, 2, 3, 4}) {
+			if got := cl.Enqueue(4); !reflect.DeepEqual(got.AsSlice(), []int{1, 2, 3, 4}) {
 				t.Errorf("Enqueue(4) = %v, want [1 2 3 4]", got)
 			}
-			if got := cl.Sort(func(a, b int) bool { return a > b }); !reflect.DeepEqual(got, []int{3, 2, 1}) {
+			if got := cl.Sort(func(a, b int) bool { return a > b }); !reflect.DeepEqual(got.AsSlice(), []int{3, 2, 1}) {
 				t.Errorf("Sort(desc) = %v, want [3 2 1]", got)
 			}
 
 			val, ok, rest := cl.Pop()
-			if !ok || val != 3 || !reflect.DeepEqual(rest, []int{1, 2}) {
+			if !ok || val != 3 || !reflect.DeepEqual(rest.AsSlice(), []int{1, 2}) {
 				t.Errorf("Pop() = (%d, %v, %v), want (3, true, [1 2])", val, ok, rest)
 			}
 			val, ok, rest = cl.Dequeue()
-			if !ok || val != 1 || !reflect.DeepEqual(rest, []int{2, 3}) {
+			if !ok || val != 1 || !reflect.DeepEqual(rest.AsSlice(), []int{2, 3}) {
 				t.Errorf("Dequeue() = (%d, %v, %v), want (1, true, [2 3])", val, ok, rest)
 			}
 
@@ -288,7 +288,7 @@ func TestConcurrentLists_Circular(t *testing.T) {
 			if count != 4 {
 				t.Errorf("ForEach visited %d elements, want 4", count)
 			}
-			if got := cl.Filter(isEven); !reflect.DeepEqual(got, []int{2, 4}) {
+			if got := cl.Filter(isEven); !reflect.DeepEqual(got.AsSlice(), []int{2, 4}) {
 				t.Errorf("Filter(isEven) = %v, want [2 4]", got)
 			}
 			if !cl.AllMatch(func(n int) bool { return n > 0 }) {

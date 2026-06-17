@@ -27,6 +27,20 @@ BENCH_MACHINE ?= Framework Desktop · AMD Ryzen AI MAX+ 395 · 128 GB unified me
 # benchstat from PATH by default; CI installs the pinned version first.
 BENCHSTAT ?= benchstat
 
+# Tool versions for the local CI mirror (`make lint` / `make security` / `make
+# ci`). These MUST track the pins in .github/workflows/ci.yml so a green local
+# run predicts a green PR — golangci-lint in particular changes its findings
+# between releases, so parity matters (issue #88). Bump here and there together.
+# We run each tool via `go run <module>@<version>` rather than expecting it on
+# PATH: that pins the exact version with zero setup and never touches this
+# repo's (dependency-free) go.mod. The first run builds the tool (then caches).
+# NB: keep these as bare values — a trailing inline `# comment` would fold its
+# leading spaces into the variable (Make quirk) and leak into the `go run` arg.
+GOLANGCI_VERSION    ?= v2.1.6
+GOVULNCHECK_VERSION ?= v1.3.0
+GOSEC_VERSION       ?= v2.27.1
+COVERAGE_MIN        ?= 100
+
 BENCHREPORT_DIR := tools/benchreport
 BUILD_DIR       := build
 BENCH_DATA_DIR  := docs/bench
@@ -59,7 +73,8 @@ GIT_SHA    := $(shell git rev-parse --short HEAD 2>/dev/null)
 GEN_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 GO_VERSION := $(shell go env GOVERSION)
 
-.PHONY: help test test-root test-nested bench bench-report bench-render
+.PHONY: help test test-root test-nested bench bench-report bench-render \
+	ci hygiene cover lint security cross-arch fuzz
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -79,6 +94,98 @@ test-nested: ## Run the tests of every nested module (examples/, tools/benchrepo
 		echo ">> testing nested module $$dir"; \
 		(cd "$$dir" && go test -shuffle=on ./...) || exit 1; \
 	done
+
+# ----------------------------------------------------------------------------
+# Local CI mirror (issue #88). `make ci` runs the SAME blocking gates the PR
+# `CI Gate` aggregates (.github/workflows/ci.yml → ci-gate `needs:`), so a green
+# `make ci` predicts a green PR. Each gate is also a standalone target so you can
+# reproduce a single failing job. The matching CI jobs are:
+#   hygiene    → build (compile · go.mod tidy · zero-dep · integrity)
+#   cover      → test  (root suite, -race -shuffle, 100% coverage floor)
+#   test-nested→ examples-e2e (+ every other nested module, see #79)
+#   lint       → lint  (gofmt · go vet · golangci-lint @ pinned version)
+#   security   → security (govulncheck · gosec)
+#   cross-arch → cross-arch (386/arm64/s390x build+vet, 386 tests)
+#   fuzz       → fuzz  (count-based smoke run of every Fuzz target)
+# Report-only CI jobs (test-tip, benchmarks, api-compat) are deliberately NOT
+# mirrored — they never gate a merge. Ordered cheap-/common-failure-first so a
+# typical mistake (formatting, a failing test) aborts before the slow arches.
+ci: hygiene lint cover test-nested security cross-arch fuzz ## Run every blocking CI gate locally — a green run predicts a green PR
+	@echo ">> all blocking CI gates passed locally ✔"
+
+hygiene: ## CI 'build' gate: compile, go.mod tidy + zero-dependency + module integrity
+	go build ./...
+	@echo ">> checking go.mod/go.sum are tidy"
+	@go mod tidy; \
+	changed=$$(git status --porcelain -- go.mod go.sum); \
+	if [ -n "$$changed" ]; then \
+		echo "::error::go.mod/go.sum are not tidy — run 'go mod tidy' and commit:"; \
+		echo "$$changed"; git diff -- go.mod go.sum; exit 1; \
+	fi; \
+	echo "go.mod/go.sum are tidy ✔"
+	@echo ">> enforcing zero runtime dependencies"
+	@if grep -qE '^[[:space:]]*require' go.mod; then \
+		echo "::error::unexpected dependency in go.mod — this library stays zero-dependency"; \
+		grep -nE '^[[:space:]]*require' go.mod; exit 1; \
+	fi; \
+	echo "go.mod declares no dependencies ✔"
+	go mod verify
+
+cover: ## CI 'test' gate: root suite with -race -shuffle, then enforce the coverage floor
+	@mkdir -p $(BUILD_DIR)
+	go test -race -shuffle=on -coverprofile=$(BUILD_DIR)/coverage.out ./...
+	@go tool cover -func=$(BUILD_DIR)/coverage.out | tail -1
+	@pct=$$(go tool cover -func=$(BUILD_DIR)/coverage.out | tail -1 | awk '{print $$3}' | tr -d '%'); \
+	echo "total coverage: $${pct}% (floor: $(COVERAGE_MIN)%)"; \
+	if awk -v pct="$$pct" -v min="$(COVERAGE_MIN)" 'BEGIN{exit !(pct >= min)}'; then \
+		echo "coverage meets the $(COVERAGE_MIN)% floor ✔"; \
+	else \
+		echo "::error::coverage $${pct}% dropped below the $(COVERAGE_MIN)% floor"; exit 1; \
+	fi
+
+lint: ## CI 'lint' gate: gofmt check + go vet + golangci-lint (pinned to CI's version)
+	@echo ">> checking gofmt"
+	@unformatted=$$(gofmt -l .); \
+	if [ -n "$$unformatted" ]; then \
+		echo "::error::these files are not gofmt-clean:"; echo "$$unformatted"; exit 1; \
+	fi; \
+	echo "all files are gofmt-clean ✔"
+	go vet ./...
+	@echo ">> golangci-lint run ($(GOLANGCI_VERSION))"
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION) run
+
+security: ## CI 'security' gate: govulncheck + gosec (pinned to CI's versions)
+	@echo ">> govulncheck ($(GOVULNCHECK_VERSION))"
+	go run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./...
+	@echo ">> gosec ($(GOSEC_VERSION))"
+	go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) ./...
+
+# Cross-compile every package for the non-amd64 arches CI gates on. 386 binaries
+# execute on the amd64 host (pure-Go, static), so we also run its tests; arm64
+# and s390x (big-endian) can't run here, so they are build+vet only — matching
+# the CI matrix in .github/workflows/ci.yml.
+cross-arch: ## CI 'cross-arch' gate: 386/arm64/s390x build+vet (+ run 386 tests)
+	@for arch in 386 arm64 s390x; do \
+		echo ">> GOARCH=$$arch build + vet"; \
+		GOARCH=$$arch go build ./... || exit 1; \
+		GOARCH=$$arch go vet ./...   || exit 1; \
+	done
+	@echo ">> GOARCH=386 go test -shuffle=on (executes on the amd64 host)"
+	GOARCH=386 go test -shuffle=on ./...
+
+# Count-based smoke run of every Fuzz target (mirrors CI's -fuzztime=2000x): a
+# fixed iteration count is sub-second per target and deterministic, so it just
+# confirms each target compiles, runs and survives its seed corpus. CI fans the
+# targets out across cores; running them serially here keeps the Makefile simple.
+fuzz: ## CI 'fuzz' gate: run every Fuzz target for a fixed iteration count
+	@for pkg in $$(go list ./...); do \
+		dir=$$(go list -f '{{.Dir}}' "$$pkg"); \
+		for fn in $$(grep -rhoE '^func (Fuzz[A-Za-z0-9_]+)' "$$dir"/*_test.go 2>/dev/null | awk '{print $$2}' | sort -u); do \
+			echo ">> fuzzing $$pkg $$fn"; \
+			go test -run='^$$' -fuzz="^$$fn$$" -fuzztime=2000x "$$pkg" || exit 1; \
+		done; \
+	done
+	@echo "all fuzz targets passed the count-based smoke run ✔"
 
 bench: ## Run the collections benchmarks once (no report), printing results
 	go test -run='^$$' -bench=. -benchmem -benchtime=$(BENCH_TIME) -count=$(BENCH_COUNT) $(BENCH_PKGS)

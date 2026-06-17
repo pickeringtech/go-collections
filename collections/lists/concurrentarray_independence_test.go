@@ -21,7 +21,7 @@ func TestConcurrentArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 
 		a.SortInPlace(ascending) // mutates the receiver's backing array
 
-		if want := []int{3, 1}; !reflect.DeepEqual(popped, want) {
+		if want := []int{3, 1}; !reflect.DeepEqual(popped.AsSlice(), want) {
 			t.Errorf("Pop result = %v, want %v (returned slice aliased the receiver)", popped, want)
 		}
 	})
@@ -32,7 +32,7 @@ func TestConcurrentArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 
 		a.SortInPlace(ascending)
 
-		if want := []int{1, 2}; !reflect.DeepEqual(dequeued, want) {
+		if want := []int{1, 2}; !reflect.DeepEqual(dequeued.AsSlice(), want) {
 			t.Errorf("Dequeue result = %v, want %v (returned slice aliased the receiver)", dequeued, want)
 		}
 	})
@@ -41,7 +41,7 @@ func TestConcurrentArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 		a := lists.NewConcurrentArray(1, 2, 3)
 		inserted := a.Insert(1, 99)
 
-		if want := []int{1, 99, 2, 3}; !reflect.DeepEqual(inserted, want) {
+		if want := []int{1, 99, 2, 3}; !reflect.DeepEqual(inserted.AsSlice(), want) {
 			t.Errorf("Insert result = %v, want %v", inserted, want)
 		}
 		if got := a.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {
@@ -52,7 +52,7 @@ func TestConcurrentArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 	t.Run("Push result is independent", func(t *testing.T) {
 		a := lists.NewConcurrentArray(1, 2, 3)
 		pushed := a.Push(9)
-		pushed[0] = 999
+		pushed.AsSlice()[0] = 999
 
 		got, _ := a.Get(0, -1)
 		if got != 1 {
@@ -70,7 +70,7 @@ func TestConcurrentRWArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 
 		a.SortInPlace(ascending)
 
-		if want := []int{3, 1}; !reflect.DeepEqual(popped, want) {
+		if want := []int{3, 1}; !reflect.DeepEqual(popped.AsSlice(), want) {
 			t.Errorf("Pop result = %v, want %v (returned slice aliased the receiver)", popped, want)
 		}
 	})
@@ -81,7 +81,7 @@ func TestConcurrentRWArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 
 		a.SortInPlace(ascending)
 
-		if want := []int{1, 2}; !reflect.DeepEqual(dequeued, want) {
+		if want := []int{1, 2}; !reflect.DeepEqual(dequeued.AsSlice(), want) {
 			t.Errorf("Dequeue result = %v, want %v (returned slice aliased the receiver)", dequeued, want)
 		}
 	})
@@ -90,7 +90,7 @@ func TestConcurrentRWArray_ImmutableOpsIndependentOfReceiver(t *testing.T) {
 		a := lists.NewConcurrentRWArray(1, 2, 3)
 		inserted := a.Insert(1, 99)
 
-		if want := []int{1, 99, 2, 3}; !reflect.DeepEqual(inserted, want) {
+		if want := []int{1, 99, 2, 3}; !reflect.DeepEqual(inserted.AsSlice(), want) {
 			t.Errorf("Insert result = %v, want %v", inserted, want)
 		}
 		if got := a.AsSlice(); !reflect.DeepEqual(got, []int{1, 2, 3}) {

@@ -85,15 +85,15 @@ func (cl *ConcurrentRWDoublyLinked[T]) FindIndex(fn func(T) bool) int {
 	return slices.FindIndex(snapshot, fn)
 }
 
-// Filter returns a new slice containing only elements that satisfy the
+// Filter returns a new List containing only elements that satisfy the
 // predicate. The predicate is evaluated after the lock is released, against a
 // point-in-time snapshot taken under the lock, so it may safely call back into
 // the collection.
-func (cl *ConcurrentRWDoublyLinked[T]) Filter(fn func(T) bool) []T {
+func (cl *ConcurrentRWDoublyLinked[T]) Filter(fn func(T) bool) List[T] {
 	cl.lock.RLock()
 	snapshot := cl.data.AsSlice()
 	cl.lock.RUnlock()
-	return slices.Filter(snapshot, fn)
+	return NewArray(slices.Filter(snapshot, fn)...)
 }
 
 // FilterInPlace removes elements that don't satisfy the predicate. The predicate
@@ -138,17 +138,17 @@ func (cl *ConcurrentRWDoublyLinked[T]) IsEmpty() bool {
 	return cl.data.IsEmpty()
 }
 
-// RemoveAt returns a new slice with the element at index removed, without
+// RemoveAt returns a new List with the element at index removed, without
 // modifying the receiver.
-func (cl *ConcurrentRWDoublyLinked[T]) RemoveAt(index int) []T {
+func (cl *ConcurrentRWDoublyLinked[T]) RemoveAt(index int) List[T] {
 	cl.lock.RLock()
 	defer cl.lock.RUnlock()
 	return cl.data.RemoveAt(index)
 }
 
-// Remove returns a new slice with the first element deeply equal to element
+// Remove returns a new List with the first element deeply equal to element
 // removed, without modifying the receiver.
-func (cl *ConcurrentRWDoublyLinked[T]) Remove(element T) []T {
+func (cl *ConcurrentRWDoublyLinked[T]) Remove(element T) List[T] {
 	cl.lock.RLock()
 	defer cl.lock.RUnlock()
 	return cl.data.Remove(element)
@@ -208,8 +208,8 @@ func (cl *ConcurrentRWDoublyLinked[T]) AsSlice() []T {
 	return cl.data.AsSlice()
 }
 
-// Insert creates a new slice with elements inserted at the given index.
-func (cl *ConcurrentRWDoublyLinked[T]) Insert(index int, elements ...T) []T {
+// Insert creates a new List with elements inserted at the given index.
+func (cl *ConcurrentRWDoublyLinked[T]) Insert(index int, elements ...T) List[T] {
 	cl.lock.RLock()
 	defer cl.lock.RUnlock()
 	return cl.data.Insert(index, elements...)
@@ -222,8 +222,8 @@ func (cl *ConcurrentRWDoublyLinked[T]) InsertInPlace(index int, elements ...T) {
 	cl.data.InsertInPlace(index, elements...)
 }
 
-// Sort returns a new sorted slice.
-func (cl *ConcurrentRWDoublyLinked[T]) Sort(lessThan func(T, T) bool) []T {
+// Sort returns a new sorted List.
+func (cl *ConcurrentRWDoublyLinked[T]) Sort(lessThan func(T, T) bool) List[T] {
 	cl.lock.RLock()
 	defer cl.lock.RUnlock()
 	return cl.data.Sort(lessThan)
@@ -236,8 +236,8 @@ func (cl *ConcurrentRWDoublyLinked[T]) SortInPlace(lessThan func(T, T) bool) {
 	cl.data.SortInPlace(lessThan)
 }
 
-// Push adds an element to the end and returns a new slice.
-func (cl *ConcurrentRWDoublyLinked[T]) Push(element T) []T {
+// Push adds an element to the end and returns a new List.
+func (cl *ConcurrentRWDoublyLinked[T]) Push(element T) List[T] {
 	cl.lock.RLock()
 	defer cl.lock.RUnlock()
 	return cl.data.Push(element)
@@ -251,7 +251,7 @@ func (cl *ConcurrentRWDoublyLinked[T]) PushInPlace(element T) {
 }
 
 // Pop removes and returns the last element.
-func (cl *ConcurrentRWDoublyLinked[T]) Pop() (T, bool, []T) {
+func (cl *ConcurrentRWDoublyLinked[T]) Pop() (T, bool, List[T]) {
 	cl.lock.RLock()
 	defer cl.lock.RUnlock()
 	return cl.data.Pop()
@@ -271,8 +271,8 @@ func (cl *ConcurrentRWDoublyLinked[T]) PeekEnd() (T, bool) {
 	return cl.data.PeekEnd()
 }
 
-// Enqueue adds an element to the end and returns a new slice.
-func (cl *ConcurrentRWDoublyLinked[T]) Enqueue(element T) []T {
+// Enqueue adds an element to the end and returns a new List.
+func (cl *ConcurrentRWDoublyLinked[T]) Enqueue(element T) List[T] {
 	return cl.Push(element)
 }
 
@@ -282,7 +282,7 @@ func (cl *ConcurrentRWDoublyLinked[T]) EnqueueInPlace(element T) {
 }
 
 // Dequeue removes and returns the first element.
-func (cl *ConcurrentRWDoublyLinked[T]) Dequeue() (T, bool, []T) {
+func (cl *ConcurrentRWDoublyLinked[T]) Dequeue() (T, bool, List[T]) {
 	cl.lock.RLock()
 	defer cl.lock.RUnlock()
 	return cl.data.Dequeue()

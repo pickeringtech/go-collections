@@ -175,7 +175,7 @@ func ExampleArray_Dequeue() {
 	first, ok, rest := arr.Dequeue()
 	fmt.Printf("First: %v\n", first)
 	fmt.Printf("OK: %v\n", ok)
-	fmt.Printf("Rest: %v\n", rest)
+	fmt.Printf("Rest: %v\n", rest.AsSlice())
 
 	// Output:
 	// First: 1
@@ -223,7 +223,7 @@ func TestArray_Dequeue(t *testing.T) {
 			if gotOK != tt.wantOK {
 				t.Errorf("Dequeue() gotOK = %v, want %v", gotOK, tt.wantOK)
 			}
-			if !reflect.DeepEqual(gotSli, tt.wantSli) {
+			if !reflect.DeepEqual(gotSli.AsSlice(), tt.wantSli) {
 				t.Errorf("Dequeue() gotSli = %v, want %v", gotSli, tt.wantSli)
 			}
 		})
@@ -247,18 +247,18 @@ func TestArray_DequeueInPlace(t *testing.T) {
 			wantRest: []int{2, 3, 4, 5},
 		},
 		{
-			name:     "dequeueing last element returns true, but nil slice",
+			name:     "dequeueing last element returns true, but empty slice",
 			a:        lists.NewArray[int](1),
 			wantVal:  1,
 			wantOK:   true,
-			wantRest: nil,
+			wantRest: []int{},
 		},
 		{
-			name:     "dequeueing empty input returns false, and nil slice",
+			name:     "dequeueing empty input returns false, and empty slice",
 			a:        lists.NewArray[int](),
 			wantVal:  0,
 			wantOK:   false,
-			wantRest: nil,
+			wantRest: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -319,7 +319,7 @@ func TestArray_Enqueue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Enqueue(tt.args.element)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Enqueue() = %v, want %v", got, tt.want)
 			}
 		})
@@ -372,7 +372,7 @@ func ExampleArray_Filter() {
 	out := arr.Filter(func(i int) bool {
 		return i > 2 && i < 5
 	})
-	fmt.Printf("Array: %v\n", out)
+	fmt.Printf("Array: %v\n", out.AsSlice())
 
 	// Output:
 	// Array: [3 4]
@@ -413,7 +413,7 @@ func TestArray_Filter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Filter(tt.args.fn)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Filter() = %v, want %v", got, tt.want)
 			}
 		})
@@ -823,9 +823,9 @@ func TestArray_AsSlice(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			a:    lists.NewArray[int](),
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -838,12 +838,38 @@ func TestArray_AsSlice(t *testing.T) {
 	}
 }
 
+// TestArray_AsSlice_Independence verifies that AsSlice returns a copy that does
+// not alias the list's backing storage, matching ConcurrentArray's semantics.
+func TestArray_AsSlice_Independence(t *testing.T) {
+	t.Run("mutating the returned slice does not affect the list", func(t *testing.T) {
+		a := lists.NewArray[int](1, 2, 3)
+
+		got := a.AsSlice()
+		got[0] = 99
+
+		if again := a.AsSlice(); !reflect.DeepEqual(again, []int{1, 2, 3}) {
+			t.Errorf("list mutated through AsSlice result: got %v, want %v", again, []int{1, 2, 3})
+		}
+	})
+
+	t.Run("mutating the list does not affect a previously returned slice", func(t *testing.T) {
+		a := lists.NewArray[int](1, 2, 3)
+
+		got := a.AsSlice()
+		a.PushInPlace(4)
+
+		if !reflect.DeepEqual(got, []int{1, 2, 3}) {
+			t.Errorf("previously returned slice changed after list mutation: got %v, want %v", got, []int{1, 2, 3})
+		}
+	})
+}
+
 func ExampleArray_Insert() {
 	arr := lists.NewArray(1, 2, 3, 4, 5)
 
 	out := arr.Insert(2, 6, 7, 8)
 
-	fmt.Printf("%v\n", out)
+	fmt.Printf("%v\n", out.AsSlice())
 
 	// Output:
 	// [1 2 6 7 8 3 4 5]
@@ -937,7 +963,7 @@ func TestArray_Insert(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Insert(tt.args.index, tt.args.elements...)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Insert() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1026,7 +1052,7 @@ func TestArray_InsertInPlace(t *testing.T) {
 				index:    2,
 				elements: []int{6, 7, 8},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -1173,7 +1199,7 @@ func ExampleArray_Pop() {
 
 	out, ok, outSli := arr.Pop()
 
-	fmt.Printf("%v, %v, %v\n", out, ok, outSli)
+	fmt.Printf("%v, %v, %v\n", out, ok, outSli.AsSlice())
 
 	// Output:
 	// 5, true, [1 2 3 4]
@@ -1212,7 +1238,7 @@ func TestArray_Pop(t *testing.T) {
 			if gotOK != tt.wantOK {
 				t.Errorf("Pop() gotOK = %v, want %v", gotOK, tt.wantOK)
 			}
-			if !reflect.DeepEqual(gotSli, tt.wantSli) {
+			if !reflect.DeepEqual(gotSli.AsSlice(), tt.wantSli) {
 				t.Errorf("Pop() gotSli = %v, want %v", gotSli, tt.wantSli)
 			}
 		})
@@ -1236,11 +1262,11 @@ func TestArray_PopInPlace(t *testing.T) {
 			wantRest: []int{1, 2, 3, 4},
 		},
 		{
-			name:     "empty array yields zero value output and nil slice",
+			name:     "empty array yields zero value output and empty slice",
 			a:        lists.NewArray[int](),
 			wantVal:  0,
 			wantOK:   false,
-			wantRest: nil,
+			wantRest: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -1265,7 +1291,7 @@ func ExampleArray_Push() {
 
 	out := arr.Push(10)
 
-	fmt.Printf("%v\n", out)
+	fmt.Printf("%v\n", out.AsSlice())
 
 	// Output:
 	// [1 2 3 4 5 10]
@@ -1302,7 +1328,7 @@ func TestArray_Push(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Push(tt.args.element)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Push() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1354,7 +1380,7 @@ func ExampleArray_Sort() {
 
 	out := arr.Sort(slices.AscendingSortFunc[int])
 
-	fmt.Printf("%v\n", out)
+	fmt.Printf("%v\n", out.AsSlice())
 
 	// Output:
 	// [1 2 3 4 5]
@@ -1399,7 +1425,7 @@ func TestArray_Sort(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.a.Sort(tt.args.fn)
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.AsSlice(), tt.want) {
 				t.Errorf("Sort() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1445,12 +1471,12 @@ func TestArray_SortInPlace(t *testing.T) {
 			want: []int{1, 2, 3, 4, 5},
 		},
 		{
-			name: "sorting empty array results in nil",
+			name: "sorting empty array results in empty slice",
 			a:    lists.NewArray[int](),
 			args: args[int]{
 				fn: slices.AscendingSortFunc[int],
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {

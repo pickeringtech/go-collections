@@ -2,10 +2,22 @@ package lists
 
 import "iter"
 
+// Return-type policy for immutable list operations
+//
+// Every non-mutating transform below (Filter, Insert, RemoveAt, Remove, Sort,
+// Push, Pop, Enqueue, Dequeue) returns a List[T] rather than a plain []T, so
+// results chain straight into further list operations — mirroring the rich
+// return types of dicts.Filter (Dict[K,V]) and sets.Filter (Set[T]), and the
+// lists.Map free function (List[U]). The concrete value is an Array-backed
+// List[T] regardless of the receiver's implementation; callers that need a raw
+// slice call AsSlice on the result (zero-overhead for Array, whose AsSlice
+// returns its backing slice). AsSlice on the Convertible interface remains the
+// single, explicit slice escape hatch.
+
 // Filterable is implemented by collections that can be filtered into a new
-// slice without modifying the receiver.
+// List without modifying the receiver.
 type Filterable[T any] interface {
-	Filter(fn func(T) bool) []T
+	Filter(fn func(T) bool) List[T]
 }
 
 // MutableFilterable is implemented by collections that can be filtered in place,
@@ -24,16 +36,17 @@ type Indexable[T any] interface {
 }
 
 // Convertible is implemented by collections that can be converted into a slice.
-// Whether the returned slice aliases the collection's backing storage or is an
-// independent copy is implementation-defined.
+// AsSlice returns an independent copy of the elements: mutating the returned
+// slice never affects the collection's backing storage, and the collection's
+// later mutations never affect a previously returned slice.
 type Convertible[T any] interface {
 	AsSlice() []T
 }
 
-// Insertable is implemented by collections that can produce a new slice with
+// Insertable is implemented by collections that can produce a new List with
 // elements inserted at a given index, without modifying the receiver.
 type Insertable[T any] interface {
-	Insert(index int, element ...T) []T
+	Insert(index int, element ...T) List[T]
 }
 
 // MutableInsertable is implemented by collections that can insert elements at a
@@ -59,7 +72,7 @@ type Iterable[T any] interface {
 	Backward() iter.Seq2[int, T]
 }
 
-// Removable is implemented by collections that can produce a new slice with an
+// Removable is implemented by collections that can produce a new List with an
 // element removed, without modifying the receiver.
 //
 // Index-based removal is unambiguous and needs no constraint on T. Value-based
@@ -68,14 +81,14 @@ type Iterable[T any] interface {
 // dicts.ContainsValue. Callers that want native == semantics for a comparable
 // element type should use a ComparableList.
 type Removable[T any] interface {
-	// RemoveAt returns a new slice with the element at index removed. If index
-	// is out of bounds, the returned slice holds the list's elements unchanged.
-	RemoveAt(index int) []T
+	// RemoveAt returns a new List with the element at index removed. If index
+	// is out of bounds, the returned List holds the list's elements unchanged.
+	RemoveAt(index int) List[T]
 
-	// Remove returns a new slice with the first element deeply equal (per
+	// Remove returns a new List with the first element deeply equal (per
 	// reflect.DeepEqual) to element removed. If no element matches, the returned
-	// slice holds the list's elements unchanged.
-	Remove(element T) []T
+	// List holds the list's elements unchanged.
+	Remove(element T) List[T]
 }
 
 // MutableRemovable is implemented by collections that can remove elements in
@@ -135,10 +148,10 @@ type Searchable[T any] interface {
 	FindIndex(fn func(T) bool) int
 }
 
-// Sortable is implemented by collections that can be sorted into a new slice,
+// Sortable is implemented by collections that can be sorted into a new List,
 // without modifying the receiver, using a less-than comparison.
 type Sortable[T any] interface {
-	Sort(fn func(T, T) bool) []T
+	Sort(fn func(T, T) bool) List[T]
 }
 
 // MutableSortable is implemented by collections that can be sorted in place.
@@ -147,10 +160,10 @@ type MutableSortable[T any] interface {
 }
 
 // Stack is implemented by collections supporting LIFO operations that return a
-// new slice rather than mutating the receiver.
+// new List rather than mutating the receiver.
 type Stack[T any] interface {
-	Push(element T) []T
-	Pop() (T, bool, []T)
+	Push(element T) List[T]
+	Pop() (T, bool, List[T])
 	PeekEnd() (T, bool)
 }
 
@@ -162,10 +175,10 @@ type MutableStack[T any] interface {
 }
 
 // Queue is implemented by collections supporting FIFO operations that return a
-// new slice rather than mutating the receiver.
+// new List rather than mutating the receiver.
 type Queue[T any] interface {
-	Enqueue(element T) []T
-	Dequeue() (T, bool, []T)
+	Enqueue(element T) List[T]
+	Dequeue() (T, bool, List[T])
 	PeekFront() (T, bool)
 }
 
