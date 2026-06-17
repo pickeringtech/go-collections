@@ -289,6 +289,16 @@ func (h Hash[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 	}
 }
 
+// UpdateInPlace reads the value at key, applies fn to it, and stores the result
+// back under key, returning the new value. fn receives the current value (the
+// zero value if the key is absent) and whether the key existed.
+func (h Hash[K, V]) UpdateInPlace(key K, fn func(old V, existed bool) V) V {
+	old, existed := h[key]
+	newValue := fn(old, existed)
+	h[key] = newValue
+	return newValue
+}
+
 // Remove creates a new dictionary with the given key removed.
 // Returns the new dictionary without modifying the original.
 func (h Hash[K, V]) Remove(key K) Dict[K, V] {

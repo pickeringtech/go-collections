@@ -198,20 +198,25 @@ counter := collections.NewConcurrentDict(
     collections.Pair[string, int]{Key: "requests", Value: 0},
 )
 
-// Safe concurrent updates
+// Safe concurrent updates. UpdateInPlace runs the read-modify-write under a
+// single lock acquisition, so concurrent increments compose without losing
+// writes. A separate Get then PutInPlace would NOT be safe: the two calls take
+// the lock independently, so goroutines read the same value and overwrite each
+// other (a lost-update race).
 var wg sync.WaitGroup
 for i := 0; i < 100; i++ {
     wg.Add(1)
     go func() {
         defer wg.Done()
-        current, _ := counter.Get("requests", 0)
-        counter.PutInPlace("requests", current+1)
+        counter.UpdateInPlace("requests", func(old int, _ bool) int {
+            return old + 1
+        })
     }()
 }
 wg.Wait()
 
 total, _ := counter.Get("requests", 0)
-fmt.Printf("Total requests: %d\n", total)
+fmt.Printf("Total requests: %d\n", total) // Total requests: 100
 ```
 
 ## Performance Guide

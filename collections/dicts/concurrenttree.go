@@ -313,6 +313,18 @@ func (ch *ConcurrentTree[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 	ch.tree.PutManyInPlace(pairs...)
 }
 
+// UpdateInPlace atomically reads the value at key, applies fn to it, and stores
+// the result back under key, returning the new value. fn receives the current
+// value (the zero value if the key is absent) and whether the key existed. The
+// whole read-modify-write runs under a single lock acquisition, so concurrent
+// updates compose without losing writes. fn must not call back into the
+// dictionary, which would deadlock on the held lock.
+func (ch *ConcurrentTree[K, V]) UpdateInPlace(key K, fn func(old V, existed bool) V) V {
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
+	return ch.tree.UpdateInPlace(key, fn)
+}
+
 // Remove creates a new dictionary with the given key removed.
 // Returns a new thread-safe ConcurrentTree without modifying the original.
 func (ch *ConcurrentTree[K, V]) Remove(key K) Dict[K, V] {

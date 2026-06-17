@@ -126,7 +126,7 @@ func TestStackConstructors(t *testing.T) {
 }
 
 func TestDictConstructors(t *testing.T) {
-	dictFns := map[string]func(...dicts.Pair[string, int]) dicts.Dict[string, int]{
+	dictFns := map[string]func(...dicts.Pair[string, int]) dicts.MutableDict[string, int]{
 		"NewDict":             NewDict[string, int],
 		"NewConcurrentDict":   NewConcurrentDict[string, int],
 		"NewConcurrentRWDict": NewConcurrentRWDict[string, int],
@@ -147,6 +147,17 @@ func TestDictConstructors(t *testing.T) {
 			_, ok = d.Get("missing", -1)
 			if ok {
 				t.Errorf("Get(missing) ok = true, want false")
+			}
+
+			// The facade returns MutableDict, so the in-place operations are
+			// reachable, including the atomic UpdateInPlace.
+			if got := d.UpdateInPlace("a", func(old int, existed bool) int {
+				if !existed {
+					t.Errorf("UpdateInPlace(a) existed = false, want true")
+				}
+				return old + 1
+			}); got != 2 {
+				t.Errorf("UpdateInPlace(a) = %d, want 2", got)
 			}
 		})
 	}
