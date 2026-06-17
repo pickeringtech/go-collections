@@ -14,7 +14,7 @@ import (
 // safety of results (see the concurrency standards).
 type ConcurrentListMultimap[K comparable, V any] struct {
 	data ListMultimap[K, V]
-	lock *sync.Mutex
+	lock sync.Mutex
 }
 
 // NewConcurrentListMultimap creates a new thread-safe, list-backed multimap
@@ -22,7 +22,6 @@ type ConcurrentListMultimap[K comparable, V any] struct {
 func NewConcurrentListMultimap[K comparable, V any](entries ...Entry[K, V]) *ConcurrentListMultimap[K, V] {
 	return &ConcurrentListMultimap[K, V]{
 		data: NewListMultimap(entries...),
-		lock: &sync.Mutex{},
 	}
 }
 
@@ -31,7 +30,7 @@ var _ Multimap[string, int] = &ConcurrentListMultimap[string, int]{}
 var _ MutableMultimap[string, int] = &ConcurrentListMultimap[string, int]{}
 
 func (c *ConcurrentListMultimap[K, V]) wrap(data ListMultimap[K, V]) *ConcurrentListMultimap[K, V] {
-	return &ConcurrentListMultimap[K, V]{data: data, lock: &sync.Mutex{}}
+	return &ConcurrentListMultimap[K, V]{data: data}
 }
 
 // Get returns a copy of all values bound to the given key, in insertion order.

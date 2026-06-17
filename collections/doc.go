@@ -125,6 +125,24 @@
 //	set.FilterInPlace(predicate)
 //	list.PushInPlace(element)
 //
+// # Construction and Zero Values
+//
+// The library-wide convention is to build every collection with its New*
+// constructor (NewDict, NewConcurrentDict, NewList, and so on). Treat the zero
+// value as not ready for use unless a type's own documentation says otherwise:
+// most implementations leave their backing map, tree, or wrapped collection nil
+// until the constructor runs, so a write to a bare CollectionType{} panics.
+//
+// Concurrent types embed their sync.Mutex / sync.RWMutex by value rather than by
+// pointer, so the lock alone is always safe to take and reads on the zero value
+// return empty results. They do not initialize the backing data, though, so the
+// constructor is still required before writing.
+//
+// A few types document a usable zero value as part of their contract — for
+// example deques.RingBuffer (a valid empty, unbounded deque) and dicts.Tree (a
+// valid empty tree). Even for these, the constructor remains the recommended
+// entry point so call sites read consistently.
+//
 // # Performance
 //
 // All implementations are benchmarked and optimized:

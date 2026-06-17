@@ -9,6 +9,14 @@ func Clear[K comparable, V any](input map[K]V) {
 
 // ContainsValue searches through the input map for the given value. If the value is found, a truthy bool is returned.
 // Otherwise, a falsy bool is returned.
+//
+// Equality: this package operates on native Go maps and compares values with ==,
+// so it constrains V to comparable and performs a shallow comparison. This
+// deliberately differs from the dicts package, whose Dict.ContainsValue
+// implementations use reflect.DeepEqual so they can also accept non-comparable
+// value types (slices, maps) and compare nested values structurally. Pick
+// maps.ContainsValue for fast, shallow comparison of comparable values, or a
+// dicts.Dict when you need deep or non-comparable value equality.
 func ContainsValue[K, V comparable](input map[K]V, value V) bool {
 	for _, val := range input {
 		if val == value {

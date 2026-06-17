@@ -7,16 +7,20 @@ import (
 
 // ConcurrentHash is a thread-safe dictionary implementation using Go's built-in map
 // with a mutex for synchronization. All operations are protected by a single mutex.
+//
+// Zero value: always construct with NewConcurrentHash. The embedded mutex is a
+// value, so a bare &ConcurrentHash{} is at least lock-safe, but its backing map
+// is nil until the constructor runs, so writes (PutInPlace) panic. Reads on the
+// zero value return empty results.
 type ConcurrentHash[K comparable, V any] struct {
 	data map[K]V
-	lock *sync.Mutex
+	lock sync.Mutex
 }
 
 // NewConcurrentHash creates a new ConcurrentHash dictionary with the given key-value pairs.
 func NewConcurrentHash[K comparable, V any](entries ...Pair[K, V]) *ConcurrentHash[K, V] {
 	m := &ConcurrentHash[K, V]{
 		data: make(map[K]V),
-		lock: &sync.Mutex{},
 	}
 	for _, entry := range entries {
 		m.data[entry.Key] = entry.Value
@@ -295,6 +299,10 @@ func (ch *ConcurrentHash[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 // Values are compared with reflect.DeepEqual, matching the equality semantics
 // used by list removal. This supports non-comparable value types (slices, maps,
 // funcs) without panicking.
+//
+// This is the deliberate counterpart to maps.ContainsValue, which uses == and
+// requires a comparable V: dicts trades that speed for the ability to compare
+// nested and non-comparable values structurally.
 func (ch *ConcurrentHash[K, V]) ContainsValue(value V) bool {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()

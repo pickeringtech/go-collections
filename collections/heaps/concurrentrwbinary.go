@@ -16,7 +16,7 @@ import (
 // honouring the thread-safe-in / thread-safe-out contract.
 type ConcurrentRWBinary[T any] struct {
 	inner *Binary[T]
-	lock  *sync.RWMutex
+	lock  sync.RWMutex
 }
 
 // NewConcurrentRW creates a read-write-locked Binary heap ordered by the given
@@ -24,7 +24,6 @@ type ConcurrentRWBinary[T any] struct {
 func NewConcurrentRW[T any](less LessFunc[T], values ...T) *ConcurrentRWBinary[T] {
 	return &ConcurrentRWBinary[T]{
 		inner: New(less, values...),
-		lock:  &sync.RWMutex{},
 	}
 }
 
@@ -45,7 +44,7 @@ var _ MutableHeap[int] = &ConcurrentRWBinary[int]{}
 // wrap adapts a plain Binary into a thread-safe ConcurrentRWBinary, preserving
 // the concurrent return contract.
 func (c *ConcurrentRWBinary[T]) wrap(b *Binary[T]) Heap[T] {
-	return &ConcurrentRWBinary[T]{inner: b, lock: &sync.RWMutex{}}
+	return &ConcurrentRWBinary[T]{inner: b}
 }
 
 // Peek returns the highest-priority element without removing it.
