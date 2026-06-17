@@ -79,17 +79,35 @@ func isUnit(s string) bool {
 }
 
 type cell struct {
-	ns, bytes, allocs float64
+	ns, bytes, allocs          float64
+	hasNs, hasBytes, hasAllocs bool // which unit sections actually supplied a value
+}
+
+// LoadStats records the non-fatal data loss a LoadDataset call encountered, so
+// the caller can surface it rather than emitting incomplete data silently. A
+// zero-value LoadStats (Clean) means every conforming benchmark parsed with all
+// three metrics present.
+type LoadStats struct {
+	SkippedNames int      // names rejected by the size_<N> allowlist (Comparison/Integration, no size sub-benchmark)
+	DroppedRows  int      // numeric data rows dropped (too few fields, empty value, or non-numeric)
+	Partial      []string // emitted samples missing a metric, "pkg/name (missing: <units>)", in sample order
+}
+
+// Clean reports whether the load lost no data.
+func (s LoadStats) Clean() bool {
+	return s.SkippedNames == 0 && s.DroppedRows == 0 && len(s.Partial) == 0
 }
 
 // LoadDataset reads a committed dataset CSV — an optional `# benchreport-meta:`
 // preamble followed by benchstat -format=csv output — into a Dataset. The
 // provided base Meta (from capture-step flags) supplies fields the CSV can't
 // carry; preamble lines, when present, override it; and the benchstat config
-// lines fill in goos/goarch/cpu/packages. Returns the count of skipped
-// non-conforming benchmark names for logging.
-func LoadDataset(r io.Reader, base Meta) (Dataset, int, error) {
+// lines fill in goos/goarch/cpu/packages. Returns a LoadStats describing any
+// non-fatal data loss (skipped names, dropped malformed rows, partial samples)
+// for the caller to surface.
+func LoadDataset(r io.Reader, base Meta) (Dataset, LoadStats, error) {
 	meta := base
+	var stats LoadStats
 	cells := map[string]map[string]*cell{} // pkgPath -> name -> metrics
 	var pkgOrder []string
 
@@ -154,11 +172,13 @@ func LoadDataset(r io.Reader, base Meta) (Dataset, int, error) {
 			continue
 		}
 		if len(fields) < 2 || fields[1] == "" {
+			stats.DroppedRows++ // a named data row in a unit section with no value
 			continue
 		}
 		v, err := strconv.ParseFloat(fields[1], 64)
 		if err != nil {
-			continue // not a numeric data row
+			stats.DroppedRows++ // a named data row whose value isn't numeric
+			continue
 		}
 
 		c := cells[currentPkg][name]
@@ -169,20 +189,22 @@ func LoadDataset(r io.Reader, base Meta) (Dataset, int, error) {
 		switch currentUnit {
 		case "sec/op":
 			c.ns = v * 1e9 // benchstat reports seconds; the report shows ns/op
+			c.hasNs = true
 		case "B/op":
 			c.bytes = v
+			c.hasBytes = true
 		case "allocs/op":
 			c.allocs = v
+			c.hasAllocs = true
 		}
 	}
 	if err := sc.Err(); err != nil {
-		return Dataset{}, 0, fmt.Errorf("reading dataset csv: %w", err)
+		return Dataset{}, LoadStats{}, fmt.Errorf("reading dataset csv: %w", err)
 	}
 
 	meta.Packages = pkgOrder
 
 	var samples []Sample
-	skipped := 0
 	for _, pkgPath := range pkgOrder {
 		names := make([]string, 0, len(cells[pkgPath]))
 		for n := range cells[pkgPath] {
@@ -192,11 +214,15 @@ func LoadDataset(r io.Reader, base Meta) (Dataset, int, error) {
 		for _, n := range names {
 			m := nameRe.FindStringSubmatch(n)
 			if m == nil {
-				skipped++
+				stats.SkippedNames++
 				continue
 			}
 			size, _ := strconv.Atoi(m[3])
 			c := cells[pkgPath][n]
+			if missing := c.missingUnits(); missing != "" {
+				stats.Partial = append(stats.Partial,
+					fmt.Sprintf("%s/%s (missing: %s)", path.Base(pkgPath), n, missing))
+			}
 			samples = append(samples, Sample{
 				Pkg:      path.Base(pkgPath),
 				Impl:     m[1],
@@ -209,7 +235,25 @@ func LoadDataset(r io.Reader, base Meta) (Dataset, int, error) {
 		}
 	}
 
-	return Dataset{Meta: meta, Samples: samples}, skipped, nil
+	return Dataset{Meta: meta, Samples: samples}, stats, nil
+}
+
+// missingUnits names the metric sections that never supplied a value for this
+// cell, comma-separated in report order, or "" when all three are present. A
+// missing metric is distinct from a zero one: a zero-allocation benchmark
+// legitimately reports B/op=0, so presence is tracked separately from value.
+func (c *cell) missingUnits() string {
+	var missing []string
+	if !c.hasNs {
+		missing = append(missing, "sec/op")
+	}
+	if !c.hasBytes {
+		missing = append(missing, "B/op")
+	}
+	if !c.hasAllocs {
+		missing = append(missing, "allocs/op")
+	}
+	return strings.Join(missing, ", ")
 }
 
 // applyMetaLine parses one "key=value" provenance field from the preamble.
