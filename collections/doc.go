@@ -153,17 +153,18 @@
 // backing data, though, so the constructor is still required before writing.
 //
 // Zero-value reads split into two groups by how a type stores its data. The map-
-// and slice-backed concurrent types — ConcurrentHash (dicts and sets) and
-// ConcurrentArray (lists), plus their RW variants — treat a nil backing map or
-// slice as empty, so reads on their zero value return empty results. Every other
-// concurrent type wraps an inner collection by pointer: the linked lists
-// (ConcurrentLinked, ConcurrentDoublyLinked), the tree-backed dicts and sets
-// (ConcurrentTree, ConcurrentTreeSet), the heaps (ConcurrentBinary), the ring
-// buffers (ConcurrentRingBuffer), the LRU caches (ConcurrentLRU) and all their RW
-// variants. Their inner pointer is nil until the constructor runs, so any
-// operation — reads included — dereferences a nil pointer and panics. Construct
-// those with their New* constructor before use; each type's own documentation
-// repeats the warning.
+// and slice-backed concurrent types hold their backing collection by value, so a
+// nil map or slice reads as empty and reads on their zero value return empty
+// results: ConcurrentHash (dicts and sets), ConcurrentArray (lists), the
+// multimaps (ConcurrentListMultimap, ConcurrentSetMultimap) and all their RW
+// variants. The remaining concurrent types wrap an inner collection by pointer:
+// the linked lists (ConcurrentLinked, ConcurrentDoublyLinked), the tree-backed
+// dicts and sets (ConcurrentTree, ConcurrentTreeSet), the heaps
+// (ConcurrentBinary), the ring buffers (ConcurrentRingBuffer), the LRU caches
+// (ConcurrentLRU) and all their RW variants. Their inner pointer is nil until the
+// constructor runs, so any operation — reads included — dereferences a nil
+// pointer and panics. Construct those with their New* constructor before use;
+// each type's own documentation repeats the warning.
 //
 // A few types document a usable zero value as part of their contract — for
 // example deques.RingBuffer (a valid empty, unbounded deque) and dicts.Tree (a
