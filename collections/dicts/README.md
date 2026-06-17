@@ -321,7 +321,7 @@ fmt.Printf("Native map: %v\n", nativeMap)
 ### Web Application Cache
 ```go
 // Thread-safe cache for web application
-cache := dicts.NewConcurrentRWHash[string, []byte]()
+cache := dicts.NewConcurrentHashRW[string, []byte]()
 
 func getPage(url string) []byte {
     // Check cache first (concurrent reads are fast)
