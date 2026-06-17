@@ -141,8 +141,8 @@
 // Important: concurrent types must NOT be copied after first use. A copy
 // produces an independent lock while both values share the same backing data
 // (map, slice, inner pointer), silently breaking the thread-safety guarantee.
-// Every concurrent type embeds a nocopy sentinel so that go vet's copylocks
-// analyser reports any value-copy after construction. Always pass concurrent
+// Every concurrent type carries a nocopy sentinel field so that go vet's
+// copylocks analyser reports any value-copy of the type. Always pass concurrent
 // collections by pointer.
 //
 // A few types document a usable zero value as part of their contract — for

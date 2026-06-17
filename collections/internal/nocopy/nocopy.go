@@ -5,11 +5,12 @@
 // standard library.
 package nocopy
 
-// NoCopy is an embeddable zero-size sentinel. Any struct that embeds it
-// satisfies sync.Locker, which is the interface inspected by go vet's
-// copylocks pass. Embedding _ NoCopy as the first field of a concurrent type
-// causes go vet to flag value-copies of that type, preventing subtle bugs
-// where a copy's lock diverges from the original's.
+// NoCopy is a zero-size sentinel for use as a blank field. *NoCopy implements
+// sync.Locker (via the no-op Lock/Unlock methods below), which is the interface
+// go vet's copylocks pass inspects. A struct with a _ NoCopy field therefore
+// contains a lock-like field, so go vet flags any value-copy of that struct —
+// preventing subtle bugs where a copy's real lock diverges from the original's.
+// The blank field name keeps Lock/Unlock off the enclosing type's method set.
 type NoCopy struct{}
 
 // Lock is a no-op that satisfies sync.Locker so that go vet's copylocks
