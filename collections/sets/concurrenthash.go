@@ -250,6 +250,14 @@ func (ch *ConcurrentHash[T]) AddMany(elements ...T) Set[T] {
 // Union creates a new set containing all elements from this set and the other set.
 // Returns a new thread-safe ConcurrentHash without modifying the original.
 func (ch *ConcurrentHash[T]) Union(other Set[T]) Set[T] {
+	// Snapshot other before locking ch. Holding ch.lock while calling a locking
+	// method on other inverts lock order against the opposite-operand call and
+	// deadlocks (a.Union(b) racing b.Union(a)). Self-union needs no snapshot.
+	var otherElements []T
+	if other != Set[T](ch) {
+		otherElements = other.AsSlice()
+	}
+
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
@@ -257,14 +265,9 @@ func (ch *ConcurrentHash[T]) Union(other Set[T]) Set[T] {
 	for e := range ch.data {
 		result.data[e] = struct{}{}
 	}
-	// Self-union is just a copy; calling other.ForEach would re-acquire ch.lock
-	// (non-reentrant) and deadlock when other is the receiver.
-	if other == Set[T](ch) {
-		return result
-	}
-	other.ForEach(func(element T) {
+	for _, element := range otherElements {
 		result.data[element] = struct{}{}
-	})
+	}
 	return result
 }
 
@@ -288,17 +291,19 @@ func (ch *ConcurrentHash[T]) AddManyInPlace(elements ...T) {
 
 // UnionInPlace adds all elements from the other set to this set.
 func (ch *ConcurrentHash[T]) UnionInPlace(other Set[T]) {
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
-	// Unioning a set with itself is a no-op; bail out before other.ForEach
-	// re-acquires ch.lock (non-reentrant) and deadlocks.
+	// Unioning a set with itself is a no-op; otherwise snapshot other before
+	// locking ch so the snapshot's own lock acquisition can't invert lock order
+	// and deadlock against b.UnionInPlace(a).
 	if other == Set[T](ch) {
 		return
 	}
-	other.ForEach(func(element T) {
+	otherElements := other.AsSlice()
+
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
+	for _, element := range otherElements {
 		ch.data[element] = struct{}{}
-	})
+	}
 }
 
 // Remove creates a new set with the given element removed.
@@ -340,17 +345,19 @@ func (ch *ConcurrentHash[T]) RemoveMany(elements ...T) Set[T] {
 // Difference creates a new set containing elements in this set but not in the other set.
 // Returns a new thread-safe ConcurrentHash without modifying the original.
 func (ch *ConcurrentHash[T]) Difference(other Set[T]) Set[T] {
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
 	result := NewConcurrentHash[T]()
-	// Self-difference is empty; calling other.Contains would re-acquire ch.lock
-	// (non-reentrant) and deadlock when other is the receiver.
+	// Self-difference is empty; otherwise snapshot other before locking ch so the
+	// snapshot can't invert lock order and deadlock against b.Difference(a).
 	if other == Set[T](ch) {
 		return result
 	}
+	otherElements := other.AsMap()
+
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
 	for element := range ch.data {
-		if !other.Contains(element) {
+		_, inOther := otherElements[element]
+		if !inOther {
 			result.data[element] = struct{}{}
 		}
 	}
@@ -382,19 +389,22 @@ func (ch *ConcurrentHash[T]) RemoveManyInPlace(elements ...T) {
 
 // DifferenceInPlace removes all elements that are present in the other set.
 func (ch *ConcurrentHash[T]) DifferenceInPlace(other Set[T]) {
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
-	// Removing a set's own elements from itself empties it; do that directly
-	// rather than calling other.ForEach, which would re-acquire ch.lock
-	// (non-reentrant) and deadlock when other is the receiver.
+	// Removing a set's own elements from itself empties it; handle that directly.
+	// Otherwise snapshot other before locking ch so the snapshot can't invert
+	// lock order and deadlock against b.DifferenceInPlace(a).
 	if other == Set[T](ch) {
+		ch.lock.Lock()
 		clear(ch.data)
+		ch.lock.Unlock()
 		return
 	}
-	other.ForEach(func(element T) {
+	otherElements := other.AsSlice()
+
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
+	for _, element := range otherElements {
 		delete(ch.data, element)
-	})
+	}
 }
 
 // Clear removes all elements from the set.
@@ -410,20 +420,24 @@ func (ch *ConcurrentHash[T]) Clear() {
 // Intersection creates a new set containing elements present in both sets.
 // Returns a new thread-safe ConcurrentHash without modifying the original.
 func (ch *ConcurrentHash[T]) Intersection(other Set[T]) Set[T] {
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
 	result := NewConcurrentHash[T]()
-	// Self-intersection is just a copy; calling other.Contains would re-acquire
-	// ch.lock (non-reentrant) and deadlock when other is the receiver.
+	// Self-intersection is just a copy; otherwise snapshot other before locking ch
+	// so the snapshot can't invert lock order and deadlock against b.Intersection(a).
 	if other == Set[T](ch) {
+		ch.lock.Lock()
+		defer ch.lock.Unlock()
 		for element := range ch.data {
 			result.data[element] = struct{}{}
 		}
 		return result
 	}
+	otherElements := other.AsMap()
+
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
 	for element := range ch.data {
-		if other.Contains(element) {
+		_, inOther := otherElements[element]
+		if inOther {
 			result.data[element] = struct{}{}
 		}
 	}
@@ -432,16 +446,19 @@ func (ch *ConcurrentHash[T]) Intersection(other Set[T]) Set[T] {
 
 // IsSubsetOf returns true if this set is a subset of the other set.
 func (ch *ConcurrentHash[T]) IsSubsetOf(other Set[T]) bool {
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
-	// A set is always a subset of itself; bail out before other.Contains
-	// re-acquires ch.lock (non-reentrant) and deadlocks.
+	// A set is always a subset of itself; otherwise snapshot other before locking
+	// ch so the snapshot can't invert lock order and deadlock against
+	// b.IsSubsetOf(a) (or the AB/BA superset race, since IsSupersetOf delegates here).
 	if other == Set[T](ch) {
 		return true
 	}
+	otherElements := other.AsMap()
+
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
 	for element := range ch.data {
-		if !other.Contains(element) {
+		_, inOther := otherElements[element]
+		if !inOther {
 			return false
 		}
 	}
@@ -455,17 +472,21 @@ func (ch *ConcurrentHash[T]) IsSupersetOf(other Set[T]) bool {
 
 // IsDisjoint returns true if this set has no elements in common with the other set.
 func (ch *ConcurrentHash[T]) IsDisjoint(other Set[T]) bool {
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
-	// A set is disjoint with itself only when empty; answer directly rather than
-	// calling other.Contains, which would re-acquire ch.lock (non-reentrant) and
-	// deadlock when other is the receiver.
+	// A set is disjoint with itself only when empty; otherwise snapshot other
+	// before locking ch so the snapshot can't invert lock order and deadlock
+	// against b.IsDisjoint(a).
 	if other == Set[T](ch) {
+		ch.lock.Lock()
+		defer ch.lock.Unlock()
 		return len(ch.data) == 0
 	}
+	otherElements := other.AsMap()
+
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
 	for element := range ch.data {
-		if other.Contains(element) {
+		_, inOther := otherElements[element]
+		if inOther {
 			return false
 		}
 	}
@@ -474,19 +495,21 @@ func (ch *ConcurrentHash[T]) IsDisjoint(other Set[T]) bool {
 
 // Equals returns true if both sets contain exactly the same elements.
 func (ch *ConcurrentHash[T]) Equals(other Set[T]) bool {
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
-	// A set always equals itself; bail out before other.Length/other.Contains
-	// re-acquires ch.lock (non-reentrant) and deadlocks.
+	// A set always equals itself; otherwise snapshot other before locking ch so
+	// the snapshot can't invert lock order and deadlock against b.Equals(a).
 	if other == Set[T](ch) {
 		return true
 	}
-	if len(ch.data) != other.Length() {
+	otherElements := other.AsMap()
+
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
+	if len(ch.data) != len(otherElements) {
 		return false
 	}
 	for element := range ch.data {
-		if !other.Contains(element) {
+		_, inOther := otherElements[element]
+		if !inOther {
 			return false
 		}
 	}
@@ -495,16 +518,19 @@ func (ch *ConcurrentHash[T]) Equals(other Set[T]) bool {
 
 // IntersectionInPlace keeps only elements that are present in both sets.
 func (ch *ConcurrentHash[T]) IntersectionInPlace(other Set[T]) {
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-
-	// Intersecting a set with itself is a no-op; bail out before other.Contains
-	// re-acquires ch.lock (non-reentrant) and deadlocks.
+	// Intersecting a set with itself is a no-op; otherwise snapshot other before
+	// locking ch so the snapshot can't invert lock order and deadlock against
+	// b.IntersectionInPlace(a).
 	if other == Set[T](ch) {
 		return
 	}
+	otherElements := other.AsMap()
+
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
 	for element := range ch.data {
-		if !other.Contains(element) {
+		_, inOther := otherElements[element]
+		if !inOther {
 			delete(ch.data, element)
 		}
 	}
