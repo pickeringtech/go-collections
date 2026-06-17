@@ -14,7 +14,7 @@ import (
 // safety of results (see the concurrency standards).
 type ConcurrentRWListMultimap[K comparable, V any] struct {
 	data ListMultimap[K, V]
-	lock *sync.RWMutex
+	lock sync.RWMutex
 }
 
 // NewConcurrentRWListMultimap creates a new thread-safe, list-backed multimap
@@ -22,7 +22,6 @@ type ConcurrentRWListMultimap[K comparable, V any] struct {
 func NewConcurrentRWListMultimap[K comparable, V any](entries ...Entry[K, V]) *ConcurrentRWListMultimap[K, V] {
 	return &ConcurrentRWListMultimap[K, V]{
 		data: NewListMultimap(entries...),
-		lock: &sync.RWMutex{},
 	}
 }
 
@@ -31,7 +30,7 @@ var _ Multimap[string, int] = &ConcurrentRWListMultimap[string, int]{}
 var _ MutableMultimap[string, int] = &ConcurrentRWListMultimap[string, int]{}
 
 func (c *ConcurrentRWListMultimap[K, V]) wrap(data ListMultimap[K, V]) *ConcurrentRWListMultimap[K, V] {
-	return &ConcurrentRWListMultimap[K, V]{data: data, lock: &sync.RWMutex{}}
+	return &ConcurrentRWListMultimap[K, V]{data: data}
 }
 
 // Get returns a copy of all values bound to the given key, in insertion order.
@@ -109,29 +108,35 @@ func (c *ConcurrentRWListMultimap[K, V]) ForEachKey(fn func(key K, values []V)) 
 	}
 }
 
-// All returns an iterator over every entry. The read lock is held for the
-// duration of the iteration.
+// All returns an iterator over every entry. The entries are snapshotted under
+// the read lock, so iteration is safe against concurrent mutation and never
+// holds the lock while calling yield (yield may safely call back into the
+// multimap).
 func (c *ConcurrentRWListMultimap[K, V]) All() iter.Seq2[K, V] {
+	c.lock.RLock()
+	entries := c.data.Entries()
+	c.lock.RUnlock()
+
 	return func(yield func(K, V) bool) {
-		c.lock.RLock()
-		defer c.lock.RUnlock()
-		for key, values := range c.data {
-			for _, value := range values {
-				if !yield(key, value) {
-					return
-				}
+		for _, entry := range entries {
+			if !yield(entry.Key, entry.Value) {
+				return
 			}
 		}
 	}
 }
 
-// KeysSeq returns an iterator over the distinct keys. The read lock is held for
-// the duration of the iteration.
+// KeysSeq returns an iterator over the distinct keys. The keys are snapshotted
+// under the read lock, so iteration is safe against concurrent mutation and
+// never holds the lock while calling yield (yield may safely call back into the
+// multimap).
 func (c *ConcurrentRWListMultimap[K, V]) KeysSeq() iter.Seq[K] {
+	c.lock.RLock()
+	keys := c.data.Keys()
+	c.lock.RUnlock()
+
 	return func(yield func(K) bool) {
-		c.lock.RLock()
-		defer c.lock.RUnlock()
-		for key := range c.data {
+		for _, key := range keys {
 			if !yield(key) {
 				return
 			}

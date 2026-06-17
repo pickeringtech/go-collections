@@ -1,8 +1,11 @@
 package slices
 
 // Paginate returns a sub-slice of the input slice based on the page index and page size.
+//
+// A non-positive pageSize (pageSize <= 0) has no meaningful page to return, so
+// Paginate returns nil. Likewise, a negative pageIndex returns nil.
 func Paginate[T any](slice []T, pageIndex, pageSize int) []T {
-	if pageIndex < 0 {
+	if pageIndex < 0 || pageSize <= 0 {
 		return nil
 	}
 

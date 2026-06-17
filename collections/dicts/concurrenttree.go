@@ -11,16 +11,20 @@ import (
 // tree (Tree) with a mutex for synchronization. Keys are maintained in sorted
 // order and all operations are protected by a single mutex. Use it when reads
 // and writes are balanced; prefer ConcurrentTreeRW for read-heavy workloads.
+//
+// Zero value: always construct with NewConcurrentTree. The embedded mutex is a
+// value, so a bare &ConcurrentTree{} is at least lock-safe, but its inner tree
+// is nil until the constructor runs, so any operation dereferences a nil pointer
+// and panics.
 type ConcurrentTree[K constraints.Ordered, V any] struct {
 	tree *Tree[K, V]
-	lock *sync.Mutex
+	lock sync.Mutex
 }
 
 // NewConcurrentTree creates a new ConcurrentTree dictionary with the given key-value pairs.
 func NewConcurrentTree[K constraints.Ordered, V any](entries ...Pair[K, V]) *ConcurrentTree[K, V] {
 	return &ConcurrentTree[K, V]{
 		tree: NewTree[K, V](entries...),
-		lock: &sync.Mutex{},
 	}
 }
 
@@ -30,7 +34,7 @@ var _ MutableSortedDict[string, int] = &ConcurrentTree[string, int]{}
 
 // wrap builds a new ConcurrentTree, with its own lock, around the given tree.
 func wrapConcurrentTree[K constraints.Ordered, V any](tree *Tree[K, V]) *ConcurrentTree[K, V] {
-	return &ConcurrentTree[K, V]{tree: tree, lock: &sync.Mutex{}}
+	return &ConcurrentTree[K, V]{tree: tree}
 }
 
 // Get retrieves the value associated with the given key.
@@ -248,7 +252,10 @@ func (ch *ConcurrentTree[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 	return zeroV, false
 }
 
-// ContainsValue checks if the given value exists in the dictionary.
+// ContainsValue checks if the given value exists in the dictionary. Values are
+// compared with reflect.DeepEqual (see Tree.ContainsValue), so unlike
+// maps.ContainsValue it accepts non-comparable value types and compares nested
+// values structurally.
 func (ch *ConcurrentTree[K, V]) ContainsValue(value V) bool {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
@@ -288,7 +295,7 @@ func (ch *ConcurrentTree[K, V]) AsMap() map[K]V {
 func (ch *ConcurrentTree[K, V]) Put(key K, value V) Dict[K, V] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	return wrapConcurrentTree(ch.tree.Put(key, value).(*Tree[K, V]))
+	return wrapConcurrentTree(ch.tree.put(key, value))
 }
 
 // PutMany creates a new dictionary with all given key-value pairs added or updated.
@@ -296,7 +303,7 @@ func (ch *ConcurrentTree[K, V]) Put(key K, value V) Dict[K, V] {
 func (ch *ConcurrentTree[K, V]) PutMany(pairs ...Pair[K, V]) Dict[K, V] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	return wrapConcurrentTree(ch.tree.PutMany(pairs...).(*Tree[K, V]))
+	return wrapConcurrentTree(ch.tree.putMany(pairs...))
 }
 
 // PutInPlace adds or updates the given key-value pair in the dictionary.
@@ -313,12 +320,24 @@ func (ch *ConcurrentTree[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 	ch.tree.PutManyInPlace(pairs...)
 }
 
+// UpdateInPlace atomically reads the value at key, applies fn to it, and stores
+// the result back under key, returning the new value. fn receives the current
+// value (the zero value if the key is absent) and whether the key existed. The
+// whole read-modify-write runs under a single lock acquisition, so concurrent
+// updates compose without losing writes. fn must not call back into the
+// dictionary, which would deadlock on the held lock.
+func (ch *ConcurrentTree[K, V]) UpdateInPlace(key K, fn func(old V, existed bool) V) V {
+	ch.lock.Lock()
+	defer ch.lock.Unlock()
+	return ch.tree.UpdateInPlace(key, fn)
+}
+
 // Remove creates a new dictionary with the given key removed.
 // Returns a new thread-safe ConcurrentTree without modifying the original.
 func (ch *ConcurrentTree[K, V]) Remove(key K) Dict[K, V] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	return wrapConcurrentTree(ch.tree.Remove(key).(*Tree[K, V]))
+	return wrapConcurrentTree(ch.tree.remove(key))
 }
 
 // RemoveMany creates a new dictionary with all given keys removed.
@@ -326,7 +345,7 @@ func (ch *ConcurrentTree[K, V]) Remove(key K) Dict[K, V] {
 func (ch *ConcurrentTree[K, V]) RemoveMany(keys ...K) Dict[K, V] {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
-	return wrapConcurrentTree(ch.tree.RemoveMany(keys...).(*Tree[K, V]))
+	return wrapConcurrentTree(ch.tree.removeMany(keys...))
 }
 
 // RemoveInPlace removes the given key from the dictionary.

@@ -27,6 +27,10 @@ type node[K constraints.Ordered, V any] struct {
 // order — including the degenerate sorted-insert case that turns a plain BST
 // into a linked list.
 // Keys must implement constraints.Ordered (integers, floats, strings).
+//
+// Zero value: a &Tree{} is a valid, empty tree ready for use (its root is nil
+// and grows on the first PutInPlace). NewTree remains the recommended way to
+// construct one, especially when seeding initial entries.
 type Tree[K constraints.Ordered, V any] struct {
 	root *node[K, V]
 	size int
@@ -89,6 +93,20 @@ func (t *Tree[K, V]) findNode(key K) *node[K, V] {
 // PutInPlace adds or updates the given key-value pair in the dictionary.
 func (t *Tree[K, V]) PutInPlace(key K, value V) {
 	t.root = t.insertNode(t.root, key, value)
+}
+
+// UpdateInPlace reads the value at key, applies fn to it, and stores the result
+// back under key, returning the new value. fn receives the current value (the
+// zero value if the key is absent) and whether the key existed.
+func (t *Tree[K, V]) UpdateInPlace(key K, fn func(old V, existed bool) V) V {
+	var old V
+	existed := false
+	if node := t.findNode(key); node != nil {
+		old, existed = node.Value, true
+	}
+	newValue := fn(old, existed)
+	t.root = t.insertNode(t.root, key, newValue)
+	return newValue
 }
 
 // insertNode inserts key/value into the subtree rooted at n, rebalancing on the
@@ -192,6 +210,12 @@ func (t *Tree[K, V]) rebalance(n *node[K, V]) *node[K, V] {
 // Put creates a new dictionary with the given key-value pair added or updated.
 // Returns the new dictionary without modifying the original.
 func (t *Tree[K, V]) Put(key K, value V) Dict[K, V] {
+	return t.put(key, value)
+}
+
+// put is the concrete-typed implementation of Put, returning *Tree so callers
+// that need the concrete type (e.g. the concurrent wrappers) avoid a type assertion.
+func (t *Tree[K, V]) put(key K, value V) *Tree[K, V] {
 	newTree := t.copy()
 	newTree.PutInPlace(key, value)
 	return newTree
@@ -200,6 +224,12 @@ func (t *Tree[K, V]) Put(key K, value V) Dict[K, V] {
 // PutMany creates a new dictionary with all given key-value pairs added or updated.
 // Returns the new dictionary without modifying the original.
 func (t *Tree[K, V]) PutMany(pairs ...Pair[K, V]) Dict[K, V] {
+	return t.putMany(pairs...)
+}
+
+// putMany is the concrete-typed implementation of PutMany, returning *Tree so callers
+// that need the concrete type (e.g. the concurrent wrappers) avoid a type assertion.
+func (t *Tree[K, V]) putMany(pairs ...Pair[K, V]) *Tree[K, V] {
 	newTree := t.copy()
 	newTree.PutManyInPlace(pairs...)
 	return newTree
@@ -392,6 +422,10 @@ func (t *Tree[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 // Values are compared with reflect.DeepEqual, matching the equality semantics
 // used by list removal. This supports non-comparable value types (slices, maps,
 // funcs) without panicking.
+//
+// This is the deliberate counterpart to maps.ContainsValue, which uses == and
+// requires a comparable V: dicts trades that speed for the ability to compare
+// nested and non-comparable values structurally.
 func (t *Tree[K, V]) ContainsValue(value V) bool {
 	return t.AnyMatch(func(_ K, v V) bool {
 		return reflect.DeepEqual(v, value)
@@ -437,6 +471,12 @@ func (t *Tree[K, V]) AsMap() map[K]V {
 // Remove creates a new dictionary with the given key removed.
 // Returns the new dictionary without modifying the original.
 func (t *Tree[K, V]) Remove(key K) Dict[K, V] {
+	return t.remove(key)
+}
+
+// remove is the concrete-typed implementation of Remove, returning *Tree so callers
+// that need the concrete type (e.g. the concurrent wrappers) avoid a type assertion.
+func (t *Tree[K, V]) remove(key K) *Tree[K, V] {
 	newTree := t.copy()
 	newTree.RemoveInPlace(key)
 	return newTree
@@ -445,6 +485,12 @@ func (t *Tree[K, V]) Remove(key K) Dict[K, V] {
 // RemoveMany creates a new dictionary with all given keys removed.
 // Returns the new dictionary without modifying the original.
 func (t *Tree[K, V]) RemoveMany(keys ...K) Dict[K, V] {
+	return t.removeMany(keys...)
+}
+
+// removeMany is the concrete-typed implementation of RemoveMany, returning *Tree so callers
+// that need the concrete type (e.g. the concurrent wrappers) avoid a type assertion.
+func (t *Tree[K, V]) removeMany(keys ...K) *Tree[K, V] {
 	newTree := t.copy()
 	newTree.RemoveManyInPlace(keys...)
 	return newTree
