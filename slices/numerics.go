@@ -41,6 +41,9 @@ func Avg[T constraints.Numeric](input []T) float64 {
 // Max finds the maximum value in the input, returning the result.  Empty or nil input results in zero.
 func Max[T constraints.Ordered](input []T) T {
 	var result T
+	if len(input) > 0 {
+		result = input[0]
+	}
 	for _, element := range input {
 		if element > result {
 			result = element
