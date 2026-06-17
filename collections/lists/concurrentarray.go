@@ -13,10 +13,12 @@ type ConcurrentArray[T any] struct {
 }
 
 // NewConcurrentArray creates a new ConcurrentArray seeded with the given
-// elements, preserving their order.
+// elements, preserving their order. The elements are copied, so the list owns
+// its backing array and is unaffected by later mutations of the caller's slice
+// (which would otherwise bypass the lock).
 func NewConcurrentArray[T any](elements ...T) *ConcurrentArray[T] {
 	return &ConcurrentArray[T]{
-		elements: elements,
+		elements: slices.Copy(elements),
 	}
 }
 
