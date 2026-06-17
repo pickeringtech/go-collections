@@ -35,8 +35,8 @@ func main() {
 	flag.Parse()
 
 	keys := split(*raw)
-	if *capacity < 1 || *window < 1 {
-		fmt.Fprintln(os.Stderr, "stream-cache: -cap and -window must be at least 1")
+	if *capacity < 1 || *window < 1 || *limit < 1 {
+		fmt.Fprintln(os.Stderr, "stream-cache: -cap, -window and -limit must be at least 1")
 		os.Exit(1)
 	}
 

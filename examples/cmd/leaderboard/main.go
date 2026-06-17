@@ -47,6 +47,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, "leaderboard:", err)
 		os.Exit(1)
 	}
+	if *top < 1 {
+		fmt.Fprintln(os.Stderr, "leaderboard: -top must be at least 1")
+		os.Exit(1)
+	}
 
 	totals := tally(events)
 
