@@ -10,12 +10,11 @@ import (
 // withNoCopy has nocopy.NoCopy as its first field, so HasNoCopyFirstField must return true.
 type withNoCopy struct {
 	_ nocopy.NoCopy
-	x int
 }
 
 // wrongFirst has a non-NoCopy first field, so HasNoCopyFirstField must return false.
 type wrongFirst struct {
-	x int
+	_ int
 }
 
 func TestHasNoCopyFirstField(t *testing.T) {
