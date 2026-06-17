@@ -127,9 +127,9 @@ func (ch *ConcurrentTreeRW[K, V]) Filter(fn func(key K, value V) bool) Dict[K, V
 // lock, so it may safely call back into the collection. Modifications made
 // concurrently with evaluation are not reflected in the retained set.
 func (ch *ConcurrentTreeRW[K, V]) FilterInPlace(fn func(key K, value V) bool) {
-	ch.lock.Lock()
+	ch.lock.RLock()
 	items := ch.tree.Items()
-	ch.lock.Unlock()
+	ch.lock.RUnlock()
 
 	var toRemove []K
 	for _, item := range items {

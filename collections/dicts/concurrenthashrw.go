@@ -143,12 +143,12 @@ func (ch *ConcurrentHashRW[K, V]) Filter(fn func(key K, value V) bool) Dict[K, V
 // collection. Modifications made concurrently with evaluation are not
 // reflected in the retained set.
 func (ch *ConcurrentHashRW[K, V]) FilterInPlace(fn func(key K, value V) bool) {
-	ch.lock.Lock()
+	ch.lock.RLock()
 	items := make([]Pair[K, V], 0, len(ch.data))
 	for key, value := range ch.data {
 		items = append(items, Pair[K, V]{Key: key, Value: value})
 	}
-	ch.lock.Unlock()
+	ch.lock.RUnlock()
 
 	var toRemove []K
 	for _, item := range items {
