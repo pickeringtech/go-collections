@@ -1,6 +1,10 @@
 package lists
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/pickeringtech/go-collections/slices"
+)
 
 // ConcurrentDoublyLinked is a thread-safe doubly linked list implementation
 // using a mutex for synchronization. All operations are protected by a single mutex.
@@ -29,53 +33,86 @@ func NewConcurrentDoublyLinkedCircular[T any](values ...T) *ConcurrentDoublyLink
 var _ List[int] = &ConcurrentDoublyLinked[int]{}
 var _ MutableList[int] = &ConcurrentDoublyLinked[int]{}
 
-// AllMatch returns true if all elements satisfy the given predicate.
+// AllMatch returns true if all elements satisfy the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (cl *ConcurrentDoublyLinked[T]) AllMatch(fn func(T) bool) bool {
 	cl.lock.Lock()
-	defer cl.lock.Unlock()
-	return cl.data.AllMatch(fn)
+	snapshot := cl.data.AsSlice()
+	cl.lock.Unlock()
+	return slices.AllMatch(snapshot, fn)
 }
 
-// AnyMatch returns true if any element satisfies the given predicate.
+// AnyMatch returns true if any element satisfies the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (cl *ConcurrentDoublyLinked[T]) AnyMatch(fn func(T) bool) bool {
 	cl.lock.Lock()
-	defer cl.lock.Unlock()
-	return cl.data.AnyMatch(fn)
+	snapshot := cl.data.AsSlice()
+	cl.lock.Unlock()
+	return slices.AnyMatch(snapshot, fn)
 }
 
-// NoneMatch returns true if no element satisfies the given predicate.
+// NoneMatch returns true if no element satisfies the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (cl *ConcurrentDoublyLinked[T]) NoneMatch(fn func(T) bool) bool {
 	cl.lock.Lock()
-	defer cl.lock.Unlock()
-	return cl.data.NoneMatch(fn)
+	snapshot := cl.data.AsSlice()
+	cl.lock.Unlock()
+	return !slices.AnyMatch(snapshot, fn)
 }
 
-// Find returns the first element that satisfies the given predicate.
+// Find returns the first element that satisfies the given predicate. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the collection.
 func (cl *ConcurrentDoublyLinked[T]) Find(fn func(T) bool) (T, bool) {
 	cl.lock.Lock()
-	defer cl.lock.Unlock()
-	return cl.data.Find(fn)
+	snapshot := cl.data.AsSlice()
+	cl.lock.Unlock()
+	return slices.Find(snapshot, fn)
 }
 
-// FindIndex returns the index of the first element that satisfies the given predicate.
+// FindIndex returns the index of the first element that satisfies the given
+// predicate. The predicate is evaluated after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection.
 func (cl *ConcurrentDoublyLinked[T]) FindIndex(fn func(T) bool) int {
 	cl.lock.Lock()
-	defer cl.lock.Unlock()
-	return cl.data.FindIndex(fn)
+	snapshot := cl.data.AsSlice()
+	cl.lock.Unlock()
+	return slices.FindIndex(snapshot, fn)
 }
 
-// Filter returns a new List containing only elements that satisfy the predicate.
+// Filter returns a new List containing only elements that satisfy the
+// predicate. The predicate is evaluated after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection.
 func (cl *ConcurrentDoublyLinked[T]) Filter(fn func(T) bool) List[T] {
 	cl.lock.Lock()
-	defer cl.lock.Unlock()
-	return cl.data.Filter(fn)
+	snapshot := cl.data.AsSlice()
+	cl.lock.Unlock()
+	return NewArray(slices.Filter(snapshot, fn)...)
 }
 
-// FilterInPlace removes elements that don't satisfy the predicate.
+// FilterInPlace removes elements that don't satisfy the predicate. The predicate
+// is evaluated after the lock is released, against a point-in-time snapshot
+// taken under the lock, so it may safely call back into the collection.
+// Modifications made concurrently with evaluation are not reflected in the
+// retained set.
 func (cl *ConcurrentDoublyLinked[T]) FilterInPlace(fn func(T) bool) {
 	cl.lock.Lock()
-	defer cl.lock.Unlock()
-	cl.data.FilterInPlace(fn)
+	snapshot := cl.data.AsSlice()
+	cl.lock.Unlock()
+
+	retained := slices.Filter(snapshot, fn)
+
+	cl.lock.Lock()
+	cl.data.Clear()
+	for _, element := range retained {
+		cl.data.PushInPlace(element)
+	}
+	cl.lock.Unlock()
 }
 
 // Get returns the element at the given index and true, or defaultValue and
@@ -139,18 +176,28 @@ func (cl *ConcurrentDoublyLinked[T]) Clear() {
 	cl.data.Clear()
 }
 
-// ForEach executes the given function for each element.
+// ForEach executes the given function for each element. fn is invoked after the
+// lock is released, against a point-in-time snapshot taken under the lock, so fn
+// may safely call back into the collection.
 func (cl *ConcurrentDoublyLinked[T]) ForEach(fn EachFunc[T]) {
 	cl.lock.Lock()
-	defer cl.lock.Unlock()
-	cl.data.ForEach(fn)
+	snapshot := cl.data.AsSlice()
+	cl.lock.Unlock()
+	for _, element := range snapshot {
+		fn(element)
+	}
 }
 
 // ForEachWithIndex executes the given function for each element with its index.
+// fn is invoked after the lock is released, against a point-in-time snapshot
+// taken under the lock, so fn may safely call back into the collection.
 func (cl *ConcurrentDoublyLinked[T]) ForEachWithIndex(fn IndexedEachFunc[T]) {
 	cl.lock.Lock()
-	defer cl.lock.Unlock()
-	cl.data.ForEachWithIndex(fn)
+	snapshot := cl.data.AsSlice()
+	cl.lock.Unlock()
+	for idx, element := range snapshot {
+		fn(idx, element)
+	}
 }
 
 // AsSlice returns the list as a slice.

@@ -21,6 +21,8 @@ func (ch *ConcurrentHashRW[T]) AddInPlace(element T) {
 
 - `Mutex` variant: every method uses `Lock`/`Unlock`.
 - `RWMutex` variant: read-only methods use `RLock`/`RUnlock`; any mutation uses `Lock`/`Unlock`.
-- Always `defer` the unlock — never unlock manually.
+- Always `defer` the unlock — never unlock manually. (Exception: methods that
+  invoke a user callback release the lock manually before calling it — see
+  [[callback-reentrancy]].)
 - Store the lock as a **pointer** (`lock *sync.Mutex`) so the struct never copies a mutex by value.
-- Hold the lock for the whole method body, including any copy-out work (see [[immutable-return-contract]]).
+- Hold the lock for the whole method body, including any copy-out work (see [[immutable-return-contract]]) — **except** when the body invokes a user callback, which must run outside the lock against a snapshot ([[callback-reentrancy]]).

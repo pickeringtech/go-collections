@@ -53,6 +53,26 @@ func TestDoublyLinked_InsertInPlace_CircularAtHead(t *testing.T) {
 	}
 }
 
+// --- Inner-type branches no longer reached via the concurrent wrappers ------
+
+// The concurrent list wrappers used to delegate FindIndex/AllMatch to their
+// inner non-concurrent type; they now evaluate against a snapshot, so these
+// inner branches need direct coverage.
+
+func TestLinked_FindIndex_Found(t *testing.T) {
+	l := lists.NewLinked(1, 2, 3)
+	if idx := l.FindIndex(func(v int) bool { return v == 2 }); idx != 1 {
+		t.Fatalf("FindIndex(==2) = %d, want 1", idx)
+	}
+}
+
+func TestDoublyLinked_AllMatch_False(t *testing.T) {
+	dl := lists.NewDoublyLinked(1, 2, 3)
+	if dl.AllMatch(func(v int) bool { return v < 3 }) {
+		t.Fatalf("AllMatch(<3) = true, want false (3 fails the predicate)")
+	}
+}
+
 // --- Linked: FilterInPlace edge cases --------------------------------------
 
 func TestLinked_FilterInPlace_Empty(t *testing.T) {

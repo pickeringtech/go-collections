@@ -14,12 +14,20 @@ type ConcurrentRWArray[T any] struct {
 }
 
 // FilterInPlace retains only the elements for which fn returns true, modifying
-// the receiver under an exclusive lock. It is safe for concurrent use.
+// the receiver. The predicate is evaluated after the lock is released, against
+// a point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection. Modifications made concurrently with evaluation are not
+// reflected in the retained set. It is safe for concurrent use.
 func (a *ConcurrentRWArray[T]) FilterInPlace(fn func(T) bool) {
-	a.lock.Lock()
-	defer a.lock.Unlock()
+	a.lock.RLock()
+	snapshot := slices.Copy(a.elements)
+	a.lock.RUnlock()
 
-	a.elements = slices.Filter(a.elements, fn)
+	retained := slices.Filter(snapshot, fn)
+
+	a.lock.Lock()
+	a.elements = retained
+	a.lock.Unlock()
 }
 
 // InsertInPlace inserts the given elements at index, modifying the receiver
@@ -92,30 +100,39 @@ var _ List[int] = &ConcurrentRWArray[int]{}
 var _ MutableList[int] = &ConcurrentRWArray[int]{}
 
 // AllMatch returns true if every element satisfies the predicate fun (vacuously
-// true for an empty list). It takes a read lock and is safe for concurrent use.
+// true for an empty list). The predicate is evaluated after the lock is
+// released, against a point-in-time snapshot taken under the lock, so it may
+// safely call back into the collection. It is safe for concurrent use.
 func (a *ConcurrentRWArray[T]) AllMatch(fun func(T) bool) bool {
 	a.lock.RLock()
-	defer a.lock.RUnlock()
+	snapshot := slices.Copy(a.elements)
+	a.lock.RUnlock()
 
-	return slices.AllMatch(a.elements, fun)
+	return slices.AllMatch(snapshot, fun)
 }
 
-// AnyMatch returns true if at least one element satisfies the predicate fun. It
-// takes a read lock and is safe for concurrent use.
+// AnyMatch returns true if at least one element satisfies the predicate fun. The
+// predicate is evaluated after the lock is released, against a point-in-time
+// snapshot taken under the lock, so it may safely call back into the
+// collection. It is safe for concurrent use.
 func (a *ConcurrentRWArray[T]) AnyMatch(fun func(T) bool) bool {
 	a.lock.RLock()
-	defer a.lock.RUnlock()
+	snapshot := slices.Copy(a.elements)
+	a.lock.RUnlock()
 
-	return slices.AnyMatch(a.elements, fun)
+	return slices.AnyMatch(snapshot, fun)
 }
 
 // NoneMatch returns true if no element satisfies the predicate fun (vacuously
-// true for an empty list). It takes a read lock and is safe for concurrent use.
+// true for an empty list). The predicate is evaluated after the lock is
+// released, against a point-in-time snapshot taken under the lock, so it may
+// safely call back into the collection. It is safe for concurrent use.
 func (a *ConcurrentRWArray[T]) NoneMatch(fun func(T) bool) bool {
 	a.lock.RLock()
-	defer a.lock.RUnlock()
+	snapshot := slices.Copy(a.elements)
+	a.lock.RUnlock()
 
-	return !slices.AnyMatch(a.elements, fun)
+	return !slices.AnyMatch(snapshot, fun)
 }
 
 // Dequeue returns the first element, whether one was present, and a new List
@@ -145,52 +162,65 @@ func (a *ConcurrentRWArray[T]) Enqueue(element T) List[T] {
 }
 
 // Filter returns a new List containing only the elements for which fun returns
-// true, without modifying the receiver. It takes a read lock and is safe for
+// true, without modifying the receiver. The predicate is evaluated after the
+// lock is released, against a point-in-time snapshot taken under the lock, so it
+// may safely call back into the collection. It takes a read lock and is safe for
 // concurrent use.
 func (a *ConcurrentRWArray[T]) Filter(fun func(T) bool) List[T] {
 	a.lock.RLock()
-	defer a.lock.RUnlock()
+	snapshot := slices.Copy(a.elements)
+	a.lock.RUnlock()
 
-	return NewArray(slices.Filter(a.elements, fun)...)
+	return NewArray(slices.Filter(snapshot, fun)...)
 }
 
 // Find returns the first element for which fun returns true and whether such an
-// element was found. It takes a read lock and is safe for concurrent use.
+// element was found. The predicate is evaluated after the lock is released,
+// against a point-in-time snapshot taken under the lock, so it may safely call
+// back into the collection. It is safe for concurrent use.
 func (a *ConcurrentRWArray[T]) Find(fun func(T) bool) (T, bool) {
 	a.lock.RLock()
-	defer a.lock.RUnlock()
+	snapshot := slices.Copy(a.elements)
+	a.lock.RUnlock()
 
-	return slices.Find(a.elements, fun)
+	return slices.Find(snapshot, fun)
 }
 
 // FindIndex returns the index of the first element for which fun returns true,
-// or -1 if none match. It takes a read lock and is safe for concurrent use.
+// or -1 if none match. The predicate is evaluated after the lock is released,
+// against a point-in-time snapshot taken under the lock, so it may safely call
+// back into the collection. It is safe for concurrent use.
 func (a *ConcurrentRWArray[T]) FindIndex(fun func(T) bool) int {
 	a.lock.RLock()
-	defer a.lock.RUnlock()
+	snapshot := slices.Copy(a.elements)
+	a.lock.RUnlock()
 
-	return slices.FindIndex(a.elements, fun)
+	return slices.FindIndex(snapshot, fun)
 }
 
-// ForEach calls fun once for each element in order while holding a read lock. It
-// is safe for concurrent use.
+// ForEach calls fun once for each element in order. fun is invoked after the
+// lock is released, against a point-in-time snapshot taken under the lock, so
+// fun may safely call back into the collection. It is safe for concurrent use.
 func (a *ConcurrentRWArray[T]) ForEach(fun EachFunc[T]) {
 	a.lock.RLock()
-	defer a.lock.RUnlock()
+	snapshot := slices.Copy(a.elements)
+	a.lock.RUnlock()
 
-	for _, element := range a.elements {
+	for _, element := range snapshot {
 		fun(element)
 	}
 }
 
 // ForEachWithIndex calls fun once for each element in order, passing the
-// element's index and value, while holding a read lock. It is safe for
-// concurrent use.
+// element's index and value. fun is invoked after the lock is released, against
+// a point-in-time snapshot taken under the lock, so fun may safely call back
+// into the collection. It is safe for concurrent use.
 func (a *ConcurrentRWArray[T]) ForEachWithIndex(fun IndexedEachFunc[T]) {
 	a.lock.RLock()
-	defer a.lock.RUnlock()
+	snapshot := slices.Copy(a.elements)
+	a.lock.RUnlock()
 
-	for idx, element := range a.elements {
+	for idx, element := range snapshot {
 		fun(idx, element)
 	}
 }

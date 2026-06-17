@@ -72,12 +72,17 @@ func (c *ConcurrentRWBinary[T]) IsEmpty() bool {
 	return c.inner.IsEmpty()
 }
 
-// ForEach executes the given function for each element in heap-array order.
+// ForEach executes the given function for each element in heap-array order. fn
+// is invoked after the lock is released, against a point-in-time snapshot taken
+// under the lock, so fn may safely call back into the collection.
 func (c *ConcurrentRWBinary[T]) ForEach(fn func(element T)) {
 	c.lock.RLock()
-	defer c.lock.RUnlock()
+	snapshot := c.inner.AsSlice()
+	c.lock.RUnlock()
 
-	c.inner.ForEach(fn)
+	for _, element := range snapshot {
+		fn(element)
+	}
 }
 
 // All returns an iterator over a snapshot of the elements in heap-array order.
