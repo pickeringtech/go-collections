@@ -51,7 +51,7 @@ func NewLRU[K comparable, V any](capacity int, opts ...Option[K, V]) *LRU[K, V] 
 	cfg := resolveConfig(opts)
 	c := newEmptyLRU[K, V](capacity, cfg.onEvict)
 	for _, entry := range cfg.entries {
-		c.putInPlace(entry.Key, entry.Value)
+		c.fireEvict(c.putInPlace(entry.Key, entry.Value))
 	}
 	return c
 }
@@ -95,32 +95,44 @@ func (c *LRU[K, V]) moveToFront(n *node[K, V]) {
 	c.pushFront(n)
 }
 
-// evictLRU drops the least-recently-used entry and fires the eviction callback.
-// It is only called when the cache is over capacity, so tail.prev is always a
-// real entry rather than the head sentinel.
-func (c *LRU[K, V]) evictLRU() {
+// evictLRU drops the least-recently-used entry and returns it so the caller can
+// fire the eviction callback once any lock is released. It is only called when
+// the cache is over capacity, so tail.prev is always a real entry rather than
+// the head sentinel.
+func (c *LRU[K, V]) evictLRU() Pair[K, V] {
 	victim := c.tail.prev
 	c.unlink(victim)
 	delete(c.items, victim.key)
-	if c.onEvict != nil {
-		c.onEvict(victim.key, victim.value)
-	}
+	return Pair[K, V]{Key: victim.key, Value: victim.value}
 }
 
 // putInPlace is the unsynchronised insert shared by the constructor and the
-// exported mutating methods.
-func (c *LRU[K, V]) putInPlace(key K, value V) {
+// exported mutating methods. It returns the evicted entry, if any, without
+// invoking the eviction callback — callers fire onEvict via fireEvict after any
+// lock is released, so the callback may safely re-enter the cache.
+func (c *LRU[K, V]) putInPlace(key K, value V) (Pair[K, V], bool) {
 	existing, ok := c.items[key]
 	if ok {
 		existing.value = value
 		c.moveToFront(existing)
-		return
+		return Pair[K, V]{}, false
 	}
 	fresh := &node[K, V]{key: key, value: value}
 	c.items[key] = fresh
 	c.pushFront(fresh)
 	if len(c.items) > c.capacity {
-		c.evictLRU()
+		return c.evictLRU(), true
+	}
+	return Pair[K, V]{}, false
+}
+
+// fireEvict invokes the eviction callback for the pair returned by putInPlace,
+// but only when an eviction actually happened and a callback is registered.
+// Callers invoke it after releasing any lock, so onEvict never runs while the
+// cache is locked.
+func (c *LRU[K, V]) fireEvict(evicted Pair[K, V], evictedOK bool) {
+	if evictedOK && c.onEvict != nil {
+		c.onEvict(evicted.Key, evicted.Value)
 	}
 }
 
@@ -240,14 +252,14 @@ func (c *LRU[K, V]) AsMap() map[K]V {
 // exceeded. The receiver is not modified.
 func (c *LRU[K, V]) Put(key K, value V) Cache[K, V] {
 	dup := c.clone()
-	dup.putInPlace(key, value)
+	dup.fireEvict(dup.putInPlace(key, value))
 	return dup
 }
 
 // PutInPlace sets key to value and promotes it to most-recently-used, evicting
 // the least-recently-used entry if the capacity is exceeded.
 func (c *LRU[K, V]) PutInPlace(key K, value V) {
-	c.putInPlace(key, value)
+	c.fireEvict(c.putInPlace(key, value))
 }
 
 // Remove returns a new cache with key absent; the receiver is not modified.
