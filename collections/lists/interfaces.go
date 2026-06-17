@@ -24,8 +24,9 @@ type Indexable[T any] interface {
 }
 
 // Convertible is implemented by collections that can be converted into a slice.
-// Whether the returned slice aliases the collection's backing storage or is an
-// independent copy is implementation-defined.
+// AsSlice returns an independent copy of the elements: mutating the returned
+// slice never affects the collection's backing storage, and the collection's
+// later mutations never affect a previously returned slice.
 type Convertible[T any] interface {
 	AsSlice() []T
 }
