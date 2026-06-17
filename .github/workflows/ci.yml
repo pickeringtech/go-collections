@@ -689,20 +689,23 @@ jobs:
               }
               {                                           # data row
                 if (unit == "" || $1 == "geomean") next
-                name = $1; base = $2; head = $4; vs = $6
+                name = $1; base = $2; head = $4; vs = $6; p = $7
                 if (base == "" || head == "" || base + 0 <= 0) next
                 if (vs == "~" || vs == "") next           # within noise — not significant
                 f = (head + 0) / (base + 0)
                 if (f < factor) next                      # below the order-of-magnitude gate
-                printf "%s\t%s\t%s\t%s\t%s\t%.1f\t%s\n", unit, curpkg, name, base, head, f, vs
+                printf "%s\t%s\t%s\t%s\t%s\t%.1f\t%s\t%s\n", unit, curpkg, name, base, head, f, vs, p
               }
             ' benchstat.csv > regressions.tsv || : > regressions.tsv
           fi
           count=$(grep -c . regressions.tsv || true)
 
           # --- Override label? --------------------------------------------------
+          # Fixed-string match (-F): BENCH_REGRESS_LABEL is an env knob, so a
+          # value with regex metacharacters must not be interpreted as a pattern.
+          # The surrounding quotes anchor to a whole JSON array element.
           bypass=0
-          if printf '%s' "${PR_LABELS:-}" | grep -q "\"${BENCH_REGRESS_LABEL}\""; then
+          if printf '%s' "${PR_LABELS:-}" | grep -qF -- "\"${BENCH_REGRESS_LABEL}\""; then
             bypass=1
           fi
 
@@ -731,14 +734,14 @@ jobs:
             echo "> ${gatedesc}."
             echo
             if [ "$count" -gt 0 ]; then
-              echo "| Metric | Benchmark | Base | Head | Factor | Δ |"
-              echo "|---|---|---|---|---|---|"
+              echo "| Metric | Benchmark | Base | Head | Factor | Δ | p |"
+              echo "|---|---|---|---|---|---|---|"
               awk -F'\t' '{
-                unit=$1; pkg=$2; name=$3; base=$4; head=$5; fac=$6; delta=$7
+                unit=$1; pkg=$2; name=$3; base=$4; head=$5; fac=$6; delta=$7; p=$8
                 sub(/-[0-9]+$/, "", name)                 # drop the -GOMAXPROCS suffix
                 if (unit == "sec/op") { bd=sprintf("%.4g ns", base*1e9); hd=sprintf("%.4g ns", head*1e9) }
                 else { bd=sprintf("%g", base); hd=sprintf("%g", head) }
-                printf "| %s | %s · %s | %s | %s | %s× | %s |\n", unit, pkg, name, bd, hd, fac, delta
+                printf "| %s | %s · %s | %s | %s | %s× | %s | %s |\n", unit, pkg, name, bd, hd, fac, delta, p
               }' regressions.tsv
               echo
             else
