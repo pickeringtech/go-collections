@@ -6,12 +6,13 @@ name: CI
 # Gating policy:
 #   - Blocking:    build, module hygiene, zero-dependency guard, tests
 #                  (race + shuffle) across the OS × Go-version matrix below,
-#                  coverage floor, gofmt, go vet, govulncheck, golangci-lint
+#                  coverage floor, gofmt, go vet, golangci-lint
 #                  (incl. cyclop/gocognit complexity), gosec, the examples
 #                  golden-output E2E (build + run + assert stdout, see #30),
 #                  the tools/benchreport satellite-module tests (#90),
 #                  cross-arch (386 build+vet+test, arm64/s390x build+vet),
-#                  the fuzz smoke run, and the PR benchmark regression gate.
+#                  the fuzz smoke run, and the merge-queue benchmark regression
+#                  gate (govulncheck moved to a daily schedule — see below).
 #                  cross-arch and fuzz were promoted from report-only (#72): both
 #                  are deterministic — cross-arch is a fixed cross-compile/run,
 #                  and fuzz is now count-based (-fuzztime=NNNNx, not a wall-clock
@@ -21,10 +22,16 @@ name: CI
 #                  (≥ BENCH_REGRESS_FACTOR× slower, default 10x, AND statistically
 #                  significant). That deliberately-coarse threshold is what makes
 #                  it safe to gate on shared/noisy runners — see the job header.
-#   - Report-only: Go tip (intentionally unstable — gating would block merges on
-#                  upstream toolchain breakage); API compatibility (breaking
-#                  changes are allowed pre-1.0). These print findings/early
-#                  warnings but do not fail the build.
+#   - merge-only:  the cross-platform macOS/Windows test cells and the benchmark
+#                  A/B regression gate run ONLY in the merge queue (merge_group),
+#                  once per merge, not on every PR push (issue #150). They still
+#                  gate before a PR lands — the merge queue counts as pre-merge —
+#                  at a fraction of the per-push cost.
+#   - elsewhere:   jobs whose verdict tracks time/external state or only matters
+#                  at release no longer live here at all (issue #150): Go tip and
+#                  govulncheck moved to a schedule (.github/workflows/maintenance.yml),
+#                  API compatibility moved to a tag/release trigger
+#                  (.github/workflows/release.yml). See those files.
 #   - main-only:   bench-report regenerates BENCHMARKS.md, docs/bench.svg and
 #                  the README preview, archives this commit into the long-term
 #                  trend store (docs/bench/history/, issue #51) and re-renders the
@@ -40,30 +47,27 @@ name: CI
 # with a required check that never reports. To change what gates, edit `CI Gate`'s
 # `needs:` list, not the GitHub branch-protection rule.
 #
-# Test matrix (see #33, cost-tuned in #146): the `test` job gates
-# Linux/macOS/Windows on the primary (go.mod) Go version, plus the previous minor
-# on Linux. To control runner-minutes, the `setup` job decides the cell list per
-# event: PRs run the Linux cells only (fast, cheap, ~all real failures), while
-# push-to-main and merge_group run the FULL matrix incl. macOS (billed 10x) and
-# Windows (2x) — so cross-platform correctness still gates before a release, just
-# not on every PR iteration. `cross-arch` (386/arm64/s390x) gates on every event
-# (#72) — it's deterministic and cheap. `test-tip` (Go tip) is report-only AND
-# non-PR (#146): it gates nothing, so it warns about upcoming toolchain changes
-# on push/merge without charging every PR push for the tip-toolchain download.
+# Test matrix (see #33, cost-tuned in #146, trigger-rationalised in #150): the
+# `test` job gates Linux/macOS/Windows on the primary (go.mod) Go version, plus
+# the previous minor on Linux. The `setup` job decides the cell list per event:
+#   pull_request / push-to-main → Linux cells only {1.24, 1.23} — fast, cheap,
+#     ~all real failures for a pure-Go library surface here.
+#   merge_group (merge queue)   → the FULL matrix incl. macOS (billed 10x) and
+#     Windows (2x), run ONCE per merge right before landing.
+# macOS/Windows therefore run exactly once per merge — in the queue — never on a
+# PR push and not re-run on the post-merge push to main (issue #150). The merge
+# queue is the pre-release cross-platform gate; if it is ever disabled, re-add
+# macOS/Windows to the push-to-main path so main can't go red cross-platform.
+# `cross-arch` (386/arm64/s390x) gates on every event (#72) — deterministic and
+# cheap, and the real platform bug surface (word size / endianness) for this
+# library. Go tip moved to a weekly schedule (maintenance.yml, issue #150).
 #
-# Cost controls (#146): a top-level `concurrency` block cancels a PR's superseded
-# in-progress run on each new push; the macOS/Windows cells are off the PR path
-# (above); and the heaviest PR job (`benchmarks` A/B) no-ops on docs-only PRs via
-# the `changes` job. None of this weakens a gate — every blocking job still runs
-# on every event and the cross-platform/tip coverage still runs before a release.
-#
-# API-compatibility gating (#29): the api-compat job runs gorelease against the
-# last released tag and reports the implied semver bump + any breaking changes.
-# It is REPORT-ONLY pre-1.0, because breaking changes are permitted under semver
-# while the major version is 0 — the output exists to inform the CHANGELOG and
-# version-bump decision. Post-v1.0, flip it to blocking (drop continue-on-error
-# and fail when gorelease reports incompatible changes to the stable API), per
-# the project's "ratchet the gates" pattern.
+# Cost controls (#146, #150): a top-level `concurrency` block cancels a PR's
+# superseded in-progress run on each new push; the macOS/Windows cells and the
+# benchmark A/B gate are off the PR path entirely (merge-queue-only); the
+# time/release-driven jobs moved out to their own workflows. None of this weakens
+# a gate — every blocking job still runs before a release (the merge queue counts
+# as pre-merge), just not on every PR iteration.
 #
 # Coverage floor is 100% (current total is 100%); the issue-#7 goal of 85% and
 # the issue-#45 goal of 100% are both met. This is now a hard "no untested code"
@@ -75,12 +79,13 @@ on:
   push:
     branches: [main]
   pull_request:
-  # merge_group lets a GitHub merge queue (if enabled in branch protection) run
-  # the FULL gate — including the cross-platform macOS/Windows cells that no
-  # longer run on every PR push (see the `setup`/`test` jobs) — immediately
-  # before a PR lands. With no merge queue configured this event never fires and
-  # push-to-main remains the guaranteed pre-release cross-platform gate; either
-  # way cross-platform breakage is still caught before a release (issue #146).
+  # merge_group drives the GitHub merge queue (enabled in branch protection,
+  # issue #150). It runs the FULL gate — including the cross-platform
+  # macOS/Windows cells and the benchmark A/B regression gate that no longer run
+  # on PR pushes (see the `setup`/`test`/`benchmarks` jobs) — once per merge,
+  # immediately before a PR lands, against the actual post-merge tree. That makes
+  # the queue both the pre-release cross-platform/perf gate AND the cure for the
+  # "passed CI on a stale base, then broke main after merge" failure mode.
   merge_group:
 
 # Cost control (issue #146): cancel a PR's older, still-running CI when a newer
@@ -103,11 +108,10 @@ env:
   # it to pick the single Codecov-uploading cell. Keep in sync with go.mod.
   # (The matrix itself can't read env, so the version literals live there.)
   GO_PRIMARY: "1.24"
-  # Pin security-tool versions so CI is reproducible; bump deliberately.
-  GOVULNCHECK_VERSION: "v1.3.0"
+  # Pin the security-tool version so CI is reproducible; bump deliberately.
+  # (govulncheck moved to maintenance.yml and gorelease to release.yml — issue
+  # #150 — so their pins now live in those workflows.)
   GOSEC_VERSION: "v2.27.1"
-  # gorelease lives in x/exp, which has no per-command tags — pin the pseudo-version.
-  GORELEASE_VERSION: "v0.0.0-20260611194520-c48552f49976"
   # golang.org/x/perf ships only pseudo-versions (no semver tags); pin one.
   BENCHSTAT_VERSION: "v0.0.0-20260615155930-9e4b9ddef5b6"
   # Benchmark knobs. Wall time ≈ (sub-benchmarks) × per-sample-time × count ×
@@ -129,8 +133,8 @@ env:
   # Two budgets, because the suite is large (~900 sub-benchmarks):
   #   BENCH_TIME / BENCH_COUNT — the main-only canonical report (bench-report
   #     job), where stable ns/op and trend comparability matter; full ladder.
-  #   BENCH_AB_TIME / BENCH_AB_COUNT — the PR A/B regression job, which runs the
-  #     whole suite twice (base + head). With ~900 sub-benchmarks even 50ms×8
+  #   BENCH_AB_TIME / BENCH_AB_COUNT — the merge-queue A/B regression job, which
+  #     runs the whole suite twice (base + head). With ~900 sub-benchmarks even 50ms×8
   #     would be ~20 min, so the A/B job uses a short per-sample budget and
   #     leans on samples (count) over per-sample time for noise resistance, the
   #     way benchstat prefers. Giant cells (100k/1M) are too noisy on shared
@@ -138,9 +142,9 @@ env:
   # Tune here if CI time drifts.
   BENCH_TIME: "50ms"     # canonical-report per-sample duration (millions of ns-scale iters)
   BENCH_COUNT: "8"       # canonical-report benchstat samples (issue #31 suggests 6–10)
-  BENCH_AB_TIME: "2ms"   # PR A/B per-sample duration — keeps both passes ≈ a few min (issue #112)
-  BENCH_AB_COUNT: "6"    # PR A/B benchstat samples (kept at the 6–10 floor; count beats time for noise)
-  # Regression-gate threshold for the PR `benchmarks` job (issues #114, #128).
+  BENCH_AB_TIME: "2ms"   # merge-queue A/B per-sample duration — keeps both passes ≈ a few min (issue #112)
+  BENCH_AB_COUNT: "6"    # merge-queue A/B benchstat samples (kept at the 6–10 floor; count beats time for noise)
+  # Regression-gate threshold for the merge-queue `benchmarks` job (issues #114, #128).
   # Expressed as a *factor*, NOT a small percent, on purpose: the gate must only
   # fire on a gross, order-of-magnitude regression (≈10x slower / +900%) — an
   # accidental O(n)→O(n²), a dropped preallocation that explodes allocs/op, or a
@@ -151,70 +155,31 @@ env:
   # suite moves to a quiet/dedicated runner (the documented next lever is also
   # "two consecutive regressing runs" before reaching for dedicated infra).
   BENCH_REGRESS_FACTOR: "10"          # min ratio (head/base) to flag a regression; applied to sec/op, B/op, allocs/op
-  BENCH_REGRESS_LABEL: "perf-accepted" # PR label that bypasses the gate for intentional perf trade-offs
 
 jobs:
   setup:
     # Decide the `test` matrix per event so the expensive cross-platform cells
-    # are paid for only when they add release-gating value (issue #146).
-    #   pull_request → Linux only (primary go.mod Go + previous minor). Fast,
-    #     cheap feedback on every push; macOS at 10x and Windows at 2x dominate
-    #     the per-run dollar cost and almost never surface a Linux-green failure.
-    #   push to main / merge_group → the FULL matrix incl. macOS + Windows, so
-    #     cross-platform correctness still gates before a release (a merge queue
-    #     runs it pre-merge; push-to-main runs it as the backstop). The matrix
-    #     literals live here because `strategy.matrix` can't read `env`.
+    # are paid for only when they add release-gating value (issues #146, #150).
+    #   merge_group → the FULL matrix incl. macOS (10x) + Windows (2x). This is
+    #     the ONLY event that runs them, once per merge, right before landing —
+    #     so cross-platform correctness gates pre-release without charging any
+    #     PR push or re-running on the post-merge push to main.
+    #   pull_request / push → Linux only (primary go.mod Go + previous minor).
+    #     Fast, cheap feedback; macOS/Windows almost never surface a Linux-green
+    #     failure for a pure-Go library, and the queue covers them pre-merge.
+    # The matrix literals live here because `strategy.matrix` can't read `env`.
     name: Decide test matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set.outputs.matrix }}
     steps:
-      - name: Select Linux-only (PR) vs full cross-platform (push / merge queue)
+      - name: Select full cross-platform (merge queue) vs Linux-only (PR / push)
         id: set
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo 'matrix={"include":[{"os":"ubuntu-latest","go":"1.24"},{"os":"ubuntu-latest","go":"1.23"}]}' >> "$GITHUB_OUTPUT"
-          else
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
             echo 'matrix={"include":[{"os":"ubuntu-latest","go":"1.24"},{"os":"macos-latest","go":"1.24"},{"os":"windows-latest","go":"1.24"},{"os":"ubuntu-latest","go":"1.23"}]}' >> "$GITHUB_OUTPUT"
-          fi
-
-  changes:
-    # Detect whether a PR changes anything other than docs (**.md / docs/**), so
-    # the heaviest PR job (the benchmark A/B compare) can no-op on docs-only PRs
-    # without weakening any gate (issue #146). Uses the PR "list files" API — no
-    # checkout, no fetch-depth, a few hundred ms. On non-PR events the step is
-    # skipped and `code` is empty; the only consumer short-circuits on the event
-    # name first, so push/merge_group always run the full pipeline regardless.
-    name: Detect non-docs changes
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      code: ${{ steps.filter.outputs.code }}
-    steps:
-      - name: Classify changed files (code vs docs-only)
-        id: filter
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          set -uo pipefail
-          files=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" \
-                    --paginate --jq '.[].filename')
-          echo "Changed files:"; printf '%s\n' "$files"
-          # "code" = any changed file that is NOT pure documentation. Markdown
-          # anywhere and everything under docs/ are docs; a .go file, a workflow,
-          # go.mod, a golden fixture, etc. all count as code and run the full
-          # pipeline. Fail-open: if the list is empty/unreadable, treat as code.
-          nondoc=$(printf '%s\n' "$files" | { grep -vE '(\.md$|^docs/)' || true; })
-          if [ -z "$files" ] || [ -n "$nondoc" ]; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-            echo "→ non-docs changes present (or undetermined): running heavy jobs."
           else
-            echo "code=false" >> "$GITHUB_OUTPUT"
-            echo "→ docs-only PR: heavy jobs (benchmark A/B) will no-op."
+            echo 'matrix={"include":[{"os":"ubuntu-latest","go":"1.24"},{"os":"ubuntu-latest","go":"1.23"}]}' >> "$GITHUB_OUTPUT"
           fi
 
   build:
@@ -256,16 +221,16 @@ jobs:
     # Gating matrix: catch platform- and version-specific breakage (concurrency
     # / -race behaviour, map-iteration order, path/newline assumptions) that a
     # single ubuntu+go.mod cell would miss. The cell list is computed by the
-    # `setup` job per event (issue #146):
-    #   PR                     → Linux × {1.24, 1.23}                     (2 cells)
-    #   push main / merge_group → + macOS × 1.24 + Windows × 1.24         (4 cells)
+    # `setup` job per event (issues #146, #150):
+    #   PR / push main → Linux × {1.24, 1.23}                     (2 cells)
+    #   merge_group    → + macOS × 1.24 + Windows × 1.24          (4 cells)
     # so macOS (10x) and Windows (2x) — which dominate the per-run dollar cost —
-    # are paid for only when gating a release, while every PR push still gets
-    # Linux + -race + the previous-minor backward-compat check fast and cheap.
-    # Cross-platform correctness still gates before release (push/merge queue),
-    # satisfying #146's "must still run before a release" constraint. Wider
-    # experimental coverage (Go tip, exotic arches) lives in `test-tip` (now
-    # non-PR) and `cross-arch` below.
+    # are paid for only ONCE per merge, in the queue, while every PR push still
+    # gets Linux + -race + the previous-minor backward-compat check fast and
+    # cheap. Cross-platform correctness still gates before a release (the merge
+    # queue is pre-merge), satisfying #146's "must still run before a release"
+    # constraint. Wider experimental coverage (Go tip) moved to a weekly schedule
+    # (maintenance.yml, #150); exotic arches live in `cross-arch` below.
     name: Test (race + coverage) — ${{ matrix.os }} / Go ${{ matrix.go }}
     needs: setup
     runs-on: ${{ matrix.os }}
@@ -324,31 +289,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
           fail_ci_if_error: false
-
-  test-tip:
-    name: Test on Go tip (report-only — early toolchain warning)
-    # Non-PR only (issue #146): tip is report-only and gates nothing, so paying
-    # to download+build the tip toolchain (~4-5 Linux min) on every PR push buys
-    # no merge signal. Running it on push-to-main / merge_group keeps the
-    # upcoming-toolchain early warning without charging every PR iteration.
-    if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    # Report-only: tip is a moving target, so a failure here is an early warning
-    # about an upcoming toolchain change, not a merge gate.
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          # Stable toolchain only bootstraps the gotip installer below.
-          go-version: stable
-          cache-dependency-path: go.mod
-      - name: Install Go tip (gotip)
-        run: |
-          go install golang.org/dl/gotip@latest
-          gotip download
-      - name: Run tests with race detector and shuffled order on tip
-        run: gotip test -race -shuffle=on ./...
 
   cross-arch:
     # Blocking (#72): build/test across non-amd64 arches to catch word-size and
@@ -415,18 +355,19 @@ jobs:
         with:
           version: v2.1.6
 
-  security:
-    name: Security (vuln scan + gosec)
+  gosec:
+    # Static security analysis — code-dependent, so it gates every PR (issue
+    # #150 split the old `security` job: gosec stays here because its verdict
+    # changes with the diff; govulncheck moved to a daily schedule because its
+    # verdict tracks the vuln advisory DB over time, not this PR's code — see
+    # maintenance.yml).
+    name: Security lint (gosec — static analysis)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Scan for known vulnerabilities (govulncheck)
-        run: |
-          go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
-          govulncheck ./...
       - name: Security lint (gosec)
         # Blocking: gosec reports no issues, so it now gates against regressions.
         run: |
@@ -482,83 +423,6 @@ jobs:
         # without coverage — matching the examples-e2e job's rationale.
         working-directory: tools/benchreport
         run: go test -shuffle=on ./...
-
-  api-compat:
-    name: API compatibility (gorelease vs last tag) — report-only
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # gorelease and the latest-tag lookup both need the full tag history,
-          # which the default shallow checkout omits.
-          fetch-depth: 0
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Report API compatibility and implied semver bump
-        # Report-only pre-1.0 (see the gating-policy comment at the top): breaking
-        # changes are allowed while major version is 0, so this surfaces the verdict
-        # without gating. gorelease itself also exits 0 for a pre-1.0 base even when
-        # the API breaks (it just suggests a minor bump), so continue-on-error is a
-        # belt-and-braces guard, not the only thing keeping the job green.
-        continue-on-error: true
-        run: |
-          set -uo pipefail
-          go install "golang.org/x/exp/cmd/gorelease@${GORELEASE_VERSION}"
-
-          # Latest released semver tag (vMAJOR.MINOR.PATCH; skip pre-releases).
-          base=$(git tag --sort=-version:refname \
-                   | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
-          if [ -z "$base" ]; then
-            echo "No released semver tag found — nothing to diff against yet."
-            echo "No released tag to compare against." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          echo "Comparing the working tree's public API against $base ..."
-
-          # Write the report OUTSIDE the repo: gorelease treats any untracked file
-          # in the working tree as "uncommitted changes" and aborts, so a report.txt
-          # created in-place by the redirect would make it fail on itself.
-          report="$(mktemp)"
-          # gorelease exits non-zero only for a *failed* analysis (not for finding
-          # breaking changes pre-1.0), so capture the status to distinguish the two.
-          gorelease -base "$base" > "$report" 2>&1 && status=0 || status=$?
-          cat "$report"
-
-          suggested=$(grep -i 'Suggested version' "$report" | head -1 | sed 's/.*: //')
-          # Count change lines that fall under a "## incompatible changes" header.
-          incompat=$(awk '
-            /^## incompatible changes/ {f=1; next}
-            /^## compatible changes/   {f=0; next}
-            /^# /                      {f=0; next}   # new package section ("# path")
-            f && NF                    {c++}
-            END                        {print c+0}' "$report")
-
-          {
-            echo "## API compatibility vs ${base}"
-            echo
-            if [ -z "$suggested" ] && [ "$status" -ne 0 ]; then
-              # gorelease aborted (e.g. couldn't resolve the base) — don't imply a
-              # clean bill of health from an analysis that never produced a verdict.
-              echo "⚠️ gorelease could not complete the analysis (exit ${status}); see the job log."
-            else
-              [ -n "$suggested" ] && echo "**Suggested version:** ${suggested}"
-              echo
-              if [ "${incompat:-0}" -gt 0 ]; then
-                echo "⚠️ **${incompat} incompatible (breaking) change(s)** detected — report-only"
-                echo "pre-1.0. Flag these in the CHANGELOG and the version-bump decision."
-              else
-                echo "✅ No incompatible changes detected."
-              fi
-            fi
-            echo
-            echo "<details><summary>Full gorelease report</summary>"
-            echo
-            echo '```'
-            cat "$report"
-            echo '```'
-            echo "</details>"
-          } >> "$GITHUB_STEP_SUMMARY"
 
   fuzz:
     name: Fuzz (short run per target)
@@ -634,13 +498,19 @@ jobs:
           echo "All $count fuzz target(s) passed the count-based smoke run ✔"
 
   benchmarks:
-    name: Benchmark regression (vs base)
-    needs: changes
+    name: Benchmark regression (vs base) — merge queue / main
     runs-on: ubuntu-latest
-    # Performance is a mission pillar. On a PR this job benchmarks the base
-    # branch and the PR head under identical settings, runs benchstat, and GATES
-    # the merge on a catastrophic regression. On push (no PR base) it falls back
-    # to a compile-and-run smoke so `main` keeps green, runnable benchmarks.
+    # Merge-queue-only A/B gate (issue #150). The PR A/B compare was the heaviest
+    # per-push job, yet a regression's verdict is just as valid measured once at
+    # merge time against the queue base — so it moved off PR pushes entirely:
+    #   merge_group → benchmark the queue base and the merge head under identical
+    #     settings, run benchstat, and GATE the merge on a catastrophic
+    #     regression (the merge queue is pre-merge, so the gate is not weakened).
+    #   push to main → compile-and-run smoke so `main` keeps green, runnable
+    #     benchmarks (no base to diff against post-merge).
+    # Skipped on pull_request (job-level `if` below): the `ci-gate` job tolerates
+    # that skip on PRs and requires this job to SUCCEED on merge_group (see there).
+    if: github.event_name != 'pull_request'
     #
     # GATE policy — order of magnitude only (issues #114, #128). A benchmark
     # fails the build only when BOTH hold:
@@ -657,34 +527,30 @@ jobs:
     # hot path, and ignores the 20–50% deltas that are just runner weather.
     # Requiring significance on top keeps the edge cases honest. Tighten the
     # factor ONLY if the suite moves to a quiet/dedicated runner (the next lever
-    # before that is "two consecutive regressing runs"). The `perf-accepted`
-    # label bypasses the gate for an intentional perf trade-off.
+    # before that is "two consecutive regressing runs").
+    #
+    # NOTE (issue #150): the `perf-accepted` PR-label bypass that existed on the
+    # old per-PR job is GONE on the merge-queue path — a merge_group run carries
+    # no PR context (no labels), and a ≥10x catastrophic regression is virtually
+    # never intentional. To land a deliberate order-of-magnitude perf trade-off,
+    # bump BENCH_REGRESS_FACTOR in that commit (and back, if temporary).
     #
     # The gate is split across two steps on purpose: a best-effort
-    # (continue-on-error) report step that posts the sticky comment / job summary
-    # and can never block on a reporting hiccup (e.g. a fork's read-only token),
-    # and a final decision step — the ONLY non-continue-on-error step — that
-    # actually fails the build. That way reporting flakiness and the gate verdict
-    # stay independent.
+    # (continue-on-error) report step that writes the job summary and can never
+    # block on a reporting hiccup, and a final decision step — the ONLY
+    # non-continue-on-error step — that actually fails the build. That way
+    # reporting flakiness and the gate verdict stay independent.
     permissions:
       contents: read
-      # The sticky report is a PR *conversation* comment, posted via the issues
-      # comments endpoint (PRs are issues) — that needs issues:write, not just
-      # pull-requests:write. Grant both so the comment posts on same-repo PRs;
-      # all comment steps stay continue-on-error so forks (read-only token) just
-      # fall back to the job summary.
-      issues: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
-          # Full history so we can check out and benchmark the PR's base commit
+          # Full history so we can check out and benchmark the queue base commit
           # within this same job (cheap no-op on push events).
           fetch-depth: 0
-          # Bench the PR head's actual commit, not the default merge ref, so the
-          # base↔head diff (and the reported SHAs) are exactly the PR's changes.
-          # Empty on push → checkout falls back to the default ref.
-          ref: ${{ github.event.pull_request.head.sha }}
+          # Bench the merge queue's head (the post-merge tree) on merge_group;
+          # empty on push → checkout falls back to the default ref (main).
+          ref: ${{ github.event.merge_group.head_sha }}
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -693,23 +559,19 @@ jobs:
       # outside the work tree, so switching the tree to the base commit can't
       # disturb it.
       - name: Install benchstat (pinned)
-        # Skip on docs-only PRs along with every bench step below — nothing here
-        # consumes benchstat then (issue #146). Always installed on push/merge.
-        if: github.event_name != 'pull_request' || needs.changes.outputs.code == 'true'
         run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
 
-      # push to main: no PR base to diff against — just confirm benchmarks
-      # compile and run (the previous smoke behaviour).
+      # push to main: no base to diff against — just confirm benchmarks compile
+      # and run (the previous smoke behaviour).
       - name: Benchmark smoke (compile + run)
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'push'
         continue-on-error: true
         run: go test -run='^$' -bench=. -benchtime=10x ./...
 
-      # pull_request: A/B compare base vs head. Skipped on docs-only PRs
-      # (needs.changes.outputs.code == 'false') — no source changed, so there is
-      # nothing to regress and the ~hour-saved-by-#112 A/B pass is pure waste.
-      - name: Benchmark base vs PR head, compare with benchstat
-        if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+      # merge_group: A/B compare the queue base vs the merge head. This is the
+      # gate, run once per merge right before landing.
+      - name: Benchmark base vs merge head, compare with benchstat
+        if: github.event_name == 'merge_group'
         # continue-on-error: a benchmark that errors or a pass that times out is
         # never itself fatal — it just leaves partial tables. The GATE lives in
         # the later "Fail on catastrophic regression" step and acts only on what
@@ -717,9 +579,9 @@ jobs:
         # regression detected" rather than a false failure.
         continue-on-error: true
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          BASE_REF: ${{ github.event.merge_group.base_ref }}
+          HEAD_SHA: ${{ github.event.merge_group.head_sha }}
         run: |
           set -uo pipefail
           # Short duration budget + samples-over-time (BENCH_AB_*), because this
@@ -735,12 +597,12 @@ jobs:
               -benchtime="$BENCH_AB_TIME" -count="$BENCH_AB_COUNT" ./...
           }
 
-          # The PR head is already checked out. Bench it first, then detach to
+          # The merge head is already checked out. Bench it first, then detach to
           # the base commit and bench that. A benchmark erroring is reported but
           # not fatal — partial output still feeds benchstat and the gate only
           # acts on benchmarks it could measure on both sides.
-          echo "::group::Benchmark PR head ($HEAD_SHA)"
-          bench | tee pr.txt || echo "::warning::benchmarks reported errors on PR head (partial table kept)"
+          echo "::group::Benchmark merge head ($HEAD_SHA)"
+          bench | tee pr.txt || echo "::warning::benchmarks reported errors on merge head (partial table kept)"
           echo "::endgroup::"
 
           echo "::group::Benchmark base ($BASE_REF @ $BASE_SHA)"
@@ -748,7 +610,7 @@ jobs:
           bench | tee base.txt || echo "::warning::benchmarks reported errors on base (partial table kept)"
           echo "::endgroup::"
 
-          echo "::group::benchstat base → PR head"
+          echo "::group::benchstat base → merge head"
           # Human-readable table for the log / collapsed report detail, plus the
           # machine-readable CSV the regression gate parses (sec/op in seconds,
           # with a "vs base" delta column that is "~" when not significant).
@@ -756,22 +618,19 @@ jobs:
           benchstat -format=csv base.txt pr.txt > benchstat.csv 2>/dev/null || true
           echo "::endgroup::"
 
-      - name: Evaluate regression gate and publish report (job summary + sticky PR comment)
-        if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+      - name: Evaluate regression gate and publish report (job summary)
+        if: github.event_name == 'merge_group'
         # Best-effort: this step parses the gate, writes the verdict to a file the
-        # FINAL step reads, and posts the report. continue-on-error so a reporting
-        # hiccup (e.g. a fork's read-only token) can never block — the actual
-        # build-failing decision lives in the next, non-continue-on-error step.
+        # FINAL step reads, and writes the report to the run summary. There is no
+        # PR to comment on at merge time, so the merge-queue run summary is the
+        # report surface (the deltas are still produced, just once per merge —
+        # issue #150). continue-on-error so a reporting hiccup can never block;
+        # the actual build-failing decision lives in the next step.
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ github.token }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          # JSON array of this PR's label names; the gate is bypassed if it
-          # contains BENCH_REGRESS_LABEL (an intentional perf trade-off).
-          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          BASE_REF: ${{ github.event.merge_group.base_ref }}
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.merge_group.head_sha }}
         run: |
           set -uo pipefail
 
@@ -806,36 +665,20 @@ jobs:
           fi
           count=$(grep -c . regressions.tsv || true)
 
-          # --- Override label? --------------------------------------------------
-          # Fixed-string match (-F): BENCH_REGRESS_LABEL is an env knob, so a
-          # value with regex metacharacters must not be interpreted as a pattern.
-          # The surrounding quotes anchor to a whole JSON array element.
-          bypass=0
-          if printf '%s' "${PR_LABELS:-}" | grep -qF -- "\"${BENCH_REGRESS_LABEL}\""; then
-            bypass=1
-          fi
-
           # --- Record the verdict for the final (gating) step -------------------
-          {
-            echo "count=${count}"
-            echo "bypass=${bypass}"
-          } > gate-verdict.txt
+          echo "count=${count}" > gate-verdict.txt
 
-          # --- Build the sticky comment / job summary ---------------------------
-          MARKER='<!-- benchstat-regression-report -->'
+          # --- Build the run-summary report -------------------------------------
           flags="\`-benchtime=$BENCH_AB_TIME -count=$BENCH_AB_COUNT -benchmem\`"
           gatedesc="gate: a benchmark must be **≥ ${BENCH_REGRESS_FACTOR}× slower** *and* statistically significant (p<0.05) to fail — catastrophe-only, by design, because shared GitHub-hosted runners are too noisy to gate on modest deltas"
           {
-            echo "$MARKER"
-            if [ "$count" -gt 0 ] && [ "$bypass" -eq 1 ]; then
-              echo "## ⚠️ Benchmark regression gate bypassed by \`${BENCH_REGRESS_LABEL}\` — ${count} regression(s) vs \`$BASE_REF\`"
-            elif [ "$count" -gt 0 ]; then
+            if [ "$count" -gt 0 ]; then
               echo "## ❌ Benchmark regression gate — ${count} catastrophic regression(s) vs \`$BASE_REF\`"
             else
               echo "## ✅ No catastrophic benchmark regressions vs \`$BASE_REF\`"
             fi
             echo
-            echo "Base \`${BASE_SHA:0:12}\` → PR head \`${HEAD_SHA:0:12}\` · ${flags}"
+            echo "Base \`${BASE_SHA:0:12}\` → merge head \`${HEAD_SHA:0:12}\` · ${flags}"
             echo
             echo "> ${gatedesc}."
             echo
@@ -863,53 +706,29 @@ jobs:
               echo
               echo "</details>"
             fi
-          } > comment.md
-
-          # The job summary works everywhere (incl. forked PRs) — publish there first.
-          cat comment.md >> "$GITHUB_STEP_SUMMARY"
-
-          # Best-effort sticky comment: update the prior report if one exists,
-          # else create it. Needs pull-requests:write, so it's a graceful no-op
-          # on forked-PR runs where the token is read-only.
-          api="repos/${GITHUB_REPOSITORY}/issues"
-          existing=$(gh api "${api}/${PR_NUMBER}/comments" --paginate \
-            --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" 2>/dev/null | head -n1 || true)
-          if [ -n "${existing:-}" ]; then
-            gh api -X PATCH "${api}/comments/${existing}" -F body=@comment.md >/dev/null \
-              && echo "Updated benchstat comment #${existing}." \
-              || echo "::warning::Could not update PR comment (likely a fork's read-only token); see the job summary."
-          else
-            gh api -X POST "${api}/${PR_NUMBER}/comments" -F body=@comment.md >/dev/null \
-              && echo "Posted benchstat comment." \
-              || echo "::warning::Could not post PR comment (likely a fork's read-only token); see the job summary."
-          fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail on catastrophic regression (the gate)
-        if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+        if: github.event_name == 'merge_group'
         # The ONLY non-continue-on-error step in this job: it reads the verdict
-        # the report step recorded and fails the build on a real regression that
-        # was not waved through with the override label. Reporting hiccups in the
-        # step above cannot reach here — if the verdict file is missing (e.g. the
-        # comparison never produced CSV), treat it as "no regression" so a
-        # reporting/benchmark hiccup is conservative and never a false failure.
+        # the report step recorded and fails the merge on a real regression.
+        # Reporting hiccups in the step above cannot reach here — if the verdict
+        # file is missing (e.g. the comparison never produced CSV), treat it as
+        # "no regression" so a reporting/benchmark hiccup is conservative and
+        # never a false failure that wedges the merge queue.
         run: |
           set -uo pipefail
-          count=0; bypass=0
+          count=0
           if [ -f gate-verdict.txt ]; then
             count=$(awk -F= '$1=="count"{print $2}' gate-verdict.txt)
-            bypass=$(awk -F= '$1=="bypass"{print $2}' gate-verdict.txt)
           fi
-          count=${count:-0}; bypass=${bypass:-0}
+          count=${count:-0}
 
           if [ "$count" -le 0 ]; then
             echo "No catastrophic benchmark regressions (≥ ${BENCH_REGRESS_FACTOR}× slower AND significant) ✔"
             exit 0
           fi
-          if [ "$bypass" -eq 1 ]; then
-            echo "::warning::${count} catastrophic regression(s) detected, but bypassed by the '${BENCH_REGRESS_LABEL}' label."
-            exit 0
-          fi
-          echo "::error::${count} benchmark(s) regressed ≥ ${BENCH_REGRESS_FACTOR}× AND significantly — see the report comment / job summary."
+          echo "::error::${count} benchmark(s) regressed ≥ ${BENCH_REGRESS_FACTOR}× AND significantly — see the job summary."
           cat regressions.tsv 2>/dev/null || true
           exit 1
 
@@ -1010,25 +829,39 @@ jobs:
     # when CI changes — update the `needs:` list here instead of the GitHub rule.
     name: CI Gate
     if: always()                       # run even if a dependency failed, so the gate can report
-    # The blocking jobs. `setup` (matrix decision) and `changes` (docs-only
-    # detection) are included so a failure in EITHER fails the gate rather than
-    # silently letting a downstream job skip (issue #146). Every job here runs on
-    # every event — none is ever `skipped` — so the strict "skipped == failure"
-    # check below stays valid: the docs-only optimisation lives in conditional
-    # *steps* inside `benchmarks`, which still reports `success`, not in a
-    # conditional job. benchmarks gates on catastrophic (≥10x) regressions
-    # (#114). Report-only jobs (test-tip, api-compat) stay out.
-    needs: [setup, changes, build, test, lint, security, examples-e2e, benchreport-test, cross-arch, fuzz, benchmarks]
+    # The blocking jobs. `setup` (matrix decision) is included so a failure there
+    # fails the gate rather than silently letting `test` skip. `benchmarks` is
+    # listed but runs ONLY on merge_group/push (issue #150): on a pull_request it
+    # is intentionally `skipped`, which the event-aware logic below tolerates;
+    # on merge_group it MUST succeed. Report-only / relocated jobs (Go tip,
+    # govulncheck, api-compat, mutation) are not gates and stay out.
+    needs: [setup, build, test, lint, gosec, examples-e2e, benchreport-test, cross-arch, fuzz, benchmarks]
     runs-on: ubuntu-latest
     steps:
       - name: Require all blocking jobs to have succeeded
+        env:
+          EVENT: ${{ github.event_name }}
+          RESULTS: ${{ join(needs.*.result, ',') }}
         run: |
-          results='${{ join(needs.*.result, ',') }}'
-          echo "Blocking-job results: $results"
-          case "$results" in
-            *failure*|*cancelled*|*skipped*)
+          echo "Event: $EVENT — blocking-job results: $RESULTS"
+          # A hard failure or cancellation in ANY blocking job always fails the
+          # gate. A job that was skipped because an upstream dependency failed
+          # surfaces here as that upstream's `failure`, so this catches it too.
+          case "$RESULTS" in
+            *failure*|*cancelled*)
               echo "::error::A required job did not succeed — see the failed job above."
               exit 1 ;;
-            *)
-              echo "All blocking jobs succeeded ✔" ;;
           esac
+          # `skipped` is legitimate ONLY on pull_request, where the merge-queue-
+          # only jobs (benchmarks) deliberately don't run (issue #150). On
+          # merge_group / push every blocking job runs, so a skip there means a
+          # gate silently didn't run — treat it as failure so the merge can't land
+          # on missing coverage.
+          if [ "$EVENT" != "pull_request" ]; then
+            case "$RESULTS" in
+              *skipped*)
+                echo "::error::A blocking job was skipped on $EVENT — every gate must run before a merge lands."
+                exit 1 ;;
+            esac
+          fi
+          echo "All blocking jobs succeeded ✔"
