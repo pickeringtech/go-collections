@@ -64,13 +64,22 @@ already follow this — they snapshot under the lock and yield outside it.
 - **Trade-off — document it.** The callback observes a **point-in-time snapshot**
   taken under the lock, not a live view. For `FilterInPlace` the apply phase must
   therefore not blindly clobber writes that landed while the predicate ran:
-  removal is **conditional on the entry being unchanged since the snapshot** —
-  compare-before-delete (`reflect.DeepEqual` the current value against the
-  snapshot) for maps/sets/multimaps, and a multiset diff against the *current*
-  contents for lists (remove one deeply-equal occurrence per rejected element)
-  rather than overwriting the backing storage wholesale. A concurrent write in
-  the evaluation window is thus preserved, not silently discarded. State the
-  contract in the method's doc comment (see issue #153).
+  removal is **conditional on the entry being unchanged since the snapshot**, with
+  the conditioning tailored to what each structure stores:
+    - **Maps** (key→value): compare-before-delete — delete a rejected key only if
+      its current value still `reflect.DeepEqual`s the snapshot value, so a
+      concurrent *update* to that key survives.
+    - **Sets and multimaps** (the element / the `(key, value)` entry *is* the
+      datum — there is no separate value to diff): remove by element / by entry
+      against the *current* contents, deleting only what is still present. A
+      concurrent *insert* is never in the removal set, so it survives.
+    - **Lists** (ordered, duplicates, unstable positions): a multiset diff against
+      the *current* contents — remove one deeply-equal occurrence per rejected
+      element — rather than overwriting the backing storage wholesale, so a
+      concurrent insert is preserved.
+
+  A concurrent write in the evaluation window is thus preserved, not silently
+  discarded. State the contract in the method's doc comment (see issue #153).
 - **Not in scope:** `Sort`/`SortInPlace`. The comparator is not an iteration
   callback and sorting genuinely needs the lock held throughout; these keep the
   whole-method lock from [[lock-discipline]].
