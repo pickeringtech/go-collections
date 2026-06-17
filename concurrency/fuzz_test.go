@@ -17,13 +17,15 @@ const maxFuzzWorkItems = 256
 
 // limiterProbe tracks, across a batch of concurrently-run work items, how many
 // items ran, how many failed, and the peak number that were in flight at once.
-// Every count uses atomics because the work runs on many goroutines.
+// Every count is an atomic.Int64 because the work runs on many goroutines —
+// the typed atomics also guarantee 64-bit alignment on 32-bit platforms (e.g.
+// GOARCH=386), which raw int64 fields after a word-sized field would not.
 type limiterProbe struct {
 	limit    int
-	ran      int64
-	failed   int64
-	inFlight int64
-	peak     int64
+	ran      atomic.Int64
+	failed   atomic.Int64
+	inFlight atomic.Int64
+	peak     atomic.Int64
 }
 
 // work builds a WorkFunc that records its execution against the probe and fails
@@ -31,10 +33,10 @@ type limiterProbe struct {
 // limiter permits concurrency, items genuinely overlap and exercise the peak.
 func (p *limiterProbe) work(shouldFail bool) WorkFunc {
 	return func() error {
-		cur := atomic.AddInt64(&p.inFlight, 1)
+		cur := p.inFlight.Add(1)
 		for {
-			peak := atomic.LoadInt64(&p.peak)
-			if cur <= peak || atomic.CompareAndSwapInt64(&p.peak, peak, cur) {
+			peak := p.peak.Load()
+			if cur <= peak || p.peak.CompareAndSwap(peak, cur) {
 				break
 			}
 		}
@@ -42,10 +44,10 @@ func (p *limiterProbe) work(shouldFail bool) WorkFunc {
 		// caught by the peak check below.
 		runtime.Gosched()
 
-		atomic.AddInt64(&p.ran, 1)
-		atomic.AddInt64(&p.inFlight, -1)
+		p.ran.Add(1)
+		p.inFlight.Add(-1)
 		if shouldFail {
-			atomic.AddInt64(&p.failed, 1)
+			p.failed.Add(1)
 			return errWork
 		}
 		return nil
@@ -57,10 +59,10 @@ func (p *limiterProbe) work(shouldFail bool) WorkFunc {
 // limiter never ran more than its configured limit concurrently.
 func (p *limiterProbe) assertProbe(t *testing.T, name string, wantItems int, errs []error) {
 	t.Helper()
-	if got := atomic.LoadInt64(&p.ran); got != int64(wantItems) {
+	if got := p.ran.Load(); got != int64(wantItems) {
 		t.Fatalf("%s: ran %d work items, want %d", name, got, wantItems)
 	}
-	if got := atomic.LoadInt64(&p.failed); int(got) != len(errs) {
+	if got := p.failed.Load(); int(got) != len(errs) {
 		t.Fatalf("%s: collected %d errors, want %d failing items", name, len(errs), got)
 	}
 	for _, err := range errs {
@@ -68,7 +70,7 @@ func (p *limiterProbe) assertProbe(t *testing.T, name string, wantItems int, err
 			t.Fatalf("%s: collected unexpected error %v", name, err)
 		}
 	}
-	if peak := atomic.LoadInt64(&p.peak); peak > int64(p.limit) {
+	if peak := p.peak.Load(); peak > int64(p.limit) {
 		t.Fatalf("%s: peak concurrency %d exceeded limit %d", name, peak, p.limit)
 	}
 }

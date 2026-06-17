@@ -109,9 +109,11 @@ func FuzzListMultimap(f *testing.F) {
 					m.FilterInPlace(func(_ string, v int) bool { return v%2 == 0 })
 					filterModel(model, func(v int) bool { return v%2 == 0 })
 				}
-
-				assertListMatchesModel(t, backend.name, m, model)
 			}
+
+			// Validate once per backend after replaying every op, so empty/no-op
+			// inputs are still checked and large inputs aren't re-scanned per op.
+			assertListMatchesModel(t, backend.name, m, model)
 		}
 	})
 }
@@ -159,9 +161,11 @@ func FuzzSetMultimap(f *testing.F) {
 					m.FilterInPlace(func(_ string, v int) bool { return v%2 == 0 })
 					filterSetModel(model, func(v int) bool { return v%2 == 0 })
 				}
-
-				assertSetMatchesModel(t, backend.name, m, model)
 			}
+
+			// Validate once per backend after replaying every op, so empty/no-op
+			// inputs are still checked and large inputs aren't re-scanned per op.
+			assertSetMatchesModel(t, backend.name, m, model)
 		}
 	})
 }
