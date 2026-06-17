@@ -109,29 +109,35 @@ func (c *ConcurrentRWSetMultimap[K, V]) ForEachKey(fn func(key K, values []V)) {
 	}
 }
 
-// All returns an iterator over every entry. The read lock is held for the
-// duration of the iteration.
+// All returns an iterator over every entry. The entries are snapshotted under
+// the read lock, so iteration is safe against concurrent mutation and never
+// holds the lock while calling yield (yield may safely call back into the
+// multimap).
 func (c *ConcurrentRWSetMultimap[K, V]) All() iter.Seq2[K, V] {
+	c.lock.RLock()
+	entries := c.data.Entries()
+	c.lock.RUnlock()
+
 	return func(yield func(K, V) bool) {
-		c.lock.RLock()
-		defer c.lock.RUnlock()
-		for key, values := range c.data {
-			for value := range values {
-				if !yield(key, value) {
-					return
-				}
+		for _, entry := range entries {
+			if !yield(entry.Key, entry.Value) {
+				return
 			}
 		}
 	}
 }
 
-// KeysSeq returns an iterator over the distinct keys. The read lock is held for
-// the duration of the iteration.
+// KeysSeq returns an iterator over the distinct keys. The keys are snapshotted
+// under the read lock, so iteration is safe against concurrent mutation and
+// never holds the lock while calling yield (yield may safely call back into the
+// multimap).
 func (c *ConcurrentRWSetMultimap[K, V]) KeysSeq() iter.Seq[K] {
+	c.lock.RLock()
+	keys := c.data.Keys()
+	c.lock.RUnlock()
+
 	return func(yield func(K) bool) {
-		c.lock.RLock()
-		defer c.lock.RUnlock()
-		for key := range c.data {
+		for _, key := range keys {
 			if !yield(key) {
 				return
 			}
