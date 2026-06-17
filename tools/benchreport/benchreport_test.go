@@ -99,7 +99,7 @@ func TestLoadDatasetConformingSamples(t *testing.T) {
 	}
 }
 
-// TestLoadDatasetReportsDataLoss checks that the three silent-loss paths the
+// TestLoadDatasetReportsDataLoss checks that the two silent-loss paths the
 // parser used to swallow are now surfaced in LoadStats: a sample whose B/op and
 // allocs/op unit sections never appeared (partial), and numeric data rows that
 // are empty or non-numeric (dropped). A zero-allocation benchmark with a
