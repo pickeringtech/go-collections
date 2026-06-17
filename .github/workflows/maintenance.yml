@@ -1,0 +1,78 @@
+name: Scheduled maintenance (time-driven checks)
+
+# Time/external-state-driven checks that do NOT belong on PRs (issue #150). Their
+# verdict changes with the passage of time or upstream state, not with a PR's
+# code diff, so running them per-push is pure waste — a per-PR pass can't catch a
+# CVE disclosed after it ran, nor a toolchain change that hasn't shipped yet.
+# Both run on `main` on a schedule (and on demand):
+#
+#   - govulncheck (daily). Its verdict tracks the Go vuln advisory DB, which
+#     drifts independently of this code; a daily scan on main is what actually
+#     catches a newly-disclosed CVE. This is a ZERO-dependency library (enforced
+#     by ci.yml's build job), so the only exposure is the standard library —
+#     still time-driven. GATING: a real vuln fails the scheduled run, which
+#     notifies maintainers; there's no PR to block. (Split out of ci.yml's old
+#     `security` job; the code-dependent half, gosec, stays on PRs.)
+#   - Go tip (weekly). An early warning about an upcoming Go toolchain, fully
+#     independent of the PR's code. Report-only — tip is a moving target, so a
+#     failure is a heads-up, not a gate. (Moved off ci.yml's push/merge path.)
+#
+# A schedule fires the whole workflow, so each job gates on the cron line that is
+# its cadence via `github.event.schedule`; workflow_dispatch runs both for an
+# on-demand check. Scheduled workflows only run on the default branch (main),
+# which is exactly the target we want for these.
+
+on:
+  schedule:
+    - cron: "0 5 * * *"   # daily 05:00 UTC — govulncheck (advisory DB drifts over time)
+    - cron: "0 3 * * 1"   # Mondays 03:00 UTC — Go tip early-warning (toolchain drifts)
+  workflow_dispatch:        # manual on-demand run of both checks
+
+permissions:
+  contents: read
+
+env:
+  # Pin govulncheck so scheduled runs are reproducible; bump deliberately.
+  GOVULNCHECK_VERSION: "v1.3.0"
+
+jobs:
+  govulncheck:
+    name: Vulnerability scan (govulncheck) — scheduled
+    # Daily tick or a manual run. (Harmless if it also ran on the weekly tick,
+    # but the daily cron already covers Mondays, so gate to the daily line.)
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 5 * * *'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      - name: Scan for known vulnerabilities (govulncheck)
+        # Gating: a real vulnerability fails this scheduled run (and notifies
+        # maintainers). There is no PR to block at schedule time.
+        run: |
+          go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
+          govulncheck ./...
+
+  test-tip:
+    name: Test on Go tip (report-only — early toolchain warning)
+    # Weekly tick or a manual run.
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 3 * * 1'
+    runs-on: ubuntu-latest
+    # Report-only: tip is a moving target, so a failure here is an early warning
+    # about an upcoming toolchain change, not a gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Stable toolchain only bootstraps the gotip installer below.
+          go-version: stable
+          cache-dependency-path: go.mod
+      - name: Install Go tip (gotip)
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download
+      - name: Run tests with race detector and shuffled order on tip
+        run: gotip test -race -shuffle=on ./...

@@ -9,8 +9,11 @@ name: Mutation testing
 #   Mutation testing re-runs the whole suite once *per mutant* (~400 mutants here),
 #   so it is far too slow to gate every PR. Per #32 it must be bounded. Two shapes:
 #     - full:   weekly + on-demand, the whole module, report-only.
-#     - scoped: per-PR but limited to the lines the PR changed (gremlins --diff),
-#               so cost is proportional to the change, not the codebase.
+#     - scoped: per-MERGE (merge_group) but limited to the lines the merge changes
+#               (gremlins --diff), so cost is proportional to the change. Moved off
+#               the per-PR path in #150: installing gremlins fetches a newer Go
+#               toolchain, so paying that per push was waste; running it once per
+#               merge in the queue keeps the signal at a fraction of the cost.
 #
 # Gating policy (mirrors ci.yml's COVERAGE_MIN ratchet):
 #   Both jobs are REPORT-ONLY today — `continue-on-error: true` keeps them
@@ -23,15 +26,15 @@ on:
   schedule:
     - cron: "0 4 * * 1"   # Mondays 04:00 UTC — weekly full run on main
   workflow_dispatch:        # manual on-demand full run (any branch)
-  pull_request:             # per-PR, scoped to changed lines
+  merge_group:              # per-merge, scoped to the lines the merge changes
 
 permissions:
   contents: read
 
-# A newer push to a PR cancels the previous (slow) scoped run; weekly/manual
-# full runs are keyed by run_id so they never cancel each other.
+# Keyed by run_id so runs never cancel each other: merge_group runs are
+# sequential per merge, and the weekly/manual full runs must each complete.
 concurrency:
-  group: mutation-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: mutation-${{ github.workflow }}-${{ github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -48,7 +51,7 @@ env:
 jobs:
   full:
     name: Full run (weekly / on-demand) — report-only
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,36 +80,37 @@ jobs:
           if-no-files-found: warn
 
   scoped:
-    name: PR-scoped run (changed lines only) — report-only
-    if: github.event_name == 'pull_request'
+    name: Per-merge scoped run (changed lines only) — report-only
+    if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # gremlins --diff needs history back to the merge-base
+          fetch-depth: 0   # gremlins --diff needs history back to the merge base
+          # The merge queue's post-merge tree (the commit actually about to land).
+          ref: ${{ github.event.merge_group.head_sha }}
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Determine whether this PR changes non-test Go source
+      - name: Determine whether this merge changes non-test Go source
         id: changed
         # Decide BEFORE installing gremlins (issue #146): the install fetches a
         # newer Go toolchain (GOTOOLCHAIN=auto) to *build* the tool, which is the
-        # expensive part. A docs-only / tests-only PR has nothing to mutate, so
+        # expensive part. A docs-only / tests-only merge has nothing to mutate, so
         # skipping the install (and the run) here saves that whole cost.
         env:
-          BASE_REF: ${{ github.base_ref }}
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
         run: |
-          set -euo pipefail   # fail fast: a broken fetch/diff must not look like "no changes"
-          git fetch --quiet origin "$BASE_REF"
-          # Skip entirely when the PR touches no non-test Go source — otherwise an
-          # empty diff would make gremlins fall back to mutating the whole module,
-          # defeating the point of the scoped job. The `|| true` is scoped to *grep*
-          # alone (its exit 1 just means "no match"); a failing git diff still
-          # propagates via pipefail rather than masquerading as an empty result.
-          changed=$(git diff --name-only "origin/${BASE_REF}...HEAD" -- '*.go' \
+          set -euo pipefail   # fail fast: a broken diff must not look like "no changes"
+          # Skip entirely when the merge touches no non-test Go source — otherwise
+          # an empty diff would make gremlins fall back to mutating the whole
+          # module, defeating the point of the scoped job. The `|| true` is scoped
+          # to *grep* alone (its exit 1 just means "no match"); a failing git diff
+          # still propagates via pipefail rather than masquerading as an empty result.
+          changed=$(git diff --name-only "${BASE_SHA}...HEAD" -- '*.go' \
                     | { grep -vE '_test\.go$' || true; })
           if [ -z "$changed" ]; then
-            echo "No non-test Go source changed by this PR — nothing to mutate."
+            echo "No non-test Go source changed by this merge — nothing to mutate."
             echo "run=false" >> "$GITHUB_OUTPUT"
           else
             echo "Changed Go source (mutants will be restricted to these diffs):"
@@ -118,21 +122,21 @@ jobs:
         env:
           GOTOOLCHAIN: auto
         run: go install "github.com/go-gremlins/gremlins/cmd/gremlins@${GREMLINS_VERSION}"
-      - name: Unleash gremlins on lines changed by this PR
+      - name: Unleash gremlins on lines changed by this merge
         if: steps.changed.outputs.run == 'true'
         continue-on-error: true   # report-only — see gating policy at top of file
         env:
-          BASE_REF: ${{ github.base_ref }}
+          BASE_SHA: ${{ github.event.merge_group.base_sha }}
         run: |
           set -euo pipefail
           gremlins unleash . \
-            --diff "origin/${BASE_REF}" \
+            --diff "${BASE_SHA}" \
             --output mutation-report.json \
             --threshold-efficacy "${MUTATION_EFFICACY_MIN}" \
             --threshold-mcover "${MUTATION_MCOVER_MIN}"
       - name: Upload mutation report
         uses: actions/upload-artifact@v4
         with:
-          name: mutation-report-pr
+          name: mutation-report-merge
           path: mutation-report.json
           if-no-files-found: ignore

@@ -82,10 +82,12 @@ func (a *ConcurrentRWArray[T]) DequeueInPlace() (T, bool) {
 }
 
 // NewConcurrentRWArray creates a new ConcurrentRWArray seeded with the given
-// elements, preserving their order.
+// elements, preserving their order. The elements are copied, so the list owns
+// its backing array and is unaffected by later mutations of the caller's slice
+// (which would otherwise bypass the lock).
 func NewConcurrentRWArray[T any](elements ...T) *ConcurrentRWArray[T] {
 	return &ConcurrentRWArray[T]{
-		elements: elements,
+		elements: slices.Copy(elements),
 	}
 }
 
