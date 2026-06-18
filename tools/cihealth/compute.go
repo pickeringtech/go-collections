@@ -89,20 +89,22 @@ func Render(label string, t Tally, minSample int) Badge {
 		b.Color = "lightgrey"
 		return b
 	}
-	ratio := float64(t.Healthy) / float64(t.Counted)
-	pct := int(math.Round(ratio * 100))
+	pct := int(math.Round(float64(t.Healthy) / float64(t.Counted) * 100))
 	b.Message = fmt.Sprintf("%d%% (%d/%d)", pct, t.Healthy, t.Counted)
 	if t.Counted < minSample {
 		b.Color = "lightgrey"
 	} else {
-		b.Color = colorFor(ratio * 100)
+		// Colour off the SAME rounded percentage the message shows, so the two
+		// can never disagree (e.g. a 94.5% that displays "95%" must not stay
+		// yellow because the unrounded ratio is below the brightgreen cut).
+		b.Color = colorFor(pct)
 	}
 	return b
 }
 
-// colorFor maps a health percentage to a shields colour. Thresholds per issue
-// #209 — tune once real numbers exist.
-func colorFor(pct float64) string {
+// colorFor maps the displayed health percentage to a shields colour. Thresholds
+// per issue #209 — tune once real numbers exist.
+func colorFor(pct int) string {
 	switch {
 	case pct >= 95:
 		return "brightgreen"

@@ -35,8 +35,6 @@ type Record struct {
 	Timestamp  time.Time
 }
 
-const storeHeader = "run_id,sha,conclusion,timestamp"
-
 // LoadStore reads the tally CSV into records. A missing file is not an error —
 // it yields no records, which is the correct bootstrap state before the first
 // run populates the store.

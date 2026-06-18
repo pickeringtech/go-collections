@@ -9,11 +9,14 @@ glance and a regression in build health is trended rather than anecdotal.
 
 | File | Purpose |
 | --- | --- |
-| `history.csv` | the persisted tally — one row per counted run (the source of truth) |
+| `history.csv` | the persisted tally — one row per completed `CI` run observed (the source of truth) |
 | `badge-7d.json` / `badge-30d.json` / `badge-90d.json` | [shields.io endpoint](https://shields.io/badges/endpoint-badge) JSON the README points at |
 
 `history.csv` is `run_id,sha,conclusion,timestamp`, oldest first, one row per
-completed `CI` run on `main`:
+completed `CI` run on `main`. **Every** observed conclusion is stored verbatim —
+including the excluded ones (`cancelled`, `skipped`, …) — so the health
+definition can evolve without losing data; the counted-conclusion filtering is
+applied only when computing the window tallies, not when writing the store:
 
 ```
 run_id,sha,conclusion,timestamp

@@ -68,6 +68,9 @@ func TestRender_MessageColorAndGreying(t *testing.T) {
 		{"empty", Tally{0, 0}, 3, "no runs", "lightgrey"},
 		{"perfect", Tally{30, 30}, 3, "100% (30/30)", "brightgreen"},
 		{"brightgreen boundary", Tally{19, 20}, 3, "95% (19/20)", "brightgreen"},
+		// Rounds up to 95% — colour must follow the displayed number, not the
+		// 94.5% raw ratio (which would otherwise read yellow). Regression guard.
+		{"rounds up into brightgreen", Tally{189, 200}, 3, "95% (189/200)", "brightgreen"},
 		{"yellow", Tally{18, 20}, 3, "90% (18/20)", "yellow"},
 		{"yellow boundary", Tally{17, 20}, 3, "85% (17/20)", "yellow"},
 		{"orange", Tally{16, 20}, 3, "80% (16/20)", "orange"},
