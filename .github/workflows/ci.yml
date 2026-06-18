@@ -437,6 +437,30 @@ jobs:
         working-directory: tools/benchreport
         run: go test -shuffle=on ./...
 
+  cihealth-test:
+    # Blocking: tools/cihealth is a SEPARATE module (own go.mod) housing the CI
+    # health-badge generator the scheduled ci-health-badges job invokes (#209).
+    # As with benchreport, the root build/test jobs never descend into it, so
+    # without this job its unit tests (window counting, conclusion filtering,
+    # tally merge/prune, shields JSON rendering) run nowhere in CI — broken logic
+    # could merge undetected and only surface when the scheduled badge job
+    # publishes wrong numbers to main. This gates that gap, mirroring the
+    # benchreport-test job's per-satellite-module structure.
+    name: CI-health tests (separate module)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          # Drive the toolchain from the cihealth module's own go.mod.
+          go-version-file: tools/cihealth/go.mod
+          cache-dependency-path: tools/cihealth/go.mod
+      - name: Test the CI-health badge generator
+        # -shuffle=on surfaces order-dependence. No -race: the generator is
+        # single-threaded (pure run-history → JSON), matching benchreport-test.
+        working-directory: tools/cihealth
+        run: go test -shuffle=on ./...
+
   doc-compile:
     # Blocking PR-time gate (issue #151): make the package godoc examples in every
     # doc.go provably real. The doccompile tool symbol-checks each indented code
@@ -920,7 +944,7 @@ jobs:
     # pull_request it is intentionally `skipped`, which the event-aware logic
     # below tolerates; on merge_group it MUST succeed. Report-only / relocated
     # jobs (Go tip, govulncheck, api-compat, mutation) are not gates and stay out.
-    needs: [setup, build, test, lint, gosec, examples-e2e, benchreport-test, doc-compile, cross-arch, fuzz, benchmarks]
+    needs: [setup, build, test, lint, gosec, examples-e2e, benchreport-test, cihealth-test, doc-compile, cross-arch, fuzz, benchmarks]
     runs-on: ubuntu-latest
     steps:
       - name: Require all blocking jobs to have succeeded
