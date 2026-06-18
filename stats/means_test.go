@@ -13,6 +13,86 @@ func approxEqual(a, b float64) bool {
 	return math.Abs(a-b) <= epsilon
 }
 
+func TestMean(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  []float64
+		want   float64
+		wantOK bool
+	}{
+		{
+			name:   "arithmetic mean",
+			input:  []float64{1, 2, 3, 4, 5},
+			want:   3,
+			wantOK: true,
+		},
+		{
+			name:   "all-zero input averages to zero and is defined",
+			input:  []float64{0, 0, 0},
+			want:   0,
+			wantOK: true,
+		},
+		{
+			name:   "single value",
+			input:  []float64{42},
+			want:   42,
+			wantOK: true,
+		},
+		{
+			name:   "empty input is undefined",
+			input:  []float64{},
+			wantOK: false,
+		},
+		{
+			name:   "nil input is undefined",
+			input:  nil,
+			wantOK: false,
+		},
+		{
+			name:   "NaN rejected",
+			input:  []float64{1, math.NaN(), 3},
+			wantOK: false,
+		},
+		{
+			name:   "Inf rejected",
+			input:  []float64{1, math.Inf(1), 3},
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := stats.Mean(tt.input)
+			if ok != tt.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
+			}
+			if !tt.wantOK {
+				if got != 0 {
+					t.Errorf("result = %v, want 0 when ok is false", got)
+				}
+				return
+			}
+			if !approxEqual(got, tt.want) {
+				t.Errorf("result = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestMeanIntegers exercises the generic over an integer type: integers are
+// widened to float64 before summing, so moderate inputs avoid the wraparound an
+// exact-in-T sum could hit (magnitudes beyond 2^53 are still subject to float64
+// rounding, as documented on Mean).
+func TestMeanIntegers(t *testing.T) {
+	got, ok := stats.Mean([]int{2, 4, 6, 8})
+	if !ok {
+		t.Fatal("ok = false, want true")
+	}
+	if !approxEqual(got, 5) {
+		t.Errorf("result = %v, want 5", got)
+	}
+}
+
 func TestWeightedMean(t *testing.T) {
 	tests := []struct {
 		name    string

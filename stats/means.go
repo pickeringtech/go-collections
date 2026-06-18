@@ -6,6 +6,32 @@ import (
 	"github.com/pickeringtech/go-collections/constraints"
 )
 
+// Mean returns the arithmetic mean (average) of input together with an ok flag.
+// Empty or nil input yields (0, false): the mean of no data is undefined, so it
+// is reported via the (result, ok) idiom rather than as a silent zero.
+//
+// The values are summed in float64 with Kahan compensated summation, so large
+// inputs do not lose precision to naive round-off, and integer inputs do not
+// overflow the way an exact-in-T Sum would.
+//
+// ok is false (and the result is 0) when any value is non-finite (NaN or ±Inf),
+// because the resulting mean would be undefined.
+func Mean[T constraints.Numeric](input []T) (float64, bool) {
+	if len(input) == 0 {
+		return 0, false
+	}
+
+	var total kahan
+	for _, v := range input {
+		x := float64(v)
+		if nonFinite(x) {
+			return 0, false
+		}
+		total.add(x)
+	}
+	return total.sum / float64(len(input)), true
+}
+
 // WeightedMean returns the weighted arithmetic mean of values, i.e.
 // Σ(weightᵢ·valueᵢ) / Σ(weightᵢ), together with an ok flag.
 //

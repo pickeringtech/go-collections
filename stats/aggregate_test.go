@@ -38,11 +38,16 @@ func TestProductFloat(t *testing.T) {
 	}
 }
 
-func TestProductRejectsNonFinite(t *testing.T) {
-	for _, bad := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
-		if _, ok := stats.Product([]float64{1, bad, 3}); ok {
-			t.Fatalf("Product with %v should be ok=false", bad)
-		}
+func TestProductPropagatesNonFinite(t *testing.T) {
+	// Mirroring Sum, Product is exact in T: a non-finite input surfaces in the
+	// result with ok == true rather than being rejected.
+	got, ok := stats.Product([]float64{1, math.NaN(), 3})
+	if !ok || !math.IsNaN(got) {
+		t.Fatalf("Product([1 NaN 3]) = (%v, %v), want (NaN, true)", got, ok)
+	}
+	gotInf, okInf := stats.Product([]float64{2, math.Inf(1)})
+	if !okInf || !math.IsInf(gotInf, 1) {
+		t.Fatalf("Product([2 +Inf]) = (%v, %v), want (+Inf, true)", gotInf, okInf)
 	}
 }
 

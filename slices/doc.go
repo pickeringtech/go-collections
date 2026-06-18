@@ -70,7 +70,9 @@
 //   - Concatenate / Copy / Fill / JoinToString: combine and format
 //
 // Numeric helpers:
-//   - Sum / Avg / Min / Max and the SortOrdered* family
+//   - Min / Max and the SortOrdered* family (ordering reductions)
+//   - Numeric summaries such as Sum and Mean live in the stats package; the
+//     NumericSlice accessor type delegates to them.
 //
 // # Common Patterns
 //

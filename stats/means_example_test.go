@@ -10,6 +10,12 @@ import (
 // the two in sync: `go test` compiles and output-checks this, which is what
 // guarantees the documented stats API actually exists and behaves as shown.
 func Example_quickStart() {
+	data := []float64{10, 20, 30}
+
+	// Exact-in-T total and float64 average — each with an ok flag.
+	total, _ := stats.Sum(data)
+	mean, _ := stats.Mean(data)
+
 	prices := []float64{10, 20, 30}
 	weights := []float64{1, 2, 3}
 
@@ -17,8 +23,28 @@ func Example_quickStart() {
 	gm, _ := stats.GeometricMean([]float64{1, 10, 100})
 	hm, _ := stats.HarmonicMean([]float64{1, 2, 4})
 
-	fmt.Printf("weighted=%.4f geometric=%.4f harmonic=%.4f", wm, gm, hm)
-	// Output: weighted=23.3333 geometric=10.0000 harmonic=1.7143
+	fmt.Printf("sum=%.0f mean=%.0f weighted=%.4f geometric=%.4f harmonic=%.4f",
+		total, mean, wm, gm, hm)
+	// Output: sum=60 mean=20 weighted=23.3333 geometric=10.0000 harmonic=1.7143
+}
+
+func ExampleSum() {
+	total, ok := stats.Sum([]int{1, 2, 3, 4, 5})
+	fmt.Printf("%d %v", total, ok)
+	// Output: 15 true
+}
+
+func ExampleSum_empty() {
+	// The empty sum is undefined under the (result, ok) idiom.
+	total, ok := stats.Sum([]int{})
+	fmt.Printf("%d %v", total, ok)
+	// Output: 0 false
+}
+
+func ExampleMean() {
+	mean, ok := stats.Mean([]float64{1, 2, 3, 4, 5})
+	fmt.Printf("%.1f %v", mean, ok)
+	// Output: 3.0 true
 }
 
 func ExampleWeightedMean() {
