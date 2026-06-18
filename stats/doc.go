@@ -11,6 +11,12 @@
 //
 //	import "github.com/pickeringtech/go-collections/stats"
 //
+//	data := []float64{10, 20, 30}
+//
+//	// Total and arithmetic mean — each with an ok flag (false for empty input).
+//	total, _ := stats.Sum(data)  // 60, true
+//	mean, _ := stats.Mean(data)  // 20, true
+//
 //	prices := []float64{10, 20, 30}
 //	weights := []float64{1, 2, 3}
 //
@@ -21,6 +27,8 @@
 //	gm, _ := stats.GeometricMean([]float64{1, 10, 100}) // 10
 //	hm, _ := stats.HarmonicMean([]float64{1, 2, 4})      // 1.714...
 //
+//	_ = total
+//	_ = mean
 //	_ = wm
 //	_ = gm
 //	_ = hm
@@ -35,9 +43,15 @@
 // for empty input and for input the function cannot summarise (see each
 // function's doc for its specific rejection policy).
 //
-// Sums are accumulated with Kahan compensated summation so large inputs do not
-// lose precision to naive floating-point round-off.
+// Operations fall into two tiers with deliberately different policies:
 //
-// Non-finite inputs (NaN, ±Inf) are rejected: any function that encounters one
-// returns ok=false, because the resulting statistic would be undefined.
+//   - float64 summaries (Mean, WeightedMean, the specialised means, …) sum with
+//     Kahan compensated summation so large inputs do not lose precision to naive
+//     round-off, and they reject non-finite inputs (NaN, ±Inf) with ok=false
+//     because the resulting statistic would be undefined.
+//   - exact-in-T reductions (Sum) accumulate in the input type T, so integer
+//     results are exact (no float round-off) at the cost of possible overflow on
+//     very large inputs, and non-finite float values propagate through the total
+//     per IEEE arithmetic rather than being rejected. Each such function
+//     documents this in its own doc comment.
 package stats

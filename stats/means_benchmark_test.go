@@ -14,6 +14,22 @@ func benchInput(n int) []float64 {
 	return values
 }
 
+func BenchmarkSum(b *testing.B) {
+	values := benchInput(1000)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = stats.Sum(values)
+	}
+}
+
+func BenchmarkMean(b *testing.B) {
+	values := benchInput(1000)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = stats.Mean(values)
+	}
+}
+
 func BenchmarkWeightedMean(b *testing.B) {
 	values := benchInput(1000)
 	weights := benchInput(1000)
