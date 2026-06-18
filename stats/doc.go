@@ -1,6 +1,6 @@
-// Package stats turns slices of numbers into statistical summaries —
-// weighted and specialised means today, with the wider numeric surface
-// (variance, quantiles, correlation, …) landing alongside it pre-1.0.
+// Package stats turns slices of numbers into statistical summaries — sums,
+// arithmetic/weighted/specialised means and the quantile family today, with the
+// wider numeric surface (variance, correlation, …) landing alongside it pre-1.0.
 //
 // It is the home for "summarise numbers into a statistic" operations, which
 // almost always return float64. The sibling slices package keeps operations
@@ -54,4 +54,13 @@
 //     very large inputs, and non-finite float values propagate through the total
 //     per IEEE arithmetic rather than being rejected. Each such function
 //     documents this in its own doc comment.
+//
+// # Quantiles
+//
+// Quantile/Percentile/Quartiles/IQR interpolate between samples when the
+// requested rank falls between two values. The default everywhere is Linear
+// ("type 7" in Hyndman & Fan), which matches numpy.percentile's default — the
+// convention most users expect. QuantileWith/PercentileWith accept an explicit
+// InterpolationMethod (Linear, Lower, Higher, Nearest, Midpoint). These
+// functions sort a copy of the input, so the caller's slice is never mutated.
 package stats
