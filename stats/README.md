@@ -54,9 +54,12 @@ Rescale a series into a fresh `[]float64` (the input is never mutated), with an
 
 | Function                     | Returns             | Behaviour                                                                      |
 | ---------------------------- | ------------------- | ------------------------------------------------------------------------------ |
-| `Normalize(input)`           | `([]float64, bool)` | min-max scaling to `[0, 1]`; constant input maps to all-zeros; empty → `false` |
-| `Standardize(input)`         | `([]float64, bool)` | z-score `(x − mean) / popStdDev`; zero-spread input → all-zeros; empty → `false` |
+| `Normalize(input)`           | `([]float64, bool)` | min-max scaling to `[0, 1]`; constant *finite* input maps to all-zeros; empty → `false` |
+| `Standardize(input)`         | `([]float64, bool)` | z-score `(x − mean) / popStdDev`; zero-spread *finite* input → all-zeros; empty → `false` |
 | `MovingAverage(input, w)`    | `([]float64, bool)` | rolling mean over **full windows only**; result length `len−w+1`                |
+
+The all-zeros result for constant/zero-spread input holds for *finite* input;
+non-finite values (NaN/Inf) propagate per the package's policy (see Conventions).
 
 ### `MovingAverage` edge handling (explicit)
 

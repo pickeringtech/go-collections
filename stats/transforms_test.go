@@ -167,3 +167,35 @@ func TestNormalizeNaNPropagates(t *testing.T) {
 		t.Fatalf("got[2] = %v, want NaN", got[2])
 	}
 }
+
+// A +Inf element makes the span non-finite: finite positions rescale to 0 while
+// the infinite position becomes NaN (Inf/Inf). This locks in the documented
+// IEEE-754 propagation behaviour for non-finite extremes.
+func TestNormalizeInfPropagates(t *testing.T) {
+	got, ok := stats.Normalize([]float64{1, 2, math.Inf(1), 4})
+	if !ok {
+		t.Fatalf("ok = false, want true")
+	}
+	if !math.IsNaN(got[2]) {
+		t.Fatalf("got[2] = %v, want NaN", got[2])
+	}
+	for _, i := range []int{0, 1, 3} {
+		if got[i] != 0 {
+			t.Fatalf("got[%d] = %v, want 0", i, got[i])
+		}
+	}
+}
+
+// A non-finite element likewise propagates through Standardize, leaving the
+// whole result non-finite rather than silently dropping the value.
+func TestStandardizeInfPropagates(t *testing.T) {
+	got, ok := stats.Standardize([]float64{1, 2, math.Inf(1), 4})
+	if !ok {
+		t.Fatalf("ok = false, want true")
+	}
+	for i, v := range got {
+		if !math.IsNaN(v) && !math.IsInf(v, 0) {
+			t.Fatalf("got[%d] = %v, want non-finite", i, v)
+		}
+	}
+}

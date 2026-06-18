@@ -11,39 +11,42 @@ import (
 // same length as input, together with an ok flag; input is not modified.
 //
 // It returns ok == false only for empty input, where the transform is
-// undefined. When every element is identical the range is degenerate (max ==
-// min, a divide-by-zero); rather than produce NaNs, Normalize maps every
-// element to 0 — the low end of the target range — and returns ok == true.
+// undefined. When every element is identical (and finite) the range is
+// degenerate (max == min, a divide-by-zero); rather than produce NaNs, Normalize
+// maps every element to 0 — the low end of the target range — and returns
+// ok == true.
 //
-// Non-finite inputs (NaN/Inf) propagate: a NaN element yields a NaN at its
-// position, and a non-finite element that participates in the min or max
-// poisons the shared range and therefore the whole result. Clean non-finite
-// values beforehand if that is not what you want.
+// Non-finite inputs (NaN/Inf) propagate per IEEE-754: a NaN element yields a NaN
+// at its position, and a non-finite element that becomes the min or max makes
+// the span non-finite, so finite positions rescale through it (typically to 0 or
+// a non-finite value) while the non-finite position itself stays non-finite.
+// The all-zeros guarantee for a degenerate range therefore holds only for finite
+// input; clean non-finite values beforehand if that is not what you want.
 func Normalize[T constraints.Numeric](input []T) ([]float64, bool) {
 	if len(input) == 0 {
 		return nil, false
 	}
 
-	min := float64(input[0])
-	max := min
+	lo := float64(input[0])
+	hi := lo
 	for _, v := range input {
 		f := float64(v)
-		if f < min {
-			min = f
+		if f < lo {
+			lo = f
 		}
-		if f > max {
-			max = f
+		if f > hi {
+			hi = f
 		}
 	}
 
 	out := make([]float64, len(input))
-	span := max - min
+	span := hi - lo
 	if span == 0 {
 		// Degenerate range: every value is identical, so they all map to 0.
 		return out, true
 	}
 	for i, v := range input {
-		out[i] = (float64(v) - min) / span
+		out[i] = (float64(v) - lo) / span
 	}
 	return out, true
 }
@@ -55,9 +58,10 @@ func Normalize[T constraints.Numeric](input []T) ([]float64, bool) {
 //
 // The mean and standard deviation are computed in a single numerically-stable
 // Welford pass (see accumulate). It returns ok == false only for empty input.
-// When the data has zero spread (a single element, or all elements identical)
+// When finite data has zero spread (a single element, or all elements identical)
 // every value sits exactly at the mean — zero standard deviations away — so
 // Standardize returns all zeros with ok == true rather than dividing by zero.
+// (Non-finite identical inputs instead propagate, per the policy below.)
 //
 // Non-finite inputs (NaN/Inf) propagate: a non-finite element poisons the mean
 // and standard deviation, so the whole result becomes non-finite.

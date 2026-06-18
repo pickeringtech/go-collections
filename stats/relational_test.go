@@ -113,8 +113,8 @@ func TestCorrelation(t *testing.T) {
 	}
 }
 
-// Covariance must stay within [−1, 1] after normalisation and is symmetric: the
-// correlation of (x, y) equals that of (y, x).
+// Correlation must stay within [−1, 1] (it is covariance after normalization)
+// and is symmetric: the correlation of (x, y) equals that of (y, x).
 func TestCorrelationIsSymmetric(t *testing.T) {
 	a := []float64{3, 1, 4, 1, 5, 9, 2, 6}
 	b := []float64{2, 7, 1, 8, 2, 8, 1, 8}
