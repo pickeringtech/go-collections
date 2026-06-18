@@ -169,6 +169,11 @@ unique := slices.Unique(numbers)
 tags := []string{"go", "programming", "go", "tutorial", "programming"}
 uniqueTags := slices.Unique(tags)
 // Result: ["go", "programming", "tutorial"]
+
+// Dedup by a derived key (first element per key wins, order preserved)
+people := []Person{{"Alice", "eng"}, {"Bob", "eng"}, {"Carol", "sales"}}
+onePerDept := slices.UniqueBy(people, func(p Person) string { return p.Dept })
+// Result: [{Alice eng} {Carol sales}]
 ```
 
 #### Reverse - Reverse Order
@@ -195,6 +200,47 @@ batches := slices.Chunk(users, 100)
 for _, batch := range batches {
     processBatch(batch) // Process 100 users at a time
 }
+
+// Chunk keeps the remainder as a smaller final group
+slices.Chunk([]int{1, 2, 3, 4, 5}, 2)
+// Result: [[1, 2], [3, 4], [5]]
+```
+
+#### Window - Sliding Windows
+```go
+// Overlapping windows of a fixed width, advancing one element at a time
+prices := []int{10, 11, 9, 12}
+windows := slices.Window(prices, 2)
+// Result: [[10, 11], [11, 9], [9, 12]]
+
+// A width larger than the input yields no windows: []
+```
+
+#### Zip / ZipWith - Combine Two Slices
+```go
+names := []string{"alice", "bob"}
+ages := []int{30, 25}
+pairs := slices.Zip(names, ages)
+// Result: [{alice 30} {bob 25}] ([]slices.Pair[string, int])
+
+// ZipWith combines element-wise with a function instead of building Pairs
+sums := slices.ZipWith([]int{1, 2, 3}, []int{10, 20, 30}, func(a, b int) int {
+    return a + b
+})
+// Result: [11, 22, 33]
+
+// Unequal lengths truncate to the shorter input
+slices.Zip([]int{1, 2, 3}, []string{"a"}) // [{1 a}]
+```
+
+#### FlatMap - Map Then Flatten
+```go
+// Each element expands into zero or more results, concatenated in order
+words := []string{"hello world", "go lang"}
+tokens := slices.FlatMap(words, func(s string) []string {
+    return strings.Fields(s)
+})
+// Result: ["hello", "world", "go", "lang"]
 ```
 
 ## Real-World Examples

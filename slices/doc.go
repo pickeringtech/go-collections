@@ -53,9 +53,16 @@
 //
 // Transform operations (each returns a new slice or value):
 //   - Map: transform each element into a new slice
+//   - FlatMap: map each element to a slice and flatten the results
 //   - Filter: keep only the elements matching a predicate
 //   - Reduce: fold the elements into a single value
 //   - Reverse: reverse the slice order
+//
+// Sequence operations (data-engineering verbs):
+//   - Chunk: batch into fixed-size groups (last group keeps the remainder)
+//   - Window: every overlapping sliding window of a fixed width
+//   - Zip / ZipWith: combine two slices element-wise, truncating to the shorter
+//   - Unique / UniqueBy: order-preserving dedup, by value or by derived key
 //
 // Search operations:
 //   - Find / FindLast: get the first (or last) matching element
