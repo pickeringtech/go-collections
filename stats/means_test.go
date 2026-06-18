@@ -80,7 +80,9 @@ func TestMean(t *testing.T) {
 }
 
 // TestMeanIntegers exercises the generic over an integer type: integers are
-// summed in float64, so no overflow occurs and the result is the true mean.
+// widened to float64 before summing, so moderate inputs avoid the wraparound an
+// exact-in-T sum could hit (magnitudes beyond 2^53 are still subject to float64
+// rounding, as documented on Mean).
 func TestMeanIntegers(t *testing.T) {
 	got, ok := stats.Mean([]int{2, 4, 6, 8})
 	if !ok {
