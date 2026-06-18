@@ -58,7 +58,7 @@ func FuzzQuantiles(f *testing.F) {
 			return
 		}
 
-		var lo, hi float64 = input[0], input[0]
+		lo, hi := input[0], input[0]
 		for _, v := range input {
 			if v < lo {
 				lo = v
