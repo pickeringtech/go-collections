@@ -1,11 +1,13 @@
 // Package stats turns slices of numbers into statistical summaries —
-// weighted and specialised means and the quantile family today, with the wider
-// numeric surface (variance, correlation, …) landing alongside it pre-1.0.
+// weighted and specialised means, the quantile family, covariance and
+// correlation today, with the wider numeric surface (variance, …) landing
+// alongside it pre-1.0. It is also the home for value-rescaling transforms such
+// as normalization and standardization.
 //
 // It is the home for "summarise numbers into a statistic" operations, which
-// almost always return float64. The sibling slices package keeps operations
-// about slice structure and element ordering (Min/Max/Sort); stats does not
-// duplicate those.
+// almost always return float64 (transforms return a fresh []float64). The
+// sibling slices package keeps operations about slice structure and element
+// ordering (Min/Max/Sort); stats does not duplicate those.
 //
 // # Quick Start
 //
@@ -30,16 +32,27 @@
 //
 // # Conventions
 //
-// Empty input is undefined, so every function returns (float64, bool) in the
+// Empty input is undefined, so every function returns an ok flag in the
 // library's (result, ok) idiom rather than a silent zero. The ok flag is false
 // for empty input and for input the function cannot summarise (see each
-// function's doc for its specific rejection policy).
+// function's doc for its specific rejection policy). Transforms (Normalize,
+// Standardize, MovingAverage) follow the same idiom, returning ([]float64, bool)
+// and never mutating their input.
 //
-// Sums are accumulated with Kahan compensated summation so large inputs do not
-// lose precision to naive floating-point round-off.
+// Sums are accumulated with Kahan compensated summation, and variance,
+// covariance and correlation use Welford's online algorithm, so large or
+// near-constant inputs do not lose precision to naive floating-point round-off.
 //
-// Non-finite inputs (NaN, ±Inf) are rejected: any function that encounters one
-// returns ok=false, because the resulting statistic would be undefined.
+// Non-finite inputs (NaN, ±Inf) are handled per operation, documented on each
+// function. The means and the quantile family reject them (ok == false), since
+// the resulting statistic would be undefined. The variance/covariance/
+// correlation family and the transforms instead let them propagate — the result
+// is non-finite with ok == true — so a NaN in the data surfaces as a NaN
+// statistic rather than a plausible-looking wrong number, never silently dropped.
+//
+// Where Bessel's correction applies (variance, standard deviation, covariance)
+// both sample and population variants are offered, named unambiguously so the
+// choice is always the caller's.
 //
 // # Quantiles
 //
