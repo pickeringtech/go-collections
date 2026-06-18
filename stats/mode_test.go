@@ -1,6 +1,7 @@
 package stats_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/stats"
@@ -46,5 +47,24 @@ func TestModeOnStrings(t *testing.T) {
 	got, ok := stats.Mode([]string{"a", "b", "a", "c", "b", "a"})
 	if !ok || len(got) != 1 || got[0] != "a" {
 		t.Fatalf(`Mode(strings) = (%v, %v), want (["a"], true)`, got, ok)
+	}
+}
+
+func TestModeRejectsNonFinite(t *testing.T) {
+	for _, bad := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
+		if got, ok := stats.Mode([]float64{1, 1, bad, 2}); ok {
+			t.Fatalf("Mode([1 1 %v 2]) = (%v, %v), want (nil, false)", bad, got, ok)
+		}
+	}
+	// float32 inputs are checked too.
+	if _, ok := stats.Mode([]float32{1, float32(math.Inf(1)), 1}); ok {
+		t.Fatalf("Mode(float32 with +Inf) should be ok=false")
+	}
+}
+
+func TestModeFiniteFloatsStillWork(t *testing.T) {
+	got, ok := stats.Mode([]float64{1.5, 2.5, 1.5})
+	if !ok || len(got) != 1 || got[0] != 1.5 {
+		t.Fatalf("Mode([1.5 2.5 1.5]) = (%v, %v), want ([1.5], true)", got, ok)
 	}
 }

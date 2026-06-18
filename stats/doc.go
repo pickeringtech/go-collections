@@ -1,16 +1,14 @@
 // Package stats turns slices of numbers into statistical summaries — basic
-// reductions, weighted and specialised means, and the quantile family today,
-// with the wider numeric surface (variance, correlation, …) landing alongside
-// it pre-1.0.
+// reductions, weighted and specialised means, the quantile family, covariance
+// and correlation today, with the wider numeric surface (variance, …) landing
+// alongside it pre-1.0. It is also the home for value-rescaling transforms such
+// as normalization and standardization.
 //
-// It is the home for "summarise numbers into a statistic" operations and owns
-// their implementations; thin accessors elsewhere (for example
-// slices.NumericSlice) only delegate here, so there is a single source of truth
-// per operation. Operations whose result is naturally a real number return
-// float64 (Mean, Median, …); operations that summarise without leaving the
-// input's domain are exact in T (Product, Range, CumulativeSum, MinMax). The
-// sibling slices package keeps operations about slice structure and element
-// ordering (Sort).
+// It is the home for "summarise numbers into a statistic" operations, which
+// almost always return float64 (transforms return a fresh []float64). A few
+// reductions stay exact in T because the result never leaves the input's domain
+// (Product, Range, CumulativeSum, MinMax). The sibling slices package keeps
+// operations about slice structure and element ordering (Sort).
 //
 // # Quick Start
 //
@@ -45,22 +43,34 @@
 //
 // # Conventions
 //
-// Empty input is undefined, so functions that summarise into a single value
-// return (result, bool) in the library's (result, ok) idiom rather than a
-// silent zero. The ok flag is false for empty input and for input the function
-// cannot summarise (see each function's doc for its specific rejection policy).
+// Empty input is undefined, so every function returns an ok flag in the
+// library's (result, ok) idiom rather than a silent zero. The ok flag is false
+// for empty input and for input the function cannot summarise (see each
+// function's doc for its specific rejection policy). Transforms (Normalize,
+// Standardize, MovingAverage) follow the same idiom, returning ([]float64, bool)
+// and never mutating their input.
 //
-// Sums are accumulated with Kahan compensated summation so large inputs do not
-// lose precision to naive floating-point round-off.
+// Sums are accumulated with Kahan compensated summation, and variance,
+// covariance and correlation use Welford's online algorithm, so large or
+// near-constant inputs do not lose precision to naive floating-point round-off.
 //
-// Non-finite inputs (NaN, ±Inf) are rejected: any (value, ok) function that
-// encounters one returns ok=false, because the resulting statistic would be
-// undefined. Two kinds of operation stand outside that rule. The ordering
-// reductions MinMax/ArgMin/ArgMax operate on constraints.Ordered, which has no
-// NaN concept for strings, so they follow the standard library and leave a
-// NaN-contaminated float result unspecified rather than rejecting it. The two
-// slice-returning functions (CumulativeSum and ClampAll) have no ok flag to
-// carry a rejection, so non-finite values flow through them per IEEE-754.
+// Non-finite inputs (NaN, ±Inf) are handled per operation, documented on each
+// function. The means, the quantile family, and the basic reductions that carry
+// an ok flag (Product, Range, Median, Mode) reject them (ok == false), since the
+// resulting statistic would be undefined. The variance/covariance/correlation
+// family and the transforms instead let them propagate — the result is
+// non-finite with ok == true — so a NaN in the data surfaces as a NaN statistic
+// rather than a plausible-looking wrong number, never silently dropped. Two
+// kinds of operation handle them differently again: the ordering reductions
+// MinMax/ArgMin/ArgMax work over constraints.Ordered (which also accepts
+// strings, where NaN has no meaning), so like the standard library they leave a
+// NaN-contaminated float result unspecified; and the functions that return a
+// bare slice with no ok flag (CumulativeSum, ClampAll) have no way to signal a
+// rejection, so non-finite values flow through them per IEEE-754.
+//
+// Where Bessel's correction applies (variance, standard deviation, covariance)
+// both sample and population variants are offered, named unambiguously so the
+// choice is always the caller's.
 //
 // # Quantiles
 //

@@ -11,21 +11,21 @@ import "github.com/pickeringtech/go-collections/constraints"
 // input is empty. Like the standard library's ordering reductions, MinMax does
 // not give NaN a defined position, so a floating-point input containing NaN
 // yields an unspecified min/max rather than an error.
-func MinMax[T constraints.Ordered](input []T) (min, max T, ok bool) {
+func MinMax[T constraints.Ordered](input []T) (lo, hi T, ok bool) {
 	if len(input) == 0 {
 		var zero T
 		return zero, zero, false
 	}
-	min, max = input[0], input[0]
+	lo, hi = input[0], input[0]
 	for _, v := range input {
-		if v < min {
-			min = v
+		if v < lo {
+			lo = v
 		}
-		if v > max {
-			max = v
+		if v > hi {
+			hi = v
 		}
 	}
-	return min, max, true
+	return lo, hi, true
 }
 
 // ArgMin returns the index of the smallest element of input. When several
