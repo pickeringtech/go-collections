@@ -1,5 +1,5 @@
-// Package stats turns slices of numbers into statistical summaries —
-// weighted and specialised means, the quantile family, covariance and
+// Package stats turns slices of numbers into statistical summaries — sums,
+// arithmetic/weighted/specialised means, the quantile family, covariance and
 // correlation today, with the wider numeric surface (variance, …) landing
 // alongside it pre-1.0. It is also the home for value-rescaling transforms such
 // as normalization and standardization.
@@ -13,6 +13,12 @@
 //
 //	import "github.com/pickeringtech/go-collections/stats"
 //
+//	data := []float64{10, 20, 30}
+//
+//	// Total and arithmetic mean — each with an ok flag (false for empty input).
+//	total, _ := stats.Sum(data)  // 60, true
+//	mean, _ := stats.Mean(data)  // 20, true
+//
 //	prices := []float64{10, 20, 30}
 //	weights := []float64{1, 2, 3}
 //
@@ -23,6 +29,8 @@
 //	gm, _ := stats.GeometricMean([]float64{1, 10, 100}) // 10
 //	hm, _ := stats.HarmonicMean([]float64{1, 2, 4})      // 1.714...
 //
+//	_ = total
+//	_ = mean
 //	_ = wm
 //	_ = gm
 //	_ = hm
@@ -39,16 +47,20 @@
 // Standardize, MovingAverage) follow the same idiom, returning ([]float64, bool)
 // and never mutating their input.
 //
-// Sums are accumulated with Kahan compensated summation, and variance,
-// covariance and correlation use Welford's online algorithm, so large or
-// near-constant inputs do not lose precision to naive floating-point round-off.
+// The float64 summaries accumulate with Kahan compensated summation, and
+// variance, covariance and correlation use Welford's online algorithm, so large
+// or near-constant inputs do not lose precision to naive floating-point
+// round-off. The exact-in-T reduction Sum instead accumulates in the input type
+// T, so an integer sum is exact (no float round-off) at the cost of possible
+// overflow on very large inputs.
 //
 // Non-finite inputs (NaN, ±Inf) are handled per operation, documented on each
 // function. The means and the quantile family reject them (ok == false), since
 // the resulting statistic would be undefined. The variance/covariance/
-// correlation family and the transforms instead let them propagate — the result
-// is non-finite with ok == true — so a NaN in the data surfaces as a NaN
-// statistic rather than a plausible-looking wrong number, never silently dropped.
+// correlation family, the transforms, and the exact-in-T Sum instead let them
+// propagate — the result is non-finite with ok == true — so a NaN in the data
+// surfaces as a NaN statistic rather than a plausible-looking wrong number,
+// never silently dropped.
 //
 // Where Bessel's correction applies (variance, standard deviation, covariance)
 // both sample and population variants are offered, named unambiguously so the

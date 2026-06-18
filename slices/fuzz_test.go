@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	"github.com/pickeringtech/go-collections/slices"
+	"github.com/pickeringtech/go-collections/stats"
 )
 
 // bytesToInts turns the fuzzer's []byte into a []int slice we can feed to the
 // generic slice functions. Each byte becomes a non-negative int (0-255), which
-// keeps the numeric invariants (Min/Max/Avg) easy to reason about.
+// keeps the numeric invariants (Min/Max/Mean) easy to reason about.
 func bytesToInts(b []byte) []int {
 	if b == nil {
 		return nil
@@ -284,9 +285,9 @@ func FuzzNumerics(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		input := bytesToInts(data)
 
-		sum, sumOK := slices.Sum(input)
+		sum, sumOK := stats.Sum(input)
 		// Sum is order-independent.
-		if rev, _ := slices.Sum(slices.Reverse(input)); rev != sum {
+		if rev, _ := stats.Sum(slices.Reverse(input)); rev != sum {
 			t.Fatalf("Sum not order-independent: %d vs %d", sum, rev)
 		}
 		var manual int
@@ -334,9 +335,9 @@ func FuzzNumerics(f *testing.F) {
 		if nsMin, nsMinOK := ns.Min(); nsMin != mn || nsMinOK != mnOK {
 			t.Fatalf("NumericSlice.Min (%v, %v) disagrees with Min (%v, %v)", nsMin, nsMinOK, mn, mnOK)
 		}
-		avg, avgOK := slices.Avg(input)
-		if nsAvg, nsAvgOK := ns.Avg(); nsAvg != avg || nsAvgOK != avgOK {
-			t.Fatalf("NumericSlice.Avg (%v, %v) disagrees with Avg (%v, %v)", nsAvg, nsAvgOK, avg, avgOK)
+		avg, avgOK := stats.Mean(input)
+		if nsMean, nsMeanOK := ns.Mean(); nsMean != avg || nsMeanOK != avgOK {
+			t.Fatalf("NumericSlice.Mean (%v, %v) disagrees with stats.Mean (%v, %v)", nsMean, nsMeanOK, avg, avgOK)
 		}
 	})
 }
