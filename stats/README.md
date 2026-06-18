@@ -20,6 +20,18 @@ z, _ := stats.Standardize(xs)       // zero mean, unit variance
 ma, _ := stats.MovingAverage(xs, 2) // [1.5 2.5 3.5 4.5] — full windows only
 ```
 
+## Means
+
+| Function                       | Returns           | Undefined (`ok == false`) when                          |
+| ------------------------------ | ----------------- | ------------------------------------------------------- |
+| `WeightedMean(values, weights)`| `(float64, bool)` | empty, differing lengths, negative/zero-sum/NaN weights |
+| `GeometricMean(values)`        | `(float64, bool)` | empty, or any non-positive / non-finite value           |
+| `HarmonicMean(values)`         | `(float64, bool)` | empty, or any non-positive / non-finite value           |
+
+Sums are accumulated with Kahan compensated summation. The means **reject**
+non-finite input (`ok == false`); the relational stats and transforms below
+instead let non-finite values propagate (see Conventions).
+
 ## Relational statistics
 
 Two equal-length series in, one `float64` out (with an `ok` flag). Mismatched

@@ -1,44 +1,56 @@
-// Package stats summarizes collections of numbers into statistics, correctly.
+// Package stats turns slices of numbers into statistical summaries —
+// weighted and specialised means, covariance and correlation today, with the
+// wider numeric surface (variance, quantiles, …) landing alongside it pre-1.0.
+// It is also the home for value-rescaling transforms such as normalization and
+// standardization.
 //
-// It is the home for operations that reduce slices of numbers to descriptive
-// figures — variance, standard deviation, covariance, correlation — and for
-// value-rescaling transforms such as normalization and standardization. The
-// companion slices package owns slice structure and element ordering
-// (Min/Max/sorting); stats owns the numeric summaries. One operation lives in
-// exactly one place.
+// It is the home for "summarise numbers into a statistic" operations, which
+// almost always return float64 (transforms return a fresh []float64). The
+// sibling slices package keeps operations about slice structure and element
+// ordering (Min/Max/Sort); stats does not duplicate those.
 //
 // # Quick Start
 //
 //	import "github.com/pickeringtech/go-collections/stats"
 //
-//	xs := []float64{1, 2, 3, 4, 5}
-//	ys := []float64{2, 4, 6, 8, 10}
+//	prices := []float64{10, 20, 30}
+//	weights := []float64{1, 2, 3}
 //
-//	r, _ := stats.Correlation(xs, ys)       // 1 — perfectly linear
-//	z, _ := stats.Standardize(xs)           // zero mean, unit variance
-//	ma, _ := stats.MovingAverage(xs, 2)     // rolling means over full windows
+//	// Weighted mean — the result and an ok flag (false for empty/invalid input).
+//	wm, ok := stats.WeightedMean(prices, weights) // 23.33..., true
 //
-//	fmt.Printf("r=%.1f z0=%.4f ma=%v", r, z[0], ma)
-//	// r=1.0 z0=-1.4142 ma=[1.5 2.5 3.5 4.5]
+//	// Specialised means for ratios and rates.
+//	gm, _ := stats.GeometricMean([]float64{1, 10, 100}) // 10
+//	hm, _ := stats.HarmonicMean([]float64{1, 2, 4})      // 1.714...
+//
+//	_ = wm
+//	_ = gm
+//	_ = hm
+//
+// This Quick Start is compiled and run as Example_quickStart in the package's
+// test suite, so it is guaranteed to track the real API.
 //
 // # Conventions
 //
-// These are the deliberate, locked-in conventions every operation in this
-// package follows:
+// Empty input is undefined, so every function returns an ok flag in the
+// library's (result, ok) idiom rather than a silent zero. The ok flag is false
+// for empty input and for input the function cannot summarise (see each
+// function's doc for its specific rejection policy). Transforms (Normalize,
+// Standardize, MovingAverage) follow the same idiom, returning ([]float64, bool)
+// and never mutating their input.
 //
-//   - Numerical stability. Variance, covariance and correlation use Welford's
-//     online algorithm, never the naive Σxy − ΣxΣy/n, which loses catastrophic
-//     precision on large or near-constant magnitudes.
-//   - Return type. Scalar summaries return float64, paired with an ok bool.
-//     Transforms that rescale a series return a new []float64, also paired with
-//     an ok bool; the input is never mutated.
-//   - Empty/edge contract. Statistics on undefined input return ok == false
-//     rather than a silent zero. Sample variants are undefined for fewer than
-//     two elements; population variants are undefined only for empty input.
-//   - NaN/Inf policy. Non-finite inputs propagate: the result is non-finite and
-//     ok == true. Values are never silently filtered out, so a NaN in the data
-//     surfaces as a NaN statistic rather than a plausible-looking wrong number.
-//   - Sample vs population. Both variants are offered where Bessel's correction
-//     applies (variance, standard deviation, covariance), named unambiguously
-//     so the choice is always the caller's.
+// Sums are accumulated with Kahan compensated summation, and variance,
+// covariance and correlation use Welford's online algorithm, so large or
+// near-constant inputs do not lose precision to naive floating-point round-off.
+//
+// Non-finite inputs (NaN, ±Inf) are handled per operation, documented on each
+// function. The means reject them (ok == false), since a mean over undefined
+// data is itself undefined. The variance/covariance/correlation family and the
+// transforms instead let them propagate — the result is non-finite with
+// ok == true — so a NaN in the data surfaces as a NaN statistic rather than a
+// plausible-looking wrong number, never silently dropped.
+//
+// Where Bessel's correction applies (variance, standard deviation, covariance)
+// both sample and population variants are offered, named unambiguously so the
+// choice is always the caller's.
 package stats

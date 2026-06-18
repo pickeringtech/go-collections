@@ -284,9 +284,9 @@ func FuzzNumerics(f *testing.F) {
 	f.Fuzz(func(t *testing.T, data []byte) {
 		input := bytesToInts(data)
 
-		sum := slices.Sum(input)
+		sum, sumOK := slices.Sum(input)
 		// Sum is order-independent.
-		if rev := slices.Sum(slices.Reverse(input)); rev != sum {
+		if rev, _ := slices.Sum(slices.Reverse(input)); rev != sum {
 			t.Fatalf("Sum not order-independent: %d vs %d", sum, rev)
 		}
 		var manual int
@@ -297,13 +297,19 @@ func FuzzNumerics(f *testing.F) {
 			t.Fatalf("Sum = %d, want %d", sum, manual)
 		}
 
-		mx := slices.Max(input)
-		mn := slices.Min(input)
+		mx, mxOK := slices.Max(input)
+		mn, mnOK := slices.Min(input)
 		if len(input) == 0 {
+			if sumOK || mxOK || mnOK {
+				t.Fatalf("empty Sum/Max/Min ok = %v/%v/%v, want all false", sumOK, mxOK, mnOK)
+			}
 			if mx != 0 || mn != 0 {
 				t.Fatalf("empty Max/Min = %d/%d, want 0/0", mx, mn)
 			}
 		} else {
+			if !sumOK || !mxOK || !mnOK {
+				t.Fatalf("non-empty Sum/Max/Min ok = %v/%v/%v, want all true", sumOK, mxOK, mnOK)
+			}
 			if mn > mx {
 				t.Fatalf("Min %d > Max %d", mn, mx)
 			}
@@ -319,11 +325,18 @@ func FuzzNumerics(f *testing.F) {
 
 		// The NumericSlice method forms must agree with the function forms.
 		ns := slices.NumericSlice[int](input)
-		if ns.Sum() != sum || ns.Max() != mx || ns.Min() != mn {
-			t.Fatalf("NumericSlice methods disagree with functions")
+		if nsSum, nsSumOK := ns.Sum(); nsSum != sum || nsSumOK != sumOK {
+			t.Fatalf("NumericSlice.Sum (%v, %v) disagrees with Sum (%v, %v)", nsSum, nsSumOK, sum, sumOK)
 		}
-		if avg := slices.Avg(input); ns.Avg() != avg {
-			t.Fatalf("NumericSlice.Avg %v disagrees with Avg %v", ns.Avg(), avg)
+		if nsMax, nsMaxOK := ns.Max(); nsMax != mx || nsMaxOK != mxOK {
+			t.Fatalf("NumericSlice.Max (%v, %v) disagrees with Max (%v, %v)", nsMax, nsMaxOK, mx, mxOK)
+		}
+		if nsMin, nsMinOK := ns.Min(); nsMin != mn || nsMinOK != mnOK {
+			t.Fatalf("NumericSlice.Min (%v, %v) disagrees with Min (%v, %v)", nsMin, nsMinOK, mn, mnOK)
+		}
+		avg, avgOK := slices.Avg(input)
+		if nsAvg, nsAvgOK := ns.Avg(); nsAvg != avg || nsAvgOK != avgOK {
+			t.Fatalf("NumericSlice.Avg (%v, %v) disagrees with Avg (%v, %v)", nsAvg, nsAvgOK, avg, avgOK)
 		}
 	})
 }

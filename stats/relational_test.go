@@ -22,10 +22,10 @@ func floatsClose(a, b float64) bool {
 	return math.Abs(a-b) <= floatTol
 }
 
-// x and yLinear are perfectly linearly related (yLinear = 2·x), giving a known
+// linX and yLinear are perfectly linearly related (yLinear = 2·linX), giving a known
 // covariance of 4 (population) / 5 (sample) and a correlation of exactly 1.
 var (
-	x       = []float64{1, 2, 3, 4, 5}
+	linX    = []float64{1, 2, 3, 4, 5}
 	yLinear = []float64{2, 4, 6, 8, 10}
 	yInvert = []float64{10, 8, 6, 4, 2}
 )
@@ -37,8 +37,8 @@ func TestPopulationCovariance(t *testing.T) {
 		want float64
 		ok   bool
 	}{
-		{name: "perfectly linear", x: x, y: yLinear, want: 4, ok: true},
-		{name: "perfectly inverse", x: x, y: yInvert, want: -4, ok: true},
+		{name: "perfectly linear", x: linX, y: yLinear, want: 4, ok: true},
+		{name: "perfectly inverse", x: linX, y: yInvert, want: -4, ok: true},
 		{name: "single pair is defined as zero", x: []float64{3}, y: []float64{7}, want: 0, ok: true},
 		{name: "length mismatch is undefined", x: []float64{1, 2, 3}, y: []float64{1, 2}, want: 0, ok: false},
 		{name: "empty is undefined", x: []float64{}, y: []float64{}, want: 0, ok: false},
@@ -64,7 +64,7 @@ func TestSampleCovariance(t *testing.T) {
 		want float64
 		ok   bool
 	}{
-		{name: "perfectly linear", x: x, y: yLinear, want: 5, ok: true},
+		{name: "perfectly linear", x: linX, y: yLinear, want: 5, ok: true},
 		{name: "two pairs", x: []float64{1, 3}, y: []float64{2, 6}, want: 4, ok: true},
 		{name: "single pair is undefined", x: []float64{3}, y: []float64{7}, want: 0, ok: false},
 		{name: "length mismatch is undefined", x: []float64{1, 2}, y: []float64{1, 2, 3}, want: 0, ok: false},
@@ -90,9 +90,9 @@ func TestCorrelation(t *testing.T) {
 		want float64
 		ok   bool
 	}{
-		{name: "perfect positive", x: x, y: yLinear, want: 1, ok: true},
-		{name: "perfect negative", x: x, y: yInvert, want: -1, ok: true},
-		{name: "shifted is still perfectly correlated", x: x, y: []float64{5, 7, 9, 11, 13}, want: 1, ok: true},
+		{name: "perfect positive", x: linX, y: yLinear, want: 1, ok: true},
+		{name: "perfect negative", x: linX, y: yInvert, want: -1, ok: true},
+		{name: "shifted is still perfectly correlated", x: linX, y: []float64{5, 7, 9, 11, 13}, want: 1, ok: true},
 		{name: "uncorrelated", x: []float64{1, 2, 3, 4}, y: []float64{1, 2, 2, 1}, want: 0, ok: true},
 		{name: "constant x is undefined", x: []float64{2, 2, 2}, y: []float64{1, 2, 3}, want: 0, ok: false},
 		{name: "constant y is undefined", x: []float64{1, 2, 3}, y: []float64{4, 4, 4}, want: 0, ok: false},
