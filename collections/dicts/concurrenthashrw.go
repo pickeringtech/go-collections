@@ -3,6 +3,8 @@ package dicts
 import (
 	"reflect"
 	"sync"
+
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 )
 
 // ConcurrentHashRW is a thread-safe dictionary implementation using Go's built-in map
@@ -13,7 +15,12 @@ import (
 // value, so a bare &ConcurrentHashRW{} is at least lock-safe, but its backing map
 // is nil until the constructor runs, so writes (PutInPlace) panic. Reads on the
 // zero value return empty results.
+//
+// ConcurrentHashRW must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentHashRW[K comparable, V any] struct {
+	_    nocopy.NoCopy
 	data map[K]V
 	lock sync.RWMutex
 }

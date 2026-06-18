@@ -1,13 +1,20 @@
 package lists
 
 import (
-	"github.com/pickeringtech/go-collections/slices"
 	"sync"
+
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
+	"github.com/pickeringtech/go-collections/slices"
 )
 
 // ConcurrentArray is a slice-backed implementation of MutableList that is safe
 // for concurrent use. Every operation is guarded by a sync.Mutex.
+//
+// ConcurrentArray must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentArray[T any] struct {
+	_        nocopy.NoCopy
 	elements []T
 	lock     sync.Mutex
 }

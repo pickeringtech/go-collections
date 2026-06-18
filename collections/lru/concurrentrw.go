@@ -3,6 +3,8 @@ package lru
 import (
 	"iter"
 	"sync"
+
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 )
 
 // ConcurrentLRURW is a thread-safe LRU cache guarded by a read-write mutex.
@@ -19,7 +21,12 @@ import (
 // value, so a bare &ConcurrentLRURW{} is at least lock-safe, but its inner LRU
 // is nil until the constructor runs, so any operation — reads included —
 // dereferences a nil pointer and panics.
+//
+// ConcurrentLRURW must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentLRURW[K comparable, V any] struct {
+	_     nocopy.NoCopy
 	inner *LRU[K, V]
 	lock  sync.RWMutex
 }

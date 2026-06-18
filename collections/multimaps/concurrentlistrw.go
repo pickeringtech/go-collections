@@ -3,6 +3,8 @@ package multimaps
 import (
 	"iter"
 	"sync"
+
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 )
 
 // ConcurrentRWListMultimap is a thread-safe, list-backed multimap guarded by a
@@ -12,7 +14,12 @@ import (
 //
 // Immutable operations return a new ConcurrentRWListMultimap, preserving thread
 // safety of results (see the concurrency standards).
+//
+// ConcurrentRWListMultimap must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentRWListMultimap[K comparable, V any] struct {
+	_    nocopy.NoCopy
 	data ListMultimap[K, V]
 	lock sync.RWMutex
 }

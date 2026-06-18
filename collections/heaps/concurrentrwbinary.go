@@ -4,6 +4,7 @@ import (
 	"iter"
 	"sync"
 
+	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
 	"github.com/pickeringtech/go-collections/constraints"
 )
 
@@ -20,7 +21,12 @@ import (
 // &ConcurrentRWBinary{} is at least lock-safe, but its inner heap is nil until
 // the constructor runs, so any operation — reads included — dereferences a nil
 // pointer and panics.
+//
+// ConcurrentRWBinary must not be copied after first use; copying after construction
+// produces an independent lock over shared backing data, which breaks the
+// thread-safety contract. go vet reports any such copy.
 type ConcurrentRWBinary[T any] struct {
+	_     nocopy.NoCopy
 	inner *Binary[T]
 	lock  sync.RWMutex
 }

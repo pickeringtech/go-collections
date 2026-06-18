@@ -166,6 +166,13 @@
 // pointer and panics. Construct those with their New* constructor before use;
 // each type's own documentation repeats the warning.
 //
+// Important: concurrent types must NOT be copied after first use. A copy
+// produces an independent lock while both values share the same backing data
+// (map, slice, inner pointer), silently breaking the thread-safety guarantee.
+// Every concurrent type carries a nocopy sentinel field so that go vet's
+// copylocks analyser reports any value-copy of the type. Always pass concurrent
+// collections by pointer.
+//
 // A few types document a usable zero value as part of their contract — for
 // example deques.RingBuffer (a valid empty, unbounded deque) and dicts.Tree (a
 // valid empty tree). Even for these, the constructor remains the recommended
