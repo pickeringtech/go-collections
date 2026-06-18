@@ -42,8 +42,14 @@ GOSEC_VERSION       ?= v2.27.1
 COVERAGE_MIN        ?= 100
 
 BENCHREPORT_DIR := tools/benchreport
+CIHEALTH_DIR    := tools/cihealth
 BUILD_DIR       := build
 BENCH_DATA_DIR  := docs/bench
+CIHEALTH_DATA_DIR := docs/ci-health
+# Newly-fetched CI run history fed to `ci-health-report` (NDJSON). Defaults to
+# stdin so the scheduled workflow can pipe `gh api` straight in; point it at a
+# file for a local refresh.
+CI_RUNS         ?= -
 
 # Long-term trend store (issue #51). Each push to `main` archives that run's raw
 # (multi-sample) bench output under docs/bench/history/<timestamp>_<sha>.txt so
@@ -74,7 +80,7 @@ GEN_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 GO_VERSION := $(shell go env GOVERSION)
 
 .PHONY: help test test-root test-nested bench bench-report bench-render \
-	ci hygiene cover lint security cross-arch fuzz
+	ci-health-report ci hygiene cover lint security cross-arch fuzz
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -243,3 +249,22 @@ bench-render: ## Re-render BENCHMARKS.md, docs/bench.svg, and the README preview
 		-dir $(BENCH_DATA_DIR) \
 		-history $(BENCH_HISTORY_DIR) \
 		-alert $(BENCH_ALERT)
+
+# Refresh the main-branch CI health badges (issue #209). Merges newly-fetched CI
+# run history (CI_RUNS, NDJSON — defaults to stdin) into the persisted tally
+# store, then recomputes the 7/30/90-day shields endpoint JSON from it. The
+# scheduled ci-health-badges workflow pipes `gh api` in; locally, fetch a file
+# first, e.g.:
+#   gh api --paginate \
+#     '/repos/pickeringtech/go-collections/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100' \
+#     --jq '.workflow_runs[] | {id:.id, sha:.head_sha, conclusion:.conclusion, timestamp:.created_at}' \
+#     > build/ci-runs.ndjson
+#   make ci-health-report CI_RUNS=build/ci-runs.ndjson
+ci-health-report: ## Refresh docs/ci-health/ badge JSON + tally from CI run history (CI_RUNS=<ndjson>)
+	@mkdir -p $(BUILD_DIR) $(CIHEALTH_DATA_DIR)
+	go build -C $(CIHEALTH_DIR) -o $(CURDIR)/$(BUILD_DIR)/cihealth .
+	$(CURDIR)/$(BUILD_DIR)/cihealth \
+		-runs "$(CI_RUNS)" \
+		-store $(CIHEALTH_DATA_DIR)/history.csv \
+		-out $(CIHEALTH_DATA_DIR) \
+		-now "$(GEN_DATE)"

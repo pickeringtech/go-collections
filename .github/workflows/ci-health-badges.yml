@@ -1,0 +1,107 @@
+name: CI health badges (main-only — recompute & publish)
+
+# Publishes the main-branch CI health badges (issue #209): the percentage of
+# healthy `CI` runs on `main` over rolling 7-, 30- and 90-day windows, rendered
+# as shields.io endpoint JSON the README points at.
+#
+# WHY a persisted tally rather than a live query. GitHub's Actions run history is
+# subject to a retention limit (default 90 days), so the 90-day window sits right
+# on the boundary — a live `actions/runs` query undercounts the quarter the
+# moment the oldest runs age out. This job instead appends every run it observes
+# to a committed store (docs/ci-health/history.csv) and computes all three
+# windows from it, mirroring the docs/bench/history/ trend store (issue #51). The
+# store survives retention; the quarter badge stays honest.
+#
+# WHAT counts as a "build" (kept keyed on the workflow + branch so it's stable as
+# CI triggers change — see #150): a run of the `CI` workflow (ci.yml) whose
+# head_branch == main and event == push — i.e. the post-merge runs the merge
+# queue lands on main. The merge_group validation runs sit on the queue ref
+# (gh-readonly-queue/...), not main, so they're excluded; and the bench-report
+# refresh commits carry `[skip ci]`, so they never start a run to be counted.
+# Healthy = success; the denominator counts success + failure + timed_out +
+# startup_failure (see tools/cihealth). The numbers come out of `gh api`; the
+# cihealth tool merges, prunes and renders. Daily is plenty for a rolling-window
+# health badge (issue #209) — no need to also fire on every completed run.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # daily 06:00 UTC — recompute the rolling windows
+  workflow_dispatch: # manual on-demand refresh
+
+# A scheduled refresh must never race a manual one (or a slow run overlap the
+# next tick) into two commits to main. Serialise; don't cancel a run mid-commit.
+concurrency:
+  group: ci-health-badges
+  cancel-in-progress: false
+
+permissions:
+  contents: read # the push authenticates via the deploy key below, not the token
+  actions: read # to read this repo's workflow run history via `gh api`
+
+jobs:
+  ci-health-badges:
+    name: Recompute & publish CI health badges
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the rebase-on-reject retry below has something to
+          # rebase onto if main advances while this job runs.
+          fetch-depth: 0
+          # Authenticate as the write deploy key (a merge-queue ruleset bypass
+          # actor, reused from bench-report — issue #199/#209) so the commit step
+          # can push the refreshed badge data to protected main without tripping
+          # the queue. Also rewrites the remote to SSH so the push/pull go over
+          # the key, not the read-only token.
+          ssh-key: ${{ secrets.BENCH_REPORT_DEPLOY_KEY }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.mod
+      - name: Fetch completed CI runs on main (push events)
+        # The jq projection is the small stable contract the cihealth tool reads
+        # (tools/cihealth/parse.go). `--paginate` walks every page so a busy
+        # window isn't truncated at 100; the store's age-prune bounds growth.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p build
+          gh api --paginate \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100" \
+            --jq '.workflow_runs[] | {id: .id, sha: .head_sha, conclusion: .conclusion, timestamp: .created_at}' \
+            > build/ci-runs.ndjson
+          echo "fetched $(wc -l < build/ci-runs.ndjson) completed run(s)"
+      - name: Merge into the tally store and recompute the badges
+        # Thin wrapper over `make ci-health-report` so local and CI generation
+        # can't drift: the Make target owns build → merge → prune → render.
+        run: make ci-health-report CI_RUNS=build/ci-runs.ndjson
+      - name: Commit refreshed badge data (if changed) with [skip ci]
+        run: |
+          set -euo pipefail
+          # Only the generated tally + badge JSON under docs/ci-health/.
+          paths="docs/ci-health"
+          changed=$(git status --porcelain -- $paths)
+          if [ -z "$changed" ]; then
+            echo "No CI-health changes — nothing to commit."
+            exit 0
+          fi
+          echo "Changed badge data:"; echo "$changed"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $paths
+          # [skip ci] is the recursion guard: GitHub honours it by NOT starting a
+          # CI run for this commit, so the badge job's own push never becomes a
+          # main "build" that the next refresh would count.
+          git commit -m "chore(ci-health): refresh main-branch health badges [skip ci]"
+          # Best-effort push (mirrors bench-report, issue #199). This is a
+          # housekeeping refresh of regenerable data — it must NEVER fail the
+          # workflow. Try a direct push, then one rebase-and-retry; if it still
+          # can't land (branch advanced, or the ruleset rejects — GH013), warn
+          # and exit 0 rather than reporting a red run.
+          if git push origin HEAD:main; then
+            echo "Pushed refreshed CI-health badges to main."
+          elif git pull --rebase origin main && git push origin HEAD:main; then
+            echo "Pushed refreshed CI-health badges to main after rebase."
+          else
+            echo "::warning::Could not push refreshed CI-health badges to main (branch advanced, or the merge-queue ruleset forbids direct pushes — GH013). Skipping: this refresh is best-effort and never gates. See issue #199."
+          fi

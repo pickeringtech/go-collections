@@ -5,6 +5,12 @@
 <a href="https://codecov.io/gh/pickeringtech/go-collections"><img src="https://codecov.io/gh/pickeringtech/go-collections/graph/badge.svg?token=J2EZ0A9GUI" alt="Coverage"></a>
 <a href="https://pkg.go.dev/github.com/pickeringtech/go-collections"><img src="https://img.shields.io/badge/api-reference-blue.svg?style=flat-square" alt="GoDoc"></a>
 
+<!-- main-branch CI health (issue #209): % of healthy `CI` runs on main over rolling windows.
+     Data is the persisted tally in docs/ci-health/, refreshed daily — see docs/ci-health/README.md. -->
+<a href="https://github.com/pickeringtech/go-collections/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pickeringtech/go-collections/main/docs/ci-health/badge-7d.json" alt="main health (7d)"></a>
+<a href="https://github.com/pickeringtech/go-collections/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pickeringtech/go-collections/main/docs/ci-health/badge-30d.json" alt="main health (30d)"></a>
+<a href="https://github.com/pickeringtech/go-collections/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pickeringtech/go-collections/main/docs/ci-health/badge-90d.json" alt="main health (90d)"></a>
+
 **A comprehensive, type-safe, and high-performance collections library for Go**
 
 Go Collections provides data structures and utilities for working with collections in Go. It includes thread-safe maps, mathematical sets, and flexible lists.
