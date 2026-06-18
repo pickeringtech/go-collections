@@ -6,14 +6,6 @@ import (
 	"github.com/pickeringtech/go-collections/stats"
 )
 
-func benchInput(n int) []float64 {
-	values := make([]float64, n)
-	for i := range values {
-		values[i] = float64(i%100) + 1 // 1..100, all positive
-	}
-	return values
-}
-
 func BenchmarkProduct(b *testing.B) {
 	values := benchInput(1000)
 	b.ResetTimer()

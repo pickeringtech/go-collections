@@ -1,20 +1,6 @@
 package stats
 
-import (
-	"math"
-
-	"github.com/pickeringtech/go-collections/constraints"
-)
-
-// nonFiniteT reports whether v is NaN or ±Inf once widened to float64. For
-// integer T it is always false (every integer is finite as a float64, since
-// the widest integer type fits well inside float64's range), so callers pay
-// only a cheap conversion. It is the single home of the package's "reject
-// non-finite" policy for the exact-in-T reductions.
-func nonFiniteT[T constraints.Numeric](v T) bool {
-	f := float64(v)
-	return math.IsNaN(f) || math.IsInf(f, 0)
-}
+import "github.com/pickeringtech/go-collections/constraints"
 
 // Product multiplies every element of input together, returning the result
 // exact in T (it mirrors a sum, but with multiplication). For example the
@@ -31,7 +17,7 @@ func Product[T constraints.Numeric](input []T) (T, bool) {
 	}
 	product := T(1)
 	for _, v := range input {
-		if nonFiniteT(v) {
+		if nonFinite(float64(v)) {
 			return zero, false
 		}
 		product *= v
@@ -53,7 +39,7 @@ func Range[T constraints.Numeric](input []T) (T, bool) {
 	}
 	lo, hi := input[0], input[0]
 	for _, v := range input {
-		if nonFiniteT(v) {
+		if nonFinite(float64(v)) {
 			return zero, false
 		}
 		if v < lo {

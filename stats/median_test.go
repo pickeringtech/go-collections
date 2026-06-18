@@ -7,12 +7,6 @@ import (
 	"github.com/pickeringtech/go-collections/stats"
 )
 
-const epsilon = 1e-9
-
-func approxEqual(a, b float64) bool {
-	return math.Abs(a-b) <= epsilon
-}
-
 func TestMedian(t *testing.T) {
 	tests := []struct {
 		name   string
