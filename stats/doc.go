@@ -1,13 +1,15 @@
-// Package stats turns slices of numbers into statistical summaries — sums,
-// arithmetic/weighted/specialised means, the quantile family, covariance and
-// correlation today, with the wider numeric surface (variance, …) landing
+// Package stats turns slices of numbers into statistical summaries — sums and
+// basic reductions, arithmetic/weighted/specialised means, the quantile family,
+// covariance and correlation today, with the wider numeric surface (variance, …)
+// landing
 // alongside it pre-1.0. It is also the home for value-rescaling transforms such
 // as normalization and standardization.
 //
 // It is the home for "summarise numbers into a statistic" operations, which
-// almost always return float64 (transforms return a fresh []float64). The
-// sibling slices package keeps operations about slice structure and element
-// ordering (Min/Max/Sort); stats does not duplicate those.
+// almost always return float64 (transforms return a fresh []float64). A few
+// reductions stay exact in T because the result never leaves the input's domain
+// (Product, Range, CumulativeSum, MinMax). The sibling slices package keeps
+// operations about slice structure and element ordering (Sort).
 //
 // # Quick Start
 //
@@ -38,6 +40,16 @@
 // This Quick Start is compiled and run as Example_quickStart in the package's
 // test suite, so it is guaranteed to track the real API.
 //
+// # Basic operations
+//
+// Alongside the means and quantiles, the package provides the everyday
+// reductions: Product, Range and the running CumulativeSum (each exact in T);
+// Median (float64; an even-length sample averages its two middle elements);
+// Mode (the most frequent value or values, over any comparable type); the
+// single-pass MinMax and the index reductions ArgMin/ArgMax; and Clamp /
+// ClampAll, which constrain values to a closed interval. See each function's
+// doc and runnable Example for the exact contract.
+//
 // # Conventions
 //
 // Empty input is undefined, so every function returns an ok flag in the
@@ -54,13 +66,19 @@
 // T, so an integer sum is exact (no float round-off) at the cost of possible
 // overflow on very large inputs.
 //
-// Non-finite inputs (NaN, ±Inf) are handled per operation, documented on each
-// function. The means and the quantile family reject them (ok == false), since
-// the resulting statistic would be undefined. The variance/covariance/
-// correlation family, the transforms, and the exact-in-T Sum instead let them
-// propagate — the result is non-finite with ok == true — so a NaN in the data
-// surfaces as a NaN statistic rather than a plausible-looking wrong number,
-// never silently dropped.
+// function. The exact-in-T arithmetic reductions (Sum, Product and the running
+// CumulativeSum) let them propagate per IEEE arithmetic — a NaN in the data
+// yields a NaN result (ok == true where there is an ok flag) — as do the
+// variance/covariance/correlation family and the transforms, so the value
+// surfaces rather than being silently dropped. The float64 summaries (the means
+// and the quantile family, including Median) reject them (ok == false), since
+// the statistic would be undefined; Range and Mode reject them too, because a
+// min/max spread and a frequency count are undefined once ordering or equality
+// breaks down on non-finite data. The ordering reductions MinMax/ArgMin/ArgMax
+// work over constraints.Ordered (which also accepts strings, where NaN has no
+// meaning), so like the standard library they leave a NaN-contaminated float
+// result unspecified; and ClampAll, returning a bare slice with no ok flag,
+// lets non-finite values flow through per IEEE-754.
 //
 // Where Bessel's correction applies (variance, standard deviation, covariance)
 // both sample and population variants are offered, named unambiguously so the
@@ -74,4 +92,5 @@
 // convention most users expect. QuantileWith/PercentileWith accept an explicit
 // InterpolationMethod (Linear, Lower, Higher, Nearest, Midpoint). These
 // functions sort a copy of the input, so the caller's slice is never mutated.
+// Median is Quantile(input, 0.5).
 package stats
