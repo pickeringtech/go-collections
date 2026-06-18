@@ -41,6 +41,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache-dependency-path: go.mod
+      # Cache the compiled gorelease binary, keyed on its pinned version + OS
+      # (issue #151). Restore-then-`go install`: install is a fast no-op on a hit
+      # and only recompiles on a deliberate version bump.
+      - name: Cache gorelease binary
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gorelease
+          key: ${{ runner.os }}-tool-gorelease-${{ env.GORELEASE_VERSION }}
       - name: Report API compatibility and implied semver bump
         # Report-only pre-1.0 (see the header): breaking changes are allowed while
         # major version is 0, so this surfaces the verdict without gating.

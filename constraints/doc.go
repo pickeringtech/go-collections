@@ -32,8 +32,8 @@
 //
 // Numeric Constraints:
 //   - Integer: All integer types (int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr)
-//   - Signed: Signed integer types (int, int8, int16, int32, int64)
-//   - Unsigned: Unsigned integer types (uint, uint8, uint16, uint32, uint64, uintptr)
+//   - SignedInt: Signed integer types (int, int8, int16, int32, int64)
+//   - UnsignedInt: Unsigned integer types (uint, uint8, uint16, uint32, uint64, uintptr)
 //   - Float: Floating point types (float32, float64)
 //   - Numeric: All numeric types (Integer | Float)
 //
@@ -52,7 +52,7 @@
 //		return sum / T(len(numbers))
 //	}
 //
-//	func Abs[T constraints.Signed](n T) T {
+//	func Abs[T constraints.SignedInt](n T) T {
 //		if n < 0 { return -n }
 //		return n
 //	}
@@ -108,7 +108,7 @@
 //	sortedScores := Sort(scores.AsSlice())
 //
 //	// Generic functions with dicts
-//	func SumValues[K comparable, V constraints.Numeric](dict collections.Dict[K, V]) V {
+//	func SumValues[K comparable, V constraints.Numeric](dict dicts.Dict[K, V]) V {
 //		var sum V
 //		dict.ForEachValue(func(value V) {
 //			sum += value
@@ -160,7 +160,7 @@
 //
 // 1. Use the most specific constraint possible:
 //   - Use Integer instead of Numeric for integer-only operations
-//   - Use Signed instead of Integer for operations that need negative numbers
+//   - Use SignedInt instead of Integer for operations that need negative numbers
 //
 // 2. Combine constraints when needed:
 //   - Create custom interfaces that combine multiple constraints

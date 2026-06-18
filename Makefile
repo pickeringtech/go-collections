@@ -104,13 +104,14 @@ test-nested: ## Run the tests of every nested module (examples/, tools/benchrepo
 #   cover      → test  (root suite, -race -shuffle, 100% coverage floor)
 #   test-nested→ examples-e2e (+ every other nested module, see #79)
 #   lint       → lint  (gofmt · go vet · golangci-lint @ pinned version)
+#   doc-compile→ doc-compile (godoc examples reference real symbols & compile)
 #   security   → security (govulncheck · gosec)
 #   cross-arch → cross-arch (386/arm64/s390x build+vet, 386 tests)
 #   fuzz       → fuzz  (count-based smoke run of every Fuzz target)
 # Report-only CI jobs (test-tip, benchmarks, api-compat) are deliberately NOT
 # mirrored — they never gate a merge. Ordered cheap-/common-failure-first so a
 # typical mistake (formatting, a failing test) aborts before the slow arches.
-ci: hygiene lint cover test-nested security cross-arch fuzz ## Run every blocking CI gate locally — a green run predicts a green PR
+ci: hygiene lint doc-compile cover test-nested security cross-arch fuzz ## Run every blocking CI gate locally — a green run predicts a green PR
 	@echo ">> all blocking CI gates passed locally ✔"
 
 hygiene: ## CI 'build' gate: compile, go.mod tidy + zero-dependency + module integrity
@@ -153,6 +154,13 @@ lint: ## CI 'lint' gate: gofmt check + go vet + golangci-lint (pinned to CI's ve
 	go vet ./...
 	@echo ">> golangci-lint run ($(GOLANGCI_VERSION))"
 	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION) run
+
+# Mirrors CI's `doc-compile` job: the doccompile tool (tools/doccompile) makes
+# every doc.go godoc example provably real — symbol-checked against the exported
+# API and compiled — so a confidently-wrong quick-start can't merge (issue #151).
+doc-compile: ## CI 'doc-compile' gate: every doc.go example references real symbols and compiles
+	@echo ">> doc-compile: checking doc.go examples against the real API"
+	@cd tools/doccompile && go run . -root ../..
 
 security: ## CI 'security' gate: govulncheck + gosec (pinned to CI's versions)
 	@echo ">> govulncheck ($(GOVULNCHECK_VERSION))"

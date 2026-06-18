@@ -58,6 +58,16 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod   # project tests run under the declared Go version
+      # Cache the compiled gremlins binary, keyed on its pinned version + OS
+      # (issue #151). gremlins builds itself with the Go its own module pins
+      # (GOTOOLCHAIN=auto below), so that version is fixed per GREMLINS_VERSION —
+      # the pinned tool version alone is a stable key. Restore-then-install: the
+      # install is a fast no-op on a hit and only rebuilds on a version bump.
+      - name: Cache gremlins binary
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gremlins
+          key: ${{ runner.os }}-tool-gremlins-${{ env.GREMLINS_VERSION }}
       - name: Install gremlins (pinned)
         # GOTOOLCHAIN=auto lets `go install` fetch the newer Go the gremlins
         # module requires to *build the tool*, without changing the `go`
@@ -117,6 +127,14 @@ jobs:
             echo "$changed"
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
+      # Cache the compiled gremlins binary (issue #151) — see the full job above.
+      # Gated on the same condition as the install so a tests-only PR skips both.
+      - name: Cache gremlins binary
+        if: steps.changed.outputs.run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gremlins
+          key: ${{ runner.os }}-tool-gremlins-${{ env.GREMLINS_VERSION }}
       - name: Install gremlins (pinned)
         if: steps.changed.outputs.run == 'true'
         env:

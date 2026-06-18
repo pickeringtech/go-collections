@@ -48,6 +48,14 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod
+      # Cache the compiled govulncheck binary, keyed on its pinned version + OS
+      # (issue #151). Restore-then-`go install`: install is a fast no-op on a hit
+      # and only recompiles on a deliberate version bump.
+      - name: Cache govulncheck binary
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/govulncheck
+          key: ${{ runner.os }}-tool-govulncheck-${{ env.GOVULNCHECK_VERSION }}
       - name: Scan for known vulnerabilities (govulncheck)
         # Gating: a real vulnerability fails this scheduled run (and notifies
         # maintainers). There is no PR to block at schedule time.

@@ -42,13 +42,14 @@
 //	// Create a task queue
 //	tasks := collections.NewList("design", "implement", "test")
 //
-//	// Stack operations (LIFO)
-//	tasks.PushInPlace("deploy")
-//	lastTask, found := tasks.PopInPlace()
+//	// Stack operations (LIFO). The facade list is immutable: Push returns a new
+//	// list, and Pop hands back the popped value with the remaining list.
+//	withDeploy := tasks.Push("deploy")
+//	lastTask, found, remaining := withDeploy.Pop()
 //
-//	// Queue operations (FIFO)
-//	tasks.EnqueueInPlace("monitor")
-//	firstTask, found := tasks.DequeueInPlace()
+//	// Queue operations (FIFO).
+//	queued := tasks.Enqueue("monitor")
+//	firstTask, ok, rest := queued.Dequeue()
 //
 //	// Rich operations
 //	longTasks := tasks.Filter(func(task string) bool {
@@ -60,10 +61,11 @@
 // Multimaps map a single key to many values, replacing hand-rolled
 // map[K][]V plumbing:
 //
-//	// Group orders by customer (ordered, duplicates kept)
+//	// Group orders by customer (ordered, duplicates kept). The facade multimap
+//	// is immutable, so Put returns a new multimap rather than mutating in place.
 //	orders := collections.NewListMultimap[string, string]()
-//	orders.PutInPlace("alice", "book")
-//	orders.PutInPlace("alice", "pen")
+//	orders = orders.Put("alice", "book")
+//	orders = orders.Put("alice", "pen")
 //	alice := orders.Get("alice") // [book pen]
 //
 //	// Tag documents (duplicates collapsed)
