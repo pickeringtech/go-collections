@@ -1,8 +1,8 @@
 // Package stats turns slices of numbers into statistical summaries —
-// weighted and specialised means, covariance and correlation today, with the
-// wider numeric surface (variance, quantiles, …) landing alongside it pre-1.0.
-// It is also the home for value-rescaling transforms such as normalization and
-// standardization.
+// weighted and specialised means, the quantile family, covariance and
+// correlation today, with the wider numeric surface (variance, …) landing
+// alongside it pre-1.0. It is also the home for value-rescaling transforms such
+// as normalization and standardization.
 //
 // It is the home for "summarise numbers into a statistic" operations, which
 // almost always return float64 (transforms return a fresh []float64). The
@@ -44,13 +44,22 @@
 // near-constant inputs do not lose precision to naive floating-point round-off.
 //
 // Non-finite inputs (NaN, ±Inf) are handled per operation, documented on each
-// function. The means reject them (ok == false), since a mean over undefined
-// data is itself undefined. The variance/covariance/correlation family and the
-// transforms instead let them propagate — the result is non-finite with
-// ok == true — so a NaN in the data surfaces as a NaN statistic rather than a
-// plausible-looking wrong number, never silently dropped.
+// function. The means and the quantile family reject them (ok == false), since
+// the resulting statistic would be undefined. The variance/covariance/
+// correlation family and the transforms instead let them propagate — the result
+// is non-finite with ok == true — so a NaN in the data surfaces as a NaN
+// statistic rather than a plausible-looking wrong number, never silently dropped.
 //
 // Where Bessel's correction applies (variance, standard deviation, covariance)
 // both sample and population variants are offered, named unambiguously so the
 // choice is always the caller's.
+//
+// # Quantiles
+//
+// Quantile/Percentile/Quartiles/IQR interpolate between samples when the
+// requested rank falls between two values. The default everywhere is Linear
+// ("type 7" in Hyndman & Fan), which matches numpy.percentile's default — the
+// convention most users expect. QuantileWith/PercentileWith accept an explicit
+// InterpolationMethod (Linear, Lower, Higher, Nearest, Midpoint). These
+// functions sort a copy of the input, so the caller's slice is never mutated.
 package stats
