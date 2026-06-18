@@ -491,10 +491,16 @@ jobs:
           go test -run='^$' ./...   # warm the build cache once, serially
 
           # Build the work list: "<pkg>\t<FuzzFn>", one target per line.
+          # grep exits 1 on a package with no fuzz targets; under pipefail that
+          # status flows out of the loop body, and the for-compound adopts its
+          # last iteration's status. With `set -e` a fuzz-less package sorting
+          # last in `go list` order would abort this step before any target runs
+          # (a package added later need not own a fuzz target), so swallow the
+          # no-match exit per package.
           jobs=$(for pkg in $(go list ./...); do
             dir=$(go list -f '{{.Dir}}' "$pkg")
             grep -rhoE '^func (Fuzz[A-Za-z0-9_]+)' "$dir"/*_test.go 2>/dev/null \
-              | awk -v p="$pkg" '{print p"\t"$2}'
+              | awk -v p="$pkg" '{print p"\t"$2}' || true
           done | sort -u)
 
           if [ -z "$jobs" ]; then
