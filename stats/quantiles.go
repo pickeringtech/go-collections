@@ -36,9 +36,9 @@ const (
 //
 // The result is float64 and the second return value reports whether it is
 // meaningful. ok is false (and the result 0) when input is empty, when q lies
-// outside [0, 1], or when input contains a NaN — NaN poisons ordering, so the
-// quantile of a NaN-contaminated sample is undefined by policy rather than
-// silently wrong.
+// outside [0, 1] or is NaN, or when input contains a NaN — NaN poisons ordering,
+// so the quantile of a NaN-contaminated sample is undefined by policy rather
+// than silently wrong.
 //
 // The caller's slice is never mutated; input is copied before sorting.
 //
@@ -50,7 +50,7 @@ func Quantile[T constraints.Numeric](input []T, q float64) (float64, bool) {
 // QuantileWith is Quantile with an explicit InterpolationMethod. See Quantile
 // for the empty/range/NaN contract, which is identical.
 func QuantileWith[T constraints.Numeric](input []T, q float64, method InterpolationMethod) (float64, bool) {
-	if q < 0 || q > 1 {
+	if math.IsNaN(q) || q < 0 || q > 1 {
 		return 0, false
 	}
 	sorted, ok := sortedCopy(input)
@@ -69,7 +69,7 @@ func Percentile[T constraints.Numeric](input []T, p float64) (float64, bool) {
 
 // PercentileWith is Percentile with an explicit InterpolationMethod.
 func PercentileWith[T constraints.Numeric](input []T, p float64, method InterpolationMethod) (float64, bool) {
-	if p < 0 || p > 100 {
+	if math.IsNaN(p) || p < 0 || p > 100 {
 		return 0, false
 	}
 	return QuantileWith(input, p/100, method)

@@ -9,6 +9,13 @@ import (
 	"github.com/pickeringtech/go-collections/stats"
 )
 
+// approxEqual compares two float64s with a small tolerance. Interpolated
+// quantiles (e.g. 4.6) are not always bit-exact, so result comparisons use this
+// rather than ==.
+func approxEqual(a, b float64) bool {
+	return math.Abs(a-b) <= 1e-9
+}
+
 func ExampleQuantile() {
 	data := []float64{1, 2, 3, 4, 5}
 
@@ -48,12 +55,13 @@ func TestQuantile(t *testing.T) {
 		{name: "nil", input: nil, q: 0.5, want: 0, wOK: false},
 		{name: "q below range", input: []float64{1, 2, 3}, q: -0.1, want: 0, wOK: false},
 		{name: "q above range", input: []float64{1, 2, 3}, q: 1.1, want: 0, wOK: false},
+		{name: "q is NaN", input: []float64{1, 2, 3}, q: math.NaN(), want: 0, wOK: false},
 		{name: "NaN poisons", input: []float64{1, 2, math.NaN(), 4}, q: 0.5, want: 0, wOK: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, ok := stats.Quantile(tt.input, tt.q)
-			if got != tt.want || ok != tt.wOK {
+			if !approxEqual(got, tt.want) || ok != tt.wOK {
 				t.Errorf("Quantile(%v, %v) = (%v, %v), want (%v, %v)", tt.input, tt.q, got, ok, tt.want, tt.wOK)
 			}
 		})
@@ -84,7 +92,7 @@ func TestQuantileWith(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, ok := stats.QuantileWith(input, 0.9, tt.method)
-			if got != tt.want || !ok {
+			if !approxEqual(got, tt.want) || !ok {
 				t.Errorf("QuantileWith(%v, 0.9, %v) = (%v, %v), want (%v, true)", input, tt.name, got, ok, tt.want)
 			}
 		})
@@ -95,7 +103,7 @@ func TestQuantileWithNearestRoundsDown(t *testing.T) {
 	// q=0.6 on [1 2 3 4 5] -> continuous rank 2.4, frac 0.4 < 0.5, so Nearest
 	// takes the lower sample (3 rather than 4).
 	got, ok := stats.QuantileWith([]float64{1, 2, 3, 4, 5}, 0.6, stats.Nearest)
-	if got != 3 || !ok {
+	if !approxEqual(got, 3) || !ok {
 		t.Errorf("QuantileWith(..., 0.6, Nearest) = (%v, %v), want (3, true)", got, ok)
 	}
 }
@@ -114,12 +122,13 @@ func TestPercentile(t *testing.T) {
 		{name: "p100", input: []float64{1, 2, 3, 4, 5}, p: 100, want: 5, wOK: true},
 		{name: "p below range", input: []float64{1, 2, 3}, p: -1, want: 0, wOK: false},
 		{name: "p above range", input: []float64{1, 2, 3}, p: 101, want: 0, wOK: false},
+		{name: "p is NaN", input: []float64{1, 2, 3}, p: math.NaN(), want: 0, wOK: false},
 		{name: "empty", input: nil, p: 50, want: 0, wOK: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, ok := stats.Percentile(tt.input, tt.p)
-			if got != tt.want || ok != tt.wOK {
+			if !approxEqual(got, tt.want) || ok != tt.wOK {
 				t.Errorf("Percentile(%v, %v) = (%v, %v), want (%v, %v)", tt.input, tt.p, got, ok, tt.want, tt.wOK)
 			}
 		})
@@ -128,7 +137,7 @@ func TestPercentile(t *testing.T) {
 
 func TestPercentileWith(t *testing.T) {
 	got, ok := stats.PercentileWith([]float64{1, 2, 3, 4, 5}, 90, stats.Midpoint)
-	if got != 4.5 || !ok {
+	if !approxEqual(got, 4.5) || !ok {
 		t.Errorf("PercentileWith(..., 90, Midpoint) = (%v, %v), want (4.5, true)", got, ok)
 	}
 }
