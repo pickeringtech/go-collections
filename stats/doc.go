@@ -1,39 +1,52 @@
-// Package stats provides numeric summary statistics over slices of numbers.
+// Package stats turns slices of numbers into statistical summaries —
+// weighted and specialised means and the quantile family today, with the wider
+// numeric surface (variance, correlation, …) landing alongside it pre-1.0.
 //
-// Functions are free functions taking a []T where T is constraints.Numeric.
-// Each returns a result plus a bool reporting whether that result is
-// meaningful, following the library's "(result, ok)" empty contract: ok is
-// false when the input is empty and, for ordering-sensitive operations, when
-// the input contains a NaN.
+// It is the home for "summarise numbers into a statistic" operations, which
+// almost always return float64. The sibling slices package keeps operations
+// about slice structure and element ordering (Min/Max/Sort); stats does not
+// duplicate those.
 //
-// # Quantiles
+// # Quick Start
 //
 //	import "github.com/pickeringtech/go-collections/stats"
 //
-//	data := []float64{1, 2, 3, 4, 5}
+//	prices := []float64{10, 20, 30}
+//	weights := []float64{1, 2, 3}
 //
-//	med, _ := stats.Quantile(data, 0.5)   // 3 — the median
-//	p90, _ := stats.Percentile(data, 90)  // 4.6
-//	qs, _ := stats.Quartiles(data)        // {Q1:2, Q2:3, Q3:4}
-//	iqr, _ := stats.IQR(data)             // 2
+//	// Weighted mean — the result and an ok flag (false for empty/invalid input).
+//	wm, ok := stats.WeightedMean(prices, weights) // 23.33..., true
 //
-// # Interpolation
+//	// Specialised means for ratios and rates.
+//	gm, _ := stats.GeometricMean([]float64{1, 10, 100}) // 10
+//	hm, _ := stats.HarmonicMean([]float64{1, 2, 4})      // 1.714...
 //
-// When the requested rank falls between two samples the value is interpolated.
-// The default everywhere is Linear ("type 7" in Hyndman & Fan), which matches
-// numpy.percentile's default. QuantileWith and PercentileWith accept an
-// explicit InterpolationMethod (Linear, Lower, Higher, Nearest, Midpoint) for
-// callers who need a specific convention.
+//	_ = wm
+//	_ = gm
+//	_ = hm
 //
-// # NaN policy
+// This Quick Start is compiled and run as Example_quickStart in the package's
+// test suite, so it is guaranteed to track the real API.
 //
-// A NaN has no defined ordering, so any quantile of a sample that contains one
-// is undefined. Rather than return a silently-wrong number, the quantile
-// functions report ok=false when the input contains a NaN. Integer inputs can
-// never be NaN, so this only affects float inputs.
+// # Conventions
 //
-// # Ownership
+// Empty input is undefined, so every function returns (float64, bool) in the
+// library's (result, ok) idiom rather than a silent zero. The ok flag is false
+// for empty input and for input the function cannot summarise (see each
+// function's doc for its specific rejection policy).
 //
-// Inputs are never mutated. A function that needs sorted data copies the input
-// first, consistent with the library's ownership-isolation direction.
+// Sums are accumulated with Kahan compensated summation so large inputs do not
+// lose precision to naive floating-point round-off.
+//
+// Non-finite inputs (NaN, ±Inf) are rejected: any function that encounters one
+// returns ok=false, because the resulting statistic would be undefined.
+//
+// # Quantiles
+//
+// Quantile/Percentile/Quartiles/IQR interpolate between samples when the
+// requested rank falls between two values. The default everywhere is Linear
+// ("type 7" in Hyndman & Fan), which matches numpy.percentile's default — the
+// convention most users expect. QuantileWith/PercentileWith accept an explicit
+// InterpolationMethod (Linear, Lower, Higher, Nearest, Midpoint). These
+// functions sort a copy of the input, so the caller's slice is never mutated.
 package stats

@@ -9,13 +9,6 @@ import (
 	"github.com/pickeringtech/go-collections/stats"
 )
 
-// approxEqual compares two float64s with a small tolerance. Interpolated
-// quantiles (e.g. 4.6) are not always bit-exact, so result comparisons use this
-// rather than ==.
-func approxEqual(a, b float64) bool {
-	return math.Abs(a-b) <= 1e-9
-}
-
 func ExampleQuantile() {
 	data := []float64{1, 2, 3, 4, 5}
 
@@ -57,6 +50,8 @@ func TestQuantile(t *testing.T) {
 		{name: "q above range", input: []float64{1, 2, 3}, q: 1.1, want: 0, wOK: false},
 		{name: "q is NaN", input: []float64{1, 2, 3}, q: math.NaN(), want: 0, wOK: false},
 		{name: "NaN poisons", input: []float64{1, 2, math.NaN(), 4}, q: 0.5, want: 0, wOK: false},
+		{name: "+Inf poisons", input: []float64{1, 2, math.Inf(1), 4}, q: 0.5, want: 0, wOK: false},
+		{name: "-Inf poisons", input: []float64{1, math.Inf(-1), 3}, q: 0.5, want: 0, wOK: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

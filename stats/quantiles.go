@@ -36,9 +36,10 @@ const (
 //
 // The result is float64 and the second return value reports whether it is
 // meaningful. ok is false (and the result 0) when input is empty, when q lies
-// outside [0, 1] or is NaN, or when input contains a NaN — NaN poisons ordering,
-// so the quantile of a NaN-contaminated sample is undefined by policy rather
-// than silently wrong.
+// outside [0, 1] or is NaN, or when input contains a non-finite value (NaN or
+// ±Inf) — such inputs make the quantile undefined (a NaN has no ordering and
+// interpolating across an ±Inf can itself produce a NaN), so per the package's
+// rejection policy they are reported rather than silently wrong.
 //
 // The caller's slice is never mutated; input is copied before sorting.
 //
@@ -110,7 +111,9 @@ func IQR[T constraints.Numeric](input []T) (float64, bool) {
 
 // sortedCopy copies input into a float64 slice and sorts it ascending without
 // touching the caller's slice. It returns ok=false when input is empty or
-// contains a NaN.
+// contains a non-finite value (NaN or ±Inf), per the package's rejection
+// policy — a NaN has no ordering and interpolating across an ±Inf can yield a
+// NaN, so either makes the quantile undefined.
 func sortedCopy[T constraints.Numeric](input []T) ([]float64, bool) {
 	if len(input) == 0 {
 		return nil, false
@@ -118,7 +121,7 @@ func sortedCopy[T constraints.Numeric](input []T) ([]float64, bool) {
 	out := make([]float64, len(input))
 	for i, v := range input {
 		f := float64(v)
-		if math.IsNaN(f) {
+		if nonFinite(f) {
 			return nil, false
 		}
 		out[i] = f

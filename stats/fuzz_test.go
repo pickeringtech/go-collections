@@ -132,13 +132,15 @@ func FuzzQuantiles(f *testing.F) {
 			t.Fatalf("IQR = %v, want >= 0", iqr)
 		}
 
-		// A NaN anywhere poisons every quantile result.
-		poisoned := append([]float64{math.NaN()}, input...)
-		if _, ok := stats.Quantile(poisoned, 0.5); ok {
-			t.Fatalf("Quantile reported ok for NaN-contaminated input")
-		}
-		if _, ok := stats.IQR(poisoned); ok {
-			t.Fatalf("IQR reported ok for NaN-contaminated input")
+		// A non-finite value anywhere poisons every quantile result.
+		for _, bad := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
+			poisoned := append([]float64{bad}, input...)
+			if _, ok := stats.Quantile(poisoned, 0.5); ok {
+				t.Fatalf("Quantile reported ok for input containing %v", bad)
+			}
+			if _, ok := stats.IQR(poisoned); ok {
+				t.Fatalf("IQR reported ok for input containing %v", bad)
+			}
 		}
 
 		// The caller's slice must be untouched throughout.
