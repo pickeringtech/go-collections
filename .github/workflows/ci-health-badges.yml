@@ -90,10 +90,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build
+          # `| jq -c .` forces one compact JSON object per line: `gh api --jq`
+          # only emits compact output as an undocumented side effect, so the
+          # `while read -r` loop below can't safely depend on it (a pretty-printed
+          # object would be read as broken fragments and, under `set -e`, abort).
           gh api --paginate \
             "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100" \
             --jq '.workflow_runs[] | {id: .id, sha: .head_sha, conclusion: .conclusion, timestamp: .created_at}' \
-            > build/ci-runs-raw.ndjson
+            | jq -c '.' > build/ci-runs-raw.ndjson
           : > build/ci-runs.ndjson
           while IFS= read -r run; do
             if [ "$(jq -r '.conclusion' <<<"$run")" = "success" ]; then

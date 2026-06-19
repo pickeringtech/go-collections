@@ -77,12 +77,15 @@ Refresh locally the same way the workflow does. Fetch the run list, then re-scop
 each run's `conclusion` to its `CI Gate` job (only non-success runs need the extra
 lookup — a green run's gate is green by definition):
 
-```sh
+```bash
 repo=pickeringtech/go-collections
+mkdir -p build
+# `| jq -c .` guarantees one compact JSON object per line (true NDJSON) so the
+# read loop below can't trip over a pretty-printed object.
 gh api --paginate \
   "/repos/$repo/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100" \
   --jq '.workflow_runs[] | {id:.id, sha:.head_sha, conclusion:.conclusion, timestamp:.created_at}' \
-  > build/ci-runs-raw.ndjson
+  | jq -c '.' > build/ci-runs-raw.ndjson
 : > build/ci-runs.ndjson
 while IFS= read -r run; do
   if [ "$(jq -r .conclusion <<<"$run")" = success ]; then echo "$run"; continue; fi
