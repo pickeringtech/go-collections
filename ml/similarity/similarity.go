@@ -51,16 +51,17 @@ func CosineSimilarity[T constraints.Numeric](a, b []T) (float64, bool) {
 // When both sets are empty the union is also empty (zero denominator), so
 // Jaccard returns 0.
 //
-// Jaccard composes Intersection, Union and Length from the sets.Set[T]
-// interface — no set algebra is reimplemented here.
+// Jaccard composes Intersection and Length from the sets.Set[T]
+// interface — |A ∪ B| is derived as |A| + |B| − |A ∩ B|, avoiding an extra
+// allocation for the union set.
 func Jaccard[T comparable](a, b sets.Set[T]) float64 {
-	union := a.Union(b)
-	denominator := float64(union.Length())
+	intersection := a.Intersection(b)
+	intersectionLen := intersection.Length()
+	denominator := float64(a.Length() + b.Length() - intersectionLen)
 	if denominator == 0 {
 		return 0
 	}
-	intersection := a.Intersection(b)
-	return float64(intersection.Length()) / denominator
+	return float64(intersectionLen) / denominator
 }
 
 // Dice computes the Sørensen–Dice similarity coefficient between two sets:
@@ -83,11 +84,10 @@ func Dice[T comparable](a, b sets.Set[T]) float64 {
 
 // Overlap computes the Overlap coefficient (Szymkiewicz–Simpson coefficient)
 // between two sets: |A ∩ B| / min(|A|, |B|). The result is in [0, 1]: 1 when
-// the smaller set is a subset of the larger.
-//
-// Unlike Jaccard and Dice, Overlap is not symmetric with respect to set sizes —
-// it measures containment rather than mutual similarity. When either set is
-// empty (zero denominator), Overlap returns 0.
+// the smaller set is a subset of the larger (even if the sets are not equal),
+// which is the key distinction from Jaccard and Dice — it measures containment
+// rather than mutual similarity. The coefficient is symmetric. When either set
+// is empty (zero denominator), Overlap returns 0.
 //
 // Overlap composes Intersection and Length from the sets.Set[T] interface — no
 // set algebra is reimplemented here.

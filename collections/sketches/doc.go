@@ -42,9 +42,11 @@
 //
 // NewMinHash accepts a *rand.Rand (from math/rand/v2) as its last parameter.
 // Passing nil selects a hard-coded deterministic default seed, so the same
-// numHashes always produces the same permutation family. This makes sketches
-// portable across process restarts and across goroutines that build independent
-// sketches that will later be compared.
+// numHashes always produces the same permutation family within a program run.
+// This makes sketches comparable across goroutines that build independent
+// sketches in the same process. Note that element hashing uses a process-local
+// seed (maphash.MakeSeed), so sketches are not portable across process restarts
+// — two runs with identical elements will produce different signatures.
 //
 // # Goroutine safety
 //

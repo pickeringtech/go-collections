@@ -11,7 +11,7 @@ import (
     "github.com/pickeringtech/go-collections/collections/sketches"
 )
 
-// nil rng → deterministic default seed (reproducible across runs).
+// nil rng → deterministic default seed (comparable within the same process run).
 a := sketches.NewMinHash[string](128, nil)
 b := sketches.NewMinHash[string](128, nil)
 
@@ -35,7 +35,9 @@ Accuracy improves with `numHashes`:
 
 ### Seeding and Reproducibility
 
-Passing `nil` as the `rng` selects a fixed deterministic default. Two sketches with the same `numHashes` and the same `rng` (or both `nil`) produce the same permutation family and can be compared via `EstimatedJaccard`. Sketches built from different `rng` instances are **not** comparable and `EstimatedJaccard` returns `ok == false`.
+Passing `nil` as the `rng` selects a fixed deterministic default. Two sketches with the same `numHashes` and the same `rng` (or both `nil`) produce the same permutation family within a process run and can be compared via `EstimatedJaccard`. Sketches built from different `rng` instances are **not** comparable and `EstimatedJaccard` returns `ok == false`.
+
+Note: element hashing uses `maphash.MakeSeed()`, which is randomized per process. Sketches are therefore only comparable within the same program run — cross-process or serialized comparison requires a stable hashing strategy not yet provided by this package.
 
 ### Goroutine Safety
 
