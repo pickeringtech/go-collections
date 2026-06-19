@@ -62,7 +62,7 @@ func NewMinHash[T comparable](numHashes int, rng *randv2.Rand) *MinHash[T] {
 		numHashes = 1
 	}
 	if rng == nil {
-		rng = randv2.New(randv2.NewPCG(defaultSeed, 0))
+		rng = randv2.New(randv2.NewPCG(defaultSeed, 0)) // #nosec G404 -- math/rand is intentional: permutation coefficients are statistical, not cryptographic
 	}
 	perms := make([]permCoeffs, numHashes)
 	for i := range perms {
