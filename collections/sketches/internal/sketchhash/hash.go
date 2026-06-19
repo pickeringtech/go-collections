@@ -58,19 +58,21 @@ func Hash64[T comparable](seed uint64, v T) uint64 {
 
 // asUint64 returns the bit pattern of v as a uint64 for the integer kinds,
 // reporting ok=false for any other type so Hash64 can fall back. It is split out
-// from Hash64 to keep each function's branching modest.
+// from Hash64 to keep each function's branching modest. Signed kinds are widened
+// to int64 (a safe conversion) and reinterpreted by signedBits; unsigned kinds
+// widen directly.
 func asUint64[T comparable](v T) (uint64, bool) {
 	switch x := any(v).(type) {
 	case int:
-		return uint64(x), true
+		return signedBits(int64(x)), true
 	case int8:
-		return uint64(x), true
+		return signedBits(int64(x)), true
 	case int16:
-		return uint64(x), true
+		return signedBits(int64(x)), true
 	case int32:
-		return uint64(x), true
+		return signedBits(int64(x)), true
 	case int64:
-		return uint64(x), true
+		return signedBits(x), true
 	case uint:
 		return uint64(x), true
 	case uint8:
@@ -86,6 +88,13 @@ func asUint64[T comparable](v T) (uint64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// signedBits reinterprets a signed 64-bit integer as its uint64 bit pattern.
+// The two's-complement reinterpretation is exactly what hashing wants, so the
+// sign change carries no information loss.
+func signedBits(x int64) uint64 {
+	return uint64(x) // #nosec G115 -- intentional bit reinterpretation for hashing; sign/overflow is harmless here
 }
 
 // Pair returns two independent 64-bit hashes of v for double hashing. The

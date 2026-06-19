@@ -38,7 +38,7 @@ const (
 // The zero value is not usable; construct a Sketch with New.
 type Sketch[T comparable] struct {
 	registers []uint8 // m = 1<<precision registers holding observed ranks
-	precision uint8   // p: register index is the top p bits of the hash
+	precision int     // p: register index is the top p bits of the hash
 	seed      uint64
 	hasher    func(seed uint64, value T) uint64
 }
@@ -72,7 +72,7 @@ type Option[T comparable] func(*Sketch[T])
 // m = 2^p registers, standard error about 1.04/sqrt(m). p must be in
 // [MinPrecision, MaxPrecision].
 func WithPrecision[T comparable](p int) Option[T] {
-	return func(s *Sketch[T]) { s.precision = uint8(p) }
+	return func(s *Sketch[T]) { s.precision = p }
 }
 
 // WithSeed sets the hashing seed. Two sketches must share a seed (and the same
@@ -97,13 +97,15 @@ func WithHasher[T comparable](hasher func(seed uint64, value T) uint64) Option[T
 // estimate, so Count reflects the number of distinct elements seen.
 func (s *Sketch[T]) Add(value T) {
 	x := s.hasher(s.seed, value)
-	p := uint(s.precision)
+	p := s.precision
 	idx := x >> (64 - p)
 	// Shift the index bits out, then set a guard bit just below the remaining
 	// field so the leading-zero count is bounded by (64-p) even when the rest
 	// is all zeros.
 	rest := (x << p) | (1 << (p - 1))
-	rank := uint8(bits.LeadingZeros64(rest)) + 1
+	// LeadingZeros64 returns a value in [0,64]; +1 keeps the rank within a
+	// register byte, so this conversion never overflows.
+	rank := uint8(bits.LeadingZeros64(rest) + 1) // #nosec G115 -- rank is in [1,64], always fits uint8
 	if rank > s.registers[idx] {
 		s.registers[idx] = rank
 	}
@@ -159,7 +161,7 @@ func (s *Sketch[T]) Clear() {
 }
 
 // Precision returns the register-index width (p).
-func (s *Sketch[T]) Precision() int { return int(s.precision) }
+func (s *Sketch[T]) Precision() int { return s.precision }
 
 // RegisterCount returns the number of registers (m = 2^p).
 func (s *Sketch[T]) RegisterCount() int { return len(s.registers) }

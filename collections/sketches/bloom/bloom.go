@@ -185,11 +185,11 @@ func (f *Filter[T]) EstimatedFalsePositiveRate() float64 {
 
 // popcount returns the number of set bits across the whole array.
 func (f *Filter[T]) popcount() uint64 {
-	var n uint64
+	var n int
 	for _, w := range f.bitsArr {
-		n += uint64(bits.OnesCount64(w))
+		n += bits.OnesCount64(w)
 	}
-	return n
+	return uint64(n) // #nosec G115 -- popcount over m bits is in [0, m]; never negative
 }
 
 // optimalBits returns the bit-array size m that minimises memory for n items at

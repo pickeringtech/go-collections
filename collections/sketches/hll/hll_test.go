@@ -31,6 +31,9 @@ func TestNew_InvalidPrecision(t *testing.T) {
 		{"too low", hll.MinPrecision - 1},
 		{"too high", hll.MaxPrecision + 1},
 		{"zero", 0},
+		// Guards the int-typed precision: a large value must not wrap into the
+		// valid range (e.g. 260 mod 256 = 4) and be silently accepted.
+		{"far above range", 260},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
