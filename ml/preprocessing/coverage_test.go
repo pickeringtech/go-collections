@@ -180,6 +180,55 @@ func TestSplitSeedWrappers(t *testing.T) {
 	}
 }
 
+func TestSplitsRejectNaNFraction(t *testing.T) {
+	nan := math.NaN()
+	if _, _, ok := preprocessing.TrainTestSplit(benchInts(5), nan, preprocessing.NewRand(1)); ok {
+		t.Fatalf("TrainTestSplit accepted NaN testFrac")
+	}
+	labels := []int{0, 0, 1, 1, 1}
+	if _, _, ok := preprocessing.StratifiedSplit(benchInts(5), labels, nan, preprocessing.NewRand(1)); ok {
+		t.Fatalf("StratifiedSplit accepted NaN testFrac")
+	}
+}
+
+// Float NaN cannot be a category (NaN != NaN). Encoders drop NaN at Fit time, so
+// a NaN at Transform falls through to the unseen path rather than growing the
+// category set or creating an unmatchable column.
+func TestEncodersDropNaNCategories(t *testing.T) {
+	nan := math.NaN()
+
+	// OneHot/Label/learned-Ordinal go through sortedUnique: NaN is excluded from
+	// the learned categories.
+	oneHot := preprocessing.NewOneHotEncoder[float64]().Fit([]float64{1, nan, 2, nan, 1})
+	if !floatSlicesClose(oneHot.Categories(), []float64{1, 2}) {
+		t.Fatalf("OneHot.Categories() = %v, want [1 2]", oneHot.Categories())
+	}
+	rows, _ := oneHot.Transform([]float64{nan, 2})
+	if !reflect.DeepEqual(rows, [][]float64{{0, 0}, {0, 1}}) {
+		t.Fatalf("OneHot NaN transform = %v, want [[0 0] [0 1]]", rows)
+	}
+
+	// Explicit ordinal order drops NaN too.
+	ordinal := preprocessing.NewOrdinalEncoder(1.0, nan, 2.0)
+	if !floatSlicesClose(ordinal.Categories(), []float64{1, 2}) {
+		t.Fatalf("Ordinal.Categories() = %v, want [1 2]", ordinal.Categories())
+	}
+	codes, _ := ordinal.Transform([]float64{nan, 1})
+	if !reflect.DeepEqual(codes, []int{-1, 0}) {
+		t.Fatalf("Ordinal NaN transform = %v, want [-1 0]", codes)
+	}
+
+	// TargetEncoder skips NaN categories; a NaN input maps to the global mean.
+	target := preprocessing.NewTargetEncoder[float64]().Fit(
+		[]float64{1, 1, nan},
+		[]float64{2, 4, 99},
+	)
+	got, ok := target.Transform([]float64{1, nan})
+	if !ok || !floatsClose(got[0], 3) || !floatsClose(got[1], target.GlobalMean()) {
+		t.Fatalf("Target NaN transform = (%v, %v), want [3 globalMean]", got, ok)
+	}
+}
+
 func TestSplitsNilRandUsesDefault(t *testing.T) {
 	// A nil generator falls back to the deterministic default rather than
 	// panicking, and stays a permutation.

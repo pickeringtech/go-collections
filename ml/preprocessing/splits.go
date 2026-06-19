@@ -58,7 +58,9 @@ func ShuffleSeed[T any](input []T, seed int64) []T {
 //
 // ok is false when input is empty or testFrac is outside [0, 1].
 func TrainTestSplit[T any](input []T, testFrac float64, rng *rand.Rand) (train, test []T, ok bool) {
-	if len(input) == 0 || testFrac < 0 || testFrac > 1 {
+	// testFrac != testFrac rejects NaN, which would otherwise slip past the
+	// range check (every NaN comparison is false) and yield an undefined split.
+	if len(input) == 0 || testFrac < 0 || testFrac > 1 || testFrac != testFrac {
 		return nil, nil, false
 	}
 	indices := shuffledIndices(len(input), randOrDefault(rng))
@@ -127,7 +129,8 @@ func KFoldSeed[T any](input []T, k int, seed int64) (folds [][]T, ok bool) {
 // ok is false when input is empty, len(input) != len(labels), or testFrac is
 // outside [0, 1].
 func StratifiedSplit[T any, L comparable](input []T, labels []L, testFrac float64, rng *rand.Rand) (train, test []T, ok bool) {
-	if len(input) == 0 || len(input) != len(labels) || testFrac < 0 || testFrac > 1 {
+	// testFrac != testFrac rejects NaN (see TrainTestSplit).
+	if len(input) == 0 || len(input) != len(labels) || testFrac < 0 || testFrac > 1 || testFrac != testFrac {
 		return nil, nil, false
 	}
 	generator := randOrDefault(rng)

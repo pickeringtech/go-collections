@@ -7,12 +7,26 @@ import (
 	"github.com/pickeringtech/go-collections/stats"
 )
 
-// sortedUnique returns the distinct values of input in ascending order. It is
-// the basis for the encoders' stable, documented column ordering.
+// isNaN reports whether v is a floating-point NaN. It works for any ordered type
+// because only NaN is unequal to itself; for non-float types it is always false.
+// NaN cannot be used as a category: it never compares equal to itself, so it
+// would defeat map deduplication and equality/binary-search lookups. The
+// encoders therefore drop NaN categories at Fit time, and a NaN at Transform
+// time falls through to the unseen-value path (all-zero row, code -1, or the
+// global target mean).
+func isNaN[C constraints.Ordered](v C) bool {
+	return v != v
+}
+
+// sortedUnique returns the distinct, non-NaN values of input in ascending order.
+// It is the basis for the encoders' stable, documented column ordering.
 func sortedUnique[C constraints.Ordered](input []C) []C {
 	seen := make(map[C]struct{}, len(input))
 	out := make([]C, 0, len(input))
 	for _, v := range input {
+		if isNaN(v) {
+			continue
+		}
 		_, ok := seen[v]
 		if ok {
 			continue
@@ -184,6 +198,9 @@ func NewOrdinalEncoder[C constraints.Ordered](categories ...C) *OrdinalEncoder[C
 	seen := make(map[C]struct{}, len(categories))
 	order := make([]C, 0, len(categories))
 	for _, v := range categories {
+		if isNaN(v) {
+			continue
+		}
 		_, ok := seen[v]
 		if ok {
 			continue
@@ -285,6 +302,11 @@ func (e *TargetEncoder[C]) Fit(categories []C, target []float64) *TargetEncoder[
 
 	grouped := make(map[C][]float64, len(categories))
 	for i, c := range categories {
+		if isNaN(c) {
+			// NaN cannot be a map key that matches itself; skip it so a NaN
+			// category falls through to the global mean at Transform time.
+			continue
+		}
 		grouped[c] = append(grouped[c], target[i])
 	}
 	means := make(map[C]float64, len(grouped))
