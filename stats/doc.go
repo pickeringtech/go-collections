@@ -93,4 +93,13 @@
 // InterpolationMethod (Linear, Lower, Higher, Nearest, Midpoint). These
 // functions sort a copy of the input, so the caller's slice is never mutated.
 // Median is Quantile(input, 0.5).
+//
+// # Vector primitives
+//
+// Dot and Norm are low-level building blocks for vector algebra consumed by the
+// ml/distance and ml/similarity packages. Dot returns the inner product of two
+// equal-length numeric vectors; Norm returns the L2 (Euclidean) magnitude,
+// computed via a chained math.Hypot accumulation for numerical stability. Both
+// follow the same (float64, bool) idiom — ok == false for empty or
+// mismatched-length inputs — and propagate NaN/Inf per the package policy.
 package stats

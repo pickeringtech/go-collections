@@ -90,6 +90,14 @@ func main() {
 | **[Maps](./maps/)** | Native map utilities | Key extraction, value transformation |
 | **[Channels](./channels/)** | Channel-based pipelines | Stream processing, fan-out/fan-in |
 | **[Constraints](./constraints/)** | Type constraints for generics | Custom generic functions |
+| **[Sketches](./collections/sketches/)** | Probabilistic data structures | MinHash for approximate Jaccard over large sets |
+
+### ML / Data Engineering
+
+| Package | Description | Use Cases |
+|---------|-------------|-----------|
+| **[ml/distance](./ml/distance/)** | Distance metrics (lower = closer) | Euclidean, Manhattan, Minkowski, Cosine, Hamming, Levenshtein |
+| **[ml/similarity](./ml/similarity/)** | Similarity metrics (higher = more alike) | Cosine similarity, Jaccard, Dice, Overlap |
 
 ## Choose Your Data Structure
 
@@ -286,6 +294,9 @@ downstream-consumer smoke test. See the [examples README](./examples/README.md).
 - **[Slices Utilities](./slices/README.md)** - Enhanced slice operations
 - **[Maps Utilities](./maps/README.md)** - Native map helpers
 - **[Channels Utilities](./channels/README.md)** - Pipeline processing
+- **[Sketches](./collections/sketches/README.md)** - MinHash and other probabilistic sketches
+- **[ML Distance](./ml/distance/README.md)** - Distance metrics (Euclidean, Manhattan, Minkowski, Cosine, Hamming, Levenshtein)
+- **[ML Similarity](./ml/similarity/README.md)** - Similarity metrics (Cosine, Jaccard, Dice, Overlap)
 - **[Mutation Testing](./docs/mutation-testing.md)** - How we verify the tests catch regressions, not just run lines
 
 ## Contributing
