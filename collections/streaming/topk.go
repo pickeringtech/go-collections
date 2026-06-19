@@ -58,8 +58,8 @@ func (t *TopK[T]) Add(element T) {
 		t.heap.PushInPlace(element)
 		return
 	}
-	min, _ := t.heap.Peek()
-	if t.less(min, element) {
+	lowest, _ := t.heap.Peek()
+	if t.less(lowest, element) {
 		t.heap.PopInPlace()
 		t.heap.PushInPlace(element)
 	}
