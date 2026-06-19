@@ -40,7 +40,8 @@ func FuzzVectorOps(f *testing.F) {
 		if dist != distRev {
 			t.Fatalf("EuclideanDistance not symmetric: %v vs %v", dist, distRev)
 		}
-		if self, _ := stats.EuclideanDistance(a, a); self != 0 {
+		self, _ := stats.EuclideanDistance(a, a)
+		if self != 0 {
 			t.Fatalf("EuclideanDistance(a, a) = %v, want 0", self)
 		}
 
@@ -52,7 +53,8 @@ func FuzzVectorOps(f *testing.F) {
 		// CosineSimilarity is undefined for a zero vector (ok == false); when
 		// defined it is a cosine and must lie within [-1, 1] (allowing a little
 		// floating-point slack).
-		if cos, ok := stats.CosineSimilarity(a, b); ok {
+		cos, ok := stats.CosineSimilarity(a, b)
+		if ok {
 			if cos < -1-1e-9 || cos > 1+1e-9 {
 				t.Fatalf("CosineSimilarity = %v, outside [-1, 1]", cos)
 			}
@@ -70,10 +72,12 @@ func FuzzDistribution(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		if len(data) == 0 {
-			if _, ok := stats.Entropy(data); ok {
+			_, ok := stats.Entropy(data)
+			if ok {
 				t.Fatalf("Entropy(empty) reported ok")
 			}
-			if _, ok := stats.Gini(data); ok {
+			_, ok = stats.Gini(data)
+			if ok {
 				t.Fatalf("Gini(empty) reported ok")
 			}
 			return

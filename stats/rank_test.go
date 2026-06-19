@@ -54,16 +54,20 @@ func TestPercentileOfScore(t *testing.T) {
 	})
 
 	t.Run("rejects undefined inputs", func(t *testing.T) {
-		if _, ok := stats.PercentileOfScore([]float64{}, 1); ok {
+		_, ok := stats.PercentileOfScore([]float64{}, 1)
+		if ok {
 			t.Errorf("empty input reported ok")
 		}
-		if _, ok := stats.PercentileOfScore(data, math.NaN()); ok {
+		_, ok = stats.PercentileOfScore(data, math.NaN())
+		if ok {
 			t.Errorf("NaN score reported ok")
 		}
-		if _, ok := stats.PercentileOfScore(data, math.Inf(1)); ok {
+		_, ok = stats.PercentileOfScore(data, math.Inf(1))
+		if ok {
 			t.Errorf("Inf score reported ok")
 		}
-		if _, ok := stats.PercentileOfScore([]float64{1, math.NaN(), 3}, 2); ok {
+		_, ok = stats.PercentileOfScore([]float64{1, math.NaN(), 3}, 2)
+		if ok {
 			t.Errorf("NaN in input reported ok")
 		}
 	})

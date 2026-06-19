@@ -34,7 +34,8 @@ func TestSkewness(t *testing.T) {
 		}
 		for name, in := range cases {
 			t.Run(name, func(t *testing.T) {
-				if got, ok := stats.Skewness(in); ok {
+				got, ok := stats.Skewness(in)
+				if ok {
 					t.Errorf("ok = true (%v), want false", got)
 				}
 			})
@@ -65,7 +66,8 @@ func TestKurtosis(t *testing.T) {
 		}
 		for name, in := range cases {
 			t.Run(name, func(t *testing.T) {
-				if got, ok := stats.Kurtosis(in); ok {
+				got, ok := stats.Kurtosis(in)
+				if ok {
 					t.Errorf("ok = true (%v), want false", got)
 				}
 			})

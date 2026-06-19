@@ -43,10 +43,12 @@ func TestLinearRegression(t *testing.T) {
 	t.Run("Predict and residuals", func(t *testing.T) {
 		fit, _ := stats.LinearRegression([]float64{1, 2, 3, 4, 5}, []float64{2, 4, 5, 4, 6})
 		// Fitted value at x=3 is 0.8*3 + 1.8 = 4.2; residual against observed 5.
-		if got := fit.Predict(3); math.Abs(got-4.2) > eps {
+		got := fit.Predict(3)
+		if math.Abs(got-4.2) > eps {
 			t.Errorf("Predict(3) = %v, want 4.2", got)
 		}
-		if residual := 5.0 - fit.Predict(3); math.Abs(residual-0.8) > eps {
+		residual := 5.0 - fit.Predict(3)
+		if math.Abs(residual-0.8) > eps {
 			t.Errorf("residual = %v, want 0.8", residual)
 		}
 	})
@@ -63,7 +65,8 @@ func TestLinearRegression(t *testing.T) {
 		}
 		for name, tc := range tests {
 			t.Run(name, func(t *testing.T) {
-				if fit, ok := stats.LinearRegression(tc.x, tc.y); ok {
+				fit, ok := stats.LinearRegression(tc.x, tc.y)
+				if ok {
 					t.Errorf("ok = true (fit %+v), want false", fit)
 				}
 			})

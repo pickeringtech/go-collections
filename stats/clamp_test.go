@@ -21,7 +21,8 @@ func TestClamp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := stats.Clamp(tt.value, tt.lo, tt.hi); got != tt.want {
+			got := stats.Clamp(tt.value, tt.lo, tt.hi)
+			if got != tt.want {
 				t.Fatalf("Clamp(%d, %d, %d) = %d, want %d", tt.value, tt.lo, tt.hi, got, tt.want)
 			}
 		})
@@ -29,7 +30,8 @@ func TestClamp(t *testing.T) {
 }
 
 func TestClampOnStrings(t *testing.T) {
-	if got := stats.Clamp("m", "a", "f"); got != "f" {
+	got := stats.Clamp("m", "a", "f")
+	if got != "f" {
 		t.Fatalf(`Clamp("m","a","f") = %q, want "f"`, got)
 	}
 }
@@ -50,10 +52,12 @@ func TestClampAll(t *testing.T) {
 }
 
 func TestClampAllEmpty(t *testing.T) {
-	if got := stats.ClampAll([]int{}, 0, 5); len(got) != 0 {
+	got := stats.ClampAll([]int{}, 0, 5)
+	if len(got) != 0 {
 		t.Fatalf("ClampAll(empty) = %v, want empty", got)
 	}
-	if got := stats.ClampAll[int](nil, 0, 5); len(got) != 0 {
+	got = stats.ClampAll[int](nil, 0, 5)
+	if len(got) != 0 {
 		t.Fatalf("ClampAll(nil) = %v, want empty", got)
 	}
 }

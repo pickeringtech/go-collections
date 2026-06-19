@@ -14,10 +14,12 @@ func TestDot(t *testing.T) {
 	}
 
 	t.Run("rejects empty and mismatched lengths", func(t *testing.T) {
-		if _, ok := stats.Dot([]float64{}, []float64{}); ok {
+		_, ok := stats.Dot([]float64{}, []float64{})
+		if ok {
 			t.Errorf("empty reported ok")
 		}
-		if _, ok := stats.Dot([]float64{1, 2}, []float64{1}); ok {
+		_, ok = stats.Dot([]float64{1, 2}, []float64{1})
+		if ok {
 			t.Errorf("mismatched lengths reported ok")
 		}
 	})
@@ -35,7 +37,8 @@ func TestNorm(t *testing.T) {
 	if !ok || !approxEqual(got, 5) {
 		t.Fatalf("Norm = %v, %v; want 5, true", got, ok)
 	}
-	if _, ok := stats.Norm([]int{}); ok {
+	_, ok = stats.Norm([]int{})
+	if ok {
 		t.Errorf("empty reported ok")
 	}
 }
@@ -54,10 +57,12 @@ func TestEuclideanDistance(t *testing.T) {
 	})
 
 	t.Run("rejects empty and mismatched lengths", func(t *testing.T) {
-		if _, ok := stats.EuclideanDistance([]float64{}, []float64{}); ok {
+		_, ok := stats.EuclideanDistance([]float64{}, []float64{})
+		if ok {
 			t.Errorf("empty reported ok")
 		}
-		if _, ok := stats.EuclideanDistance([]float64{1}, []float64{1, 2}); ok {
+		_, ok = stats.EuclideanDistance([]float64{1}, []float64{1, 2})
+		if ok {
 			t.Errorf("mismatched lengths reported ok")
 		}
 	})
@@ -82,13 +87,16 @@ func TestCosineSimilarity(t *testing.T) {
 	}
 
 	t.Run("rejects undefined inputs", func(t *testing.T) {
-		if _, ok := stats.CosineSimilarity([]float64{}, []float64{}); ok {
+		_, ok := stats.CosineSimilarity([]float64{}, []float64{})
+		if ok {
 			t.Errorf("empty reported ok")
 		}
-		if _, ok := stats.CosineSimilarity([]float64{1, 2}, []float64{1}); ok {
+		_, ok = stats.CosineSimilarity([]float64{1, 2}, []float64{1})
+		if ok {
 			t.Errorf("mismatched lengths reported ok")
 		}
-		if _, ok := stats.CosineSimilarity([]float64{0, 0}, []float64{1, 2}); ok {
+		_, ok = stats.CosineSimilarity([]float64{0, 0}, []float64{1, 2})
+		if ok {
 			t.Errorf("zero vector reported ok")
 		}
 	})

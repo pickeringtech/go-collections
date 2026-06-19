@@ -52,12 +52,14 @@ func TestModeOnStrings(t *testing.T) {
 
 func TestModeRejectsNonFinite(t *testing.T) {
 	for _, bad := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
-		if got, ok := stats.Mode([]float64{1, 1, bad, 2}); ok {
+		got, ok := stats.Mode([]float64{1, 1, bad, 2})
+		if ok {
 			t.Fatalf("Mode([1 1 %v 2]) = (%v, %v), want (nil, false)", bad, got, ok)
 		}
 	}
 	// float32 inputs are checked too.
-	if _, ok := stats.Mode([]float32{1, float32(math.Inf(1)), 1}); ok {
+	_, ok := stats.Mode([]float32{1, float32(math.Inf(1)), 1})
+	if ok {
 		t.Fatalf("Mode(float32 with +Inf) should be ok=false")
 	}
 }
