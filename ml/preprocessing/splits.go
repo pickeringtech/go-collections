@@ -5,8 +5,14 @@ import "math/rand/v2"
 // NewRand returns a *math/rand/v2.Rand seeded deterministically from seed, so
 // that the same seed always reproduces the same sequence — the basis for
 // reproducible splits and shuffles.
+//
+// A deterministic, non-cryptographic generator is exactly the requirement here
+// (reproducibility, not security), and the int64 seed is reinterpreted to
+// uint64 bits where every bit pattern is a valid seed, so the conversion's
+// wraparound on negative seeds is intentional. Both are flagged by gosec
+// (G404 weak RNG, G115 integer conversion) and deliberately suppressed.
 func NewRand(seed int64) *rand.Rand {
-	return rand.New(rand.NewPCG(uint64(seed), uint64(seed)))
+	return rand.New(rand.NewPCG(uint64(seed), uint64(seed))) // #nosec G404,G115
 }
 
 // randOrDefault returns rng, or a deterministically seeded generator when rng is
