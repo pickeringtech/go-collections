@@ -1,7 +1,26 @@
-// Package sketches provides probabilistic data-sketching structures for
-// approximate set operations. Sketches trade exact answers for very low memory
-// and sub-linear time — useful when exact set sizes or intersections are
-// prohibitively large.
+// Package sketches provides probabilistic data-sketching structures — compact
+// summaries that trade exact answers for very low memory and sub-linear time,
+// useful when exact computation over large sets or streams is prohibitive.
+//
+// The package itself holds MinHash, a set-similarity sketch (documented below).
+// The streaming sketches each live in their own sub-package:
+//
+//   - [bloom] — approximate set membership. "Have I seen this before?" with no
+//     false negatives and a tunable false-positive rate, in bits per element
+//     independent of element size.
+//   - [countmin] — approximate frequency counts. "How often have I seen this?"
+//     never under-reporting, in space independent of the stream's cardinality.
+//   - [hll] — approximate cardinality. "How many distinct things have I seen?"
+//     in a few kilobytes, even for billions of distinct items.
+//
+// The streaming sketches share a common design: bounded, configurable accuracy
+// with documented error bounds; seeded, pluggable hashing (WithSeed/WithHasher)
+// so behaviour is reproducible; mergeability (Merge) for parallel and
+// distributed aggregation; and a delegating, read-write-mutex-guarded Concurrent
+// variant alongside a plain type that is not safe for concurrent use.
+//
+// (A streaming-quantiles sketch — t-digest — is co-designed with the stats
+// quantile work and lives with that package rather than here.)
 //
 // # Quick Start
 //
@@ -60,4 +79,8 @@
 // the fraction of positions where the minimum hash values agree. It returns
 // ok == false when the two sketches were built with different numHashes or
 // different permutation families (mismatched construction parameters).
+//
+// [bloom]: https://pkg.go.dev/github.com/pickeringtech/go-collections/collections/sketches/bloom
+// [countmin]: https://pkg.go.dev/github.com/pickeringtech/go-collections/collections/sketches/countmin
+// [hll]: https://pkg.go.dev/github.com/pickeringtech/go-collections/collections/sketches/hll
 package sketches

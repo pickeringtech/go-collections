@@ -1,10 +1,47 @@
 # collections/sketches
 
-Probabilistic data-sketching structures for approximate set operations. Sketches trade exact answers for very low memory and sub-linear time — ideal when exact set sizes or intersections are prohibitively large.
+Probabilistic data-sketching structures — compact summaries that trade exact
+answers for very low memory and sub-linear time, useful when exact computation
+over large sets or streams is prohibitive.
+
+This package holds **MinHash** (set similarity, below). The **streaming
+sketches** each live in their own sub-package:
+
+| Package                  | Question it answers                       | Memory driver        |
+| ------------------------ | ----------------------------------------- | -------------------- |
+| [`bloom`](./bloom)       | "Have I seen this before?" (membership)   | items × target rate  |
+| [`countmin`](./countmin) | "How often have I seen this?" (frequency) | target accuracy only |
+| [`hll`](./hll)           | "How many distinct things?" (cardinality) | precision only       |
+
+> A streaming-quantiles sketch (t-digest) is co-designed with the `stats`
+> quantile work and lives with that package, not here.
+
+The streaming sketches share a common design: bounded, configurable accuracy
+with documented error bounds; seeded, pluggable hashing (`WithSeed`/`WithHasher`)
+so behaviour is reproducible; `Merge` for parallel and distributed aggregation;
+and a delegating `sync.RWMutex`-guarded `Concurrent` variant alongside a plain
+type that is **not** safe for concurrent use.
+
+```go
+// Membership — no false negatives, ~1% false positives.
+bf, _ := bloom.New[string](1_000_000, 0.01)
+bf.Add("alice"); bf.Contains("alice") // true
+
+// Frequency — never under-counts.
+cm, _ := countmin.New[string](0.001, 0.01)
+cm.Add("/index"); cm.Estimate("/index") // ~1
+
+// Cardinality — ~0.8% error in ~16 KB.
+hl, _ := hll.New[string]()
+hl.Add("visitor-1"); hl.Count() // ~1
+```
 
 ## MinHash
 
-MinHash estimates the Jaccard similarity between two sets without storing either set explicitly. It maintains a compact signature of `uint64` minimums — one per hash function — and compares signatures element-wise to approximate the Jaccard coefficient.
+MinHash estimates the Jaccard similarity between two sets without storing either
+set explicitly. It maintains a compact signature of `uint64` minimums — one per
+hash function — and compares signatures element-wise to approximate the Jaccard
+coefficient.
 
 ```go
 import (
