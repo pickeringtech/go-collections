@@ -138,10 +138,12 @@ func TestRelationalWithIntegers(t *testing.T) {
 	xs := []int{1, 2, 3, 4, 5}
 	ys := []int{2, 4, 6, 8, 10}
 
-	if cov, ok := stats.PopulationCovariance(xs, ys); !ok || !floatsClose(cov, 4) {
+	cov, ok := stats.PopulationCovariance(xs, ys)
+	if !ok || !floatsClose(cov, 4) {
 		t.Fatalf("PopulationCovariance = %v, %v; want 4, true", cov, ok)
 	}
-	if r, ok := stats.Correlation(xs, ys); !ok || !floatsClose(r, 1) {
+	r, ok := stats.Correlation(xs, ys)
+	if !ok || !floatsClose(r, 1) {
 		t.Fatalf("Correlation = %v, %v; want 1, true", r, ok)
 	}
 }

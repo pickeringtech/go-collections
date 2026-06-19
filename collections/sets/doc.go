@@ -151,4 +151,19 @@
 //	BenchmarkSet_Union/Hash-16                50M   28.34 ns/op
 //
 // Start with NewHash() and upgrade to concurrent versions only when needed.
+//
+// # Set Similarity Metrics
+//
+// The ml/similarity package provides Jaccard, Dice and Overlap coefficients
+// that compose the Intersection, Union and Length operations defined on Set[T]:
+//
+//	import "github.com/pickeringtech/go-collections/ml/similarity"
+//
+//	a := sets.NewHash("go", "generics", "collections")
+//	b := sets.NewHash("go", "generics", "channels")
+//
+//	j := similarity.Jaccard(a, b)  // 2/4 = 0.5
+//
+// For probabilistic Jaccard estimation over very large sets, see
+// collections/sketches.MinHash.
 package sets

@@ -44,7 +44,8 @@ func TestMedianDoesNotMutateInput(t *testing.T) {
 
 func TestMedianRejectsNonFinite(t *testing.T) {
 	for _, bad := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
-		if _, ok := stats.Median([]float64{1, bad, 3}); ok {
+		_, ok := stats.Median([]float64{1, bad, 3})
+		if ok {
 			t.Fatalf("Median with %v should be ok=false", bad)
 		}
 	}
