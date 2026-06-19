@@ -66,13 +66,15 @@ func (t *TopK[T]) Add(element T) {
 }
 
 // Result returns the retained elements highest-ranked first, as a non-nil
-// slice. It does not modify the TopK, so Add may continue afterwards. The
-// length is min(k, number of distinct elements fed). Result is O(k log k).
+// slice. It does not modify the TopK, so Add may continue afterwards. Duplicates
+// are retained, so the length is min(k, number of elements fed). Result is
+// O(k log k).
 func (t *TopK[T]) Result() []T {
 	return slices.Reverse(t.heap.AsSortedSlice())
 }
 
-// Len returns the number of elements currently retained, between 0 and k.
+// Len returns the number of elements currently retained, between 0 and
+// max(k, 0) — it is always 0 when k <= 0.
 func (t *TopK[T]) Len() int {
 	return t.heap.Length()
 }
