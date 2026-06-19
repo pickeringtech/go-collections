@@ -75,6 +75,35 @@ non-finite values (NaN/Inf) propagate per the package's policy (see Conventions)
 
 All operations accept any `constraints.Numeric` slice (`[]int`, `[]float64`, …).
 
+## Advanced
+
+A tier of richer operations, all keeping the package conventions (see below).
+
+| Function                            | Returns             | Undefined (`ok == false`) when                                   |
+| ----------------------------------- | ------------------- | ---------------------------------------------------------------- |
+| `LinearRegression(x, y)`            | `(LineFit, bool)`   | empty, differing lengths, < 2 points, or constant `x`/`y`        |
+| `Histogram(input, bins)`            | `([]Bin, bool)`     | empty, `bins < 1`, non-finite, or zero-width (constant) range    |
+| `Skewness(input)`                   | `(float64, bool)`   | empty or constant (zero variance)                                |
+| `Kurtosis(input)` (excess)          | `(float64, bool)`   | empty or constant (zero variance)                                |
+| `Entropy(input)` (Shannon, bits)    | `(float64, bool)`   | empty, or non-finite float element                               |
+| `Gini(input)` (impurity)            | `(float64, bool)`   | empty, or non-finite float element                               |
+| `PercentileOfScore(input, score)`   | `(float64, bool)`   | empty, non-finite score, or non-finite element                   |
+| `Dot(a, b)`                         | `(float64, bool)`   | empty or differing lengths                                       |
+| `Norm(a)` (L2)                      | `(float64, bool)`   | empty                                                            |
+| `EuclideanDistance(a, b)`           | `(float64, bool)`   | empty or differing lengths                                       |
+| `CosineSimilarity(a, b)`            | `(float64, bool)`   | empty, differing lengths, or a zero vector                       |
+
+- `LinearRegression` returns `LineFit{Slope, Intercept, R2}` with a `Predict(x)`
+  method, so residuals are `yᵢ − fit.Predict(xᵢ)`.
+- `Histogram` returns equal-width `Bin{Min, Max, Count}` buckets; the final bin's
+  upper bound is inclusive so the maximum value is counted, and the counts always
+  sum to `len(input)`.
+- `Entropy` and `Gini` summarise the distribution of a **categorical** sample over
+  any `comparable` type (strings, ints, …), not just numbers.
+- The moment-based stats (regression, skewness, kurtosis) and the vector ops
+  **propagate** non-finite input; the categorical measures and `PercentileOfScore`
+  **reject** it (see Conventions).
+
 ## Conventions
 
 These conventions are deliberate and apply uniformly across the package:
