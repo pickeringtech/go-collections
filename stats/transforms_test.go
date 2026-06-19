@@ -135,10 +135,12 @@ func TestMovingAverage(t *testing.T) {
 // The transforms are generic over constraints.Numeric, so integer slices work
 // without conversion.
 func TestTransformsWithIntegers(t *testing.T) {
-	if got, ok := stats.Normalize([]int{0, 5, 10}); !ok || !floatSlicesClose(got, []float64{0, 0.5, 1}) {
+	got, ok := stats.Normalize([]int{0, 5, 10})
+	if !ok || !floatSlicesClose(got, []float64{0, 0.5, 1}) {
 		t.Fatalf("Normalize = %v, %v; want [0 0.5 1], true", got, ok)
 	}
-	if got, ok := stats.MovingAverage([]int{2, 4, 6, 8}, 2); !ok || !floatSlicesClose(got, []float64{3, 5, 7}) {
+	got, ok = stats.MovingAverage([]int{2, 4, 6, 8}, 2)
+	if !ok || !floatSlicesClose(got, []float64{3, 5, 7}) {
 		t.Fatalf("MovingAverage = %v, %v; want [3 5 7], true", got, ok)
 	}
 }

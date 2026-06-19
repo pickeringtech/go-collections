@@ -43,16 +43,20 @@ func FuzzQuantiles(f *testing.F) {
 
 		// Empty input: every entry point reports not-ok.
 		if len(input) == 0 {
-			if _, ok := stats.Quantile(input, 0.5); ok {
+			_, ok := stats.Quantile(input, 0.5)
+			if ok {
 				t.Fatalf("Quantile(empty) reported ok")
 			}
-			if _, ok := stats.Percentile(input, 50); ok {
+			_, ok = stats.Percentile(input, 50)
+			if ok {
 				t.Fatalf("Percentile(empty) reported ok")
 			}
-			if _, ok := stats.Quartiles(input); ok {
+			_, ok = stats.Quartiles(input)
+			if ok {
 				t.Fatalf("Quartiles(empty) reported ok")
 			}
-			if _, ok := stats.IQR(input); ok {
+			_, ok = stats.IQR(input)
+			if ok {
 				t.Fatalf("IQR(empty) reported ok")
 			}
 			return
@@ -102,13 +106,16 @@ func FuzzQuantiles(f *testing.F) {
 		}
 
 		// Out-of-range q/p are rejected.
-		if _, ok := stats.Quantile(input, -0.01); ok {
+		_, ok = stats.Quantile(input, -0.01)
+		if ok {
 			t.Fatalf("Quantile(_, -0.01) reported ok")
 		}
-		if _, ok := stats.Quantile(input, 1.01); ok {
+		_, ok = stats.Quantile(input, 1.01)
+		if ok {
 			t.Fatalf("Quantile(_, 1.01) reported ok")
 		}
-		if _, ok := stats.Percentile(input, 100.01); ok {
+		_, ok = stats.Percentile(input, 100.01)
+		if ok {
 			t.Fatalf("Percentile(_, 100.01) reported ok")
 		}
 
@@ -135,10 +142,12 @@ func FuzzQuantiles(f *testing.F) {
 		// A non-finite value anywhere poisons every quantile result.
 		for _, bad := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
 			poisoned := append([]float64{bad}, input...)
-			if _, ok := stats.Quantile(poisoned, 0.5); ok {
+			_, ok := stats.Quantile(poisoned, 0.5)
+			if ok {
 				t.Fatalf("Quantile reported ok for input containing %v", bad)
 			}
-			if _, ok := stats.IQR(poisoned); ok {
+			_, ok = stats.IQR(poisoned)
+			if ok {
 				t.Fatalf("IQR reported ok for input containing %v", bad)
 			}
 		}

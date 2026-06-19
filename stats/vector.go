@@ -6,43 +6,92 @@ import (
 	"github.com/pickeringtech/go-collections/constraints"
 )
 
-// Dot computes the dot product of two numeric vectors a and b, returning the
-// result as float64 together with an ok flag. The dot product is the sum of
-// paired element-wise products: Σ aᵢ·bᵢ.
+// Dot returns the dot product of the vectors a and b — Σ aᵢ·bᵢ — together with
+// an ok flag. The products are summed with Kahan compensated summation, so long
+// vectors do not lose precision to naive round-off.
 //
-// It returns ok == false when the vectors are empty or have differing lengths —
-// the dot product is undefined in those cases. Non-finite inputs (NaN/Inf)
-// propagate to a non-finite result with ok == true, following the package's
-// NaN/Inf policy for vector operations.
+// ok is false (and the result 0) when the product is undefined: when the
+// vectors are empty or of differing lengths. Non-finite inputs (NaN/Inf)
+// propagate to a non-finite result with ok == true, consistent with the
+// transforms and relational statistics, rather than being silently dropped.
 func Dot[T constraints.Numeric](a, b []T) (float64, bool) {
 	if len(a) != len(b) || len(a) == 0 {
 		return 0, false
 	}
-	var sum float64
+	var sum kahan
 	for i := range a {
-		sum += float64(a[i]) * float64(b[i])
+		sum.add(float64(a[i]) * float64(b[i]))
 	}
-	return sum, true
+	return sum.sum, true
 }
 
-// Norm computes the L2 (Euclidean) norm of a numeric vector, returning the
-// result as float64 together with an ok flag. The L2 norm is the square root
-// of the sum of squared elements: √(Σ xᵢ²).
+// Norm returns the Euclidean (L2) norm of the vector a — √(Σ aᵢ²), the length
+// of the vector — together with an ok flag. The squares are summed with Kahan
+// compensated summation.
 //
-// The implementation is numerically stable: it accumulates using math.Hypot
-// in a chained fashion, avoiding catastrophic cancellation or overflow that
-// would occur from naively squaring large values before summing.
-//
-// It returns ok == false for an empty input — the norm of an empty vector is
-// undefined under the library's (result, ok) idiom. Non-finite inputs (NaN/Inf)
-// propagate to a non-finite result with ok == true.
-func Norm[T constraints.Numeric](input []T) (float64, bool) {
-	if len(input) == 0 {
+// ok is false (and the result 0) only for empty input, where the norm is
+// undefined. Non-finite inputs (NaN/Inf) propagate to a non-finite result with
+// ok == true.
+func Norm[T constraints.Numeric](a []T) (float64, bool) {
+	if len(a) == 0 {
 		return 0, false
 	}
-	var norm float64
-	for _, v := range input {
-		norm = math.Hypot(norm, float64(v))
+	var sum kahan
+	for _, v := range a {
+		f := float64(v)
+		sum.add(f * f)
 	}
-	return norm, true
+	return math.Sqrt(sum.sum), true
+}
+
+// EuclideanDistance returns the straight-line distance between the points a and
+// b — √(Σ (aᵢ−bᵢ)²) — together with an ok flag. The squared differences are
+// summed with Kahan compensated summation.
+//
+// ok is false (and the result 0) when the distance is undefined: when the
+// vectors are empty or of differing lengths. Non-finite inputs (NaN/Inf)
+// propagate to a non-finite result with ok == true.
+func EuclideanDistance[T constraints.Numeric](a, b []T) (float64, bool) {
+	if len(a) != len(b) || len(a) == 0 {
+		return 0, false
+	}
+	var sum kahan
+	for i := range a {
+		d := float64(a[i]) - float64(b[i])
+		sum.add(d * d)
+	}
+	return math.Sqrt(sum.sum), true
+}
+
+// CosineSimilarity returns the cosine of the angle between the vectors a and b —
+// their dot product divided by the product of their norms — a scale-free measure
+// of orientation in [−1, 1]: 1 when they point the same way, 0 when orthogonal,
+// −1 when opposite. It is the standard similarity measure for embeddings and
+// other high-dimensional feature vectors.
+//
+// ok is false (and the result 0) when the similarity is undefined: when the
+// vectors are empty, of differing lengths, or when either vector is the zero
+// vector (a zero norm, so the ratio is 0/0 — a zero vector has no orientation).
+// Non-finite inputs (NaN/Inf) make a norm non-finite (not zero) and so fall
+// through to propagate to a non-finite result with ok == true.
+func CosineSimilarity[T constraints.Numeric](a, b []T) (float64, bool) {
+	if len(a) != len(b) || len(a) == 0 {
+		return 0, false
+	}
+	var dot, sumA, sumB kahan
+	for i := range a {
+		fa := float64(a[i])
+		fb := float64(b[i])
+		dot.add(fa * fb)
+		sumA.add(fa * fa)
+		sumB.add(fb * fb)
+	}
+	denom := math.Sqrt(sumA.sum) * math.Sqrt(sumB.sum)
+	if denom == 0 {
+		// A zero vector has no orientation, so the cosine is 0/0 — undefined
+		// rather than zero. NaN/Inf inputs make denom non-finite (not zero) and
+		// so fall through to propagate as documented.
+		return 0, false
+	}
+	return dot.sum / denom, true
 }
