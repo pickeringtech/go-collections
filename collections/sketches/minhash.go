@@ -28,7 +28,7 @@ type permCoeffs struct {
 	a, b uint64
 }
 
-// MinHash[T] is a MinHash sketch for any comparable type T. It maintains a
+// MinHash is a MinHash sketch for any comparable type T. It maintains a
 // fixed-size signature of uint64 minimums — one per hash function in the
 // permutation family — that can be compared with EstimatedJaccard to
 // approximate the Jaccard similarity between two sets.
