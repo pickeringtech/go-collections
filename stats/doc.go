@@ -93,4 +93,31 @@
 // InterpolationMethod (Linear, Lower, Higher, Nearest, Midpoint). These
 // functions sort a copy of the input, so the caller's slice is never mutated.
 // Median is Quantile(input, 0.5).
+//
+// # Advanced
+//
+// Beyond the everyday summaries the package offers a tier of advanced
+// operations, each keeping the same conventions (return type, (result, ok)
+// idiom, numerical stability and the family-appropriate NaN/Inf policy):
+//
+//   - LinearRegression fits an ordinary-least-squares line (Slope/Intercept/R²,
+//     with a Predict method for fitted values and residuals).
+//   - Histogram buckets a sample into equal-width Bins over its [min, max] range.
+//   - Skewness and Kurtosis report the distribution's asymmetry and tail weight
+//     from stably-accumulated higher central moments (Kurtosis is excess, so a
+//     normal distribution is 0).
+//   - Entropy (Shannon, in bits) and Gini (impurity) summarise the distribution
+//     of a categorical sample over any comparable type, not just numbers.
+//   - PercentileOfScore is the inverse of Percentile: the percentage of values
+//     at or below a given score.
+//   - Dot, Norm, EuclideanDistance and CosineSimilarity provide the vector
+//     operations common to ML-adjacent work.
+//
+// As elsewhere, the moment-based statistics (regression, skewness, kurtosis) and
+// the vector operations let non-finite values propagate (ok == true with a
+// non-finite result), while the categorical measures (Entropy, Gini) and
+// PercentileOfScore reject them (ok == false), matching the package's family
+// split. Regression, correlation, skewness, kurtosis and cosine similarity are
+// additionally undefined for a constant/zero input (zero variance or a zero
+// vector), and report ok == false.
 package stats
