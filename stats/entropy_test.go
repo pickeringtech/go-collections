@@ -34,13 +34,15 @@ func TestEntropy(t *testing.T) {
 	})
 
 	t.Run("empty is undefined", func(t *testing.T) {
-		if got, ok := stats.Entropy([]int{}); ok {
+		got, ok := stats.Entropy([]int{})
+		if ok {
 			t.Errorf("ok = true (%v), want false", got)
 		}
 	})
 
 	t.Run("non-finite float is rejected", func(t *testing.T) {
-		if got, ok := stats.Entropy([]float64{1, math.NaN(), 2}); ok {
+		got, ok := stats.Entropy([]float64{1, math.NaN(), 2})
+		if ok {
 			t.Errorf("ok = true (%v), want false", got)
 		}
 	})
@@ -69,13 +71,15 @@ func TestGini(t *testing.T) {
 	})
 
 	t.Run("empty is undefined", func(t *testing.T) {
-		if got, ok := stats.Gini([]int{}); ok {
+		got, ok := stats.Gini([]int{})
+		if ok {
 			t.Errorf("ok = true (%v), want false", got)
 		}
 	})
 
 	t.Run("non-finite float is rejected", func(t *testing.T) {
-		if got, ok := stats.Gini([]float64{1, math.Inf(1), 2}); ok {
+		got, ok := stats.Gini([]float64{1, math.Inf(1), 2})
+		if ok {
 			t.Errorf("ok = true (%v), want false", got)
 		}
 	})

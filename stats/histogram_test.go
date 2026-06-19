@@ -43,7 +43,8 @@ func TestHistogram(t *testing.T) {
 
 	t.Run("last bin upper bound is the exact maximum", func(t *testing.T) {
 		bins, _ := stats.Histogram([]float64{0, 1, 2}, 3)
-		if got := bins[len(bins)-1].Max; got != 2 {
+		got := bins[len(bins)-1].Max
+		if got != 2 {
 			t.Errorf("last bin Max = %v, want exactly 2", got)
 		}
 	})
@@ -62,7 +63,8 @@ func TestHistogram(t *testing.T) {
 		}
 		for name, tc := range cases {
 			t.Run(name, func(t *testing.T) {
-				if bins, ok := stats.Histogram(tc.input, tc.bins); ok {
+				bins, ok := stats.Histogram(tc.input, tc.bins)
+				if ok {
 					t.Errorf("ok = true (bins %+v), want false", bins)
 				}
 			})
