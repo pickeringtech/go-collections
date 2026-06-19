@@ -1,0 +1,3 @@
+# Keep the freeform "Open a blank issue" option — reviews and ad-hoc reports
+# (e.g. the feedback/ rounds) don't always fit a template.
+blank_issues_enabled: true
