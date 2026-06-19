@@ -30,6 +30,9 @@ func TestNew_InvalidConfig(t *testing.T) {
 		{"one rate", 100, 1},
 		{"negative rate", 100, -0.1},
 		{"rate above one", 100, 1.5},
+		// Absurd capacity: the optimal bit count exceeds the allocation cap, so
+		// New rejects it instead of overflowing or panicking on allocation.
+		{"astronomically large", 1 << 60, 0.01},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

@@ -108,7 +108,6 @@ func (c *ConcurrentFilter[T]) Snapshot() *Filter[T] {
 		k:       c.filter.k,
 		seed:    c.filter.seed,
 		hasher:  c.filter.hasher,
-		added:   c.filter.added,
 	}
 	copy(cp.bitsArr, c.filter.bitsArr)
 	return cp

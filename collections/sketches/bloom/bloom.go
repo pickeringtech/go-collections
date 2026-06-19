@@ -32,8 +32,14 @@ type Filter[T comparable] struct {
 	k       uint64   // number of hash functions
 	seed    uint64   // hashing seed; filters must share it to be merged
 	hasher  func(seed uint64, value T) uint64
-	added   uint64 // count of Add calls (used for load reporting)
 }
+
+// maxBits caps the bit-array size New will allocate. A filter needing more bits
+// than this — from an enormous expectedItems or a minuscule falsePositiveRate —
+// is almost certainly a misconfiguration, and the unbounded size risks integer
+// overflow, so New rejects it. 1<<48 bits is 32 TiB, far beyond any real
+// in-memory filter.
+const maxBits = 1 << 48
 
 // Interface guard.
 var _ Membership[string] = (*Filter[string])(nil)
@@ -54,7 +60,14 @@ func New[T comparable](expectedItems int, falsePositiveRate float64, opts ...Opt
 		return nil, fmt.Errorf("%w: falsePositiveRate must be in (0,1), got %v", ErrInvalidConfig, falsePositiveRate)
 	}
 
-	m := optimalBits(expectedItems, falsePositiveRate)
+	// Compute the optimal bit count in floating point first so an absurd
+	// configuration is rejected before the (potentially overflowing) cast.
+	mFloat := math.Ceil(-float64(expectedItems) * math.Log(falsePositiveRate) / (math.Ln2 * math.Ln2))
+	if mFloat > maxBits {
+		return nil, fmt.Errorf("%w: this capacity needs %.0f bits, exceeding the %d-bit limit; raise falsePositiveRate or lower expectedItems",
+			ErrInvalidConfig, mFloat, int64(maxBits))
+	}
+	m := uint64(mFloat)
 	k := optimalHashes(m, uint64(expectedItems))
 
 	f := &Filter[T]{
@@ -90,15 +103,15 @@ func WithHasher[T comparable](hasher func(seed uint64, value T) uint64) Option[T
 	}
 }
 
-// Add inserts an element into the filter. Adding the same element twice is a
-// no-op the second time.
+// Add inserts an element into the filter. It is idempotent at the bit level:
+// re-adding an element only sets bits that are already set, leaving the filter
+// unchanged.
 func (f *Filter[T]) Add(value T) {
 	h1, h2 := f.pair(value)
 	for i := uint64(0); i < f.k; i++ {
 		pos := (h1 + i*h2) % f.m
 		f.bitsArr[pos>>6] |= 1 << (pos & 63)
 	}
-	f.added++
 }
 
 // Contains reports whether value may be in the set. A true result is
@@ -127,6 +140,11 @@ func (f *Filter[T]) pair(value T) (uint64, uint64) {
 // membership for the union of both inputs. Both filters must have identical
 // capacity (bit size and hash count) and seed; otherwise Merge returns an error
 // wrapping ErrInvalidConfig and leaves f unchanged.
+//
+// Both filters must also use the same hash function. A custom hasher supplied
+// via WithHasher cannot be compared for equality, so a hasher mismatch is not
+// detected — merging filters built with different hashers silently produces
+// meaningless results.
 func (f *Filter[T]) Merge(other *Filter[T]) error {
 	if other == nil {
 		return fmt.Errorf("%w: cannot merge a nil filter", ErrInvalidConfig)
@@ -135,10 +153,11 @@ func (f *Filter[T]) Merge(other *Filter[T]) error {
 		return fmt.Errorf("%w: filters differ (m=%d/%d k=%d/%d seed=%d/%d)",
 			ErrInvalidConfig, f.m, other.m, f.k, other.k, f.seed, other.seed)
 	}
+	// Equal m guarantees equal bitsArr length, since the length is derived from
+	// m at construction and the fields are unexported.
 	for i := range f.bitsArr {
 		f.bitsArr[i] |= other.bitsArr[i]
 	}
-	f.added += other.added
 	return nil
 }
 
@@ -148,7 +167,6 @@ func (f *Filter[T]) Clear() {
 	for i := range f.bitsArr {
 		f.bitsArr[i] = 0
 	}
-	f.added = 0
 }
 
 // BitSize returns the number of bits in the underlying array (m).
@@ -159,14 +177,17 @@ func (f *Filter[T]) HashCount() uint64 { return f.k }
 
 // ApproxCount estimates the number of distinct elements added, from the count
 // of set bits. It is approximate and saturates as the filter fills; for a
-// filter loaded near or beyond its design capacity prefer a HyperLogLog.
+// filter loaded near or beyond its design capacity prefer a HyperLogLog. When
+// every bit is set the estimator diverges, so ApproxCount returns
+// math.MaxUint64 as a saturation sentinel.
 func (f *Filter[T]) ApproxCount() uint64 {
 	set := f.popcount()
 	if set == 0 {
 		return 0
 	}
 	if set >= f.m {
-		// Fully saturated: the estimator diverges, so report capacity.
+		// Every bit set: the estimator diverges, so return MaxUint64 as a
+		// saturation sentinel.
 		return math.MaxUint64
 	}
 	// Swamidass & Baldi estimator: n ≈ -(m/k)·ln(1 - X/m).
@@ -190,13 +211,6 @@ func (f *Filter[T]) popcount() uint64 {
 		n += bits.OnesCount64(w)
 	}
 	return uint64(n) // #nosec G115 -- popcount over m bits is in [0, m]; never negative
-}
-
-// optimalBits returns the bit-array size m that minimises memory for n items at
-// false-positive rate p: m = ceil(-n·ln p / (ln 2)^2). With n >= 1 and
-// p in (0,1) the numerator is positive, so m >= 1.
-func optimalBits(n int, p float64) uint64 {
-	return uint64(math.Ceil(-float64(n) * math.Log(p) / (math.Ln2 * math.Ln2)))
 }
 
 // optimalHashes returns the hash-function count k that minimises the

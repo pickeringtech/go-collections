@@ -28,6 +28,9 @@ func TestNew_InvalidConfig(t *testing.T) {
 		{"negative epsilon", -0.1, 0.01},
 		{"zero delta", 0.01, 0},
 		{"delta one", 0.01, 1},
+		// Absurd bounds: w*d exceeds the allocation cap, so New rejects it
+		// instead of overflowing or panicking on allocation.
+		{"epsilon astronomically tight", 1e-18, 0.01},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

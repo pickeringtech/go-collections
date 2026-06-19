@@ -13,6 +13,13 @@ import (
 // mismatch, so callers can test with errors.Is.
 var ErrInvalidConfig = errors.New("countmin: invalid configuration")
 
+// maxCounters caps the number of counters (w*d) New will allocate. Bounds tight
+// enough to need more than this — from a minuscule epsilon or delta — are almost
+// certainly a misconfiguration, and the unbounded product risks integer
+// overflow, so New rejects them. 1<<48 counters is 2 PiB, far beyond any real
+// in-memory sketch.
+const maxCounters = 1 << 48
+
 // Sketch is a Count-Min sketch: it tracks approximate frequencies of elements
 // in sublinear space. Estimate never under-reports a count — it returns the
 // true frequency plus a bounded, one-sided error — which makes it the right
@@ -53,9 +60,17 @@ func New[T comparable](epsilon, delta float64, opts ...Option[T]) (*Sketch[T], e
 	}
 
 	// With epsilon, delta in (0,1): e/epsilon > e > 2 so w >= 3, and
-	// ln(1/delta) > 0 so d >= 1 — no clamping is needed.
-	w := uint64(math.Ceil(math.E / epsilon))
-	d := uint64(math.Ceil(math.Log(1 / delta)))
+	// ln(1/delta) > 0 so d >= 1 — no clamping is needed. Compute the dimensions
+	// in floating point first so an absurd configuration is rejected before the
+	// (potentially overflowing) cast and allocation.
+	wFloat := math.Ceil(math.E / epsilon)
+	dFloat := math.Ceil(math.Log(1 / delta))
+	if wFloat*dFloat > maxCounters {
+		return nil, fmt.Errorf("%w: these bounds need %.0f counters, exceeding the %d-counter limit; raise epsilon or delta",
+			ErrInvalidConfig, wFloat*dFloat, int64(maxCounters))
+	}
+	w := uint64(wFloat)
+	d := uint64(dFloat)
 
 	s := &Sketch[T]{
 		counts: make([]uint64, w*d),
@@ -137,6 +152,11 @@ func (s *Sketch[T]) pair(value T) (uint64, uint64) {
 // frequencies over the combined stream. Both sketches must have identical
 // dimensions and seed; otherwise Merge returns an error wrapping
 // ErrInvalidConfig and leaves s unchanged.
+//
+// Both sketches must also use the same hash function. A custom hasher supplied
+// via WithHasher cannot be compared for equality, so a hasher mismatch is not
+// detected — merging sketches built with different hashers silently produces
+// meaningless results.
 func (s *Sketch[T]) Merge(other *Sketch[T]) error {
 	if other == nil {
 		return fmt.Errorf("%w: cannot merge a nil sketch", ErrInvalidConfig)
@@ -145,6 +165,8 @@ func (s *Sketch[T]) Merge(other *Sketch[T]) error {
 		return fmt.Errorf("%w: sketches differ (w=%d/%d d=%d/%d seed=%d/%d)",
 			ErrInvalidConfig, s.w, other.w, s.d, other.d, s.seed, other.seed)
 	}
+	// Equal dimensions guarantee equal counts length, since the length is w*d
+	// and the fields are unexported.
 	for i := range s.counts {
 		if s.counts[i] > math.MaxUint64-other.counts[i] {
 			s.counts[i] = math.MaxUint64

@@ -136,6 +136,11 @@ func (s *Sketch[T]) Count() uint64 {
 // estimates the cardinality of the union of both streams. Both sketches must
 // have identical precision and seed; otherwise Merge returns an error wrapping
 // ErrInvalidConfig and leaves s unchanged.
+//
+// Both sketches must also use the same hash function. A custom hasher supplied
+// via WithHasher cannot be compared for equality, so a hasher mismatch is not
+// detected — merging sketches built with different hashers silently corrupts the
+// union estimate.
 func (s *Sketch[T]) Merge(other *Sketch[T]) error {
 	if other == nil {
 		return fmt.Errorf("%w: cannot merge a nil sketch", ErrInvalidConfig)
@@ -144,6 +149,8 @@ func (s *Sketch[T]) Merge(other *Sketch[T]) error {
 		return fmt.Errorf("%w: sketches differ (precision=%d/%d seed=%d/%d)",
 			ErrInvalidConfig, s.precision, other.precision, s.seed, other.seed)
 	}
+	// Equal precision guarantees equal register length (1<<precision), and the
+	// fields are unexported.
 	for i, r := range other.registers {
 		if r > s.registers[i] {
 			s.registers[i] = r
