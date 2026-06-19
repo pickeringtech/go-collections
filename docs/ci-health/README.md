@@ -33,10 +33,17 @@ in place rather than double-counting.
   queue lands on `main`. The merge-queue *validation* runs sit on the queue ref
   (`gh-readonly-queue/...`), not `main`, so they're excluded; and the
   `bench-report` refresh commits carry `[skip ci]`, so they never start a run.
-- **Healthy** = `conclusion == success`. The denominator counts
-  `success + failure + timed_out + startup_failure`; `cancelled` / `skipped` /
-  `action_required` / `stale` / `neutral` are **excluded** — they're queue churn
-  or human intervention, not signal about main's code health.
+- **Healthy** = the run's **`CI Gate` job** succeeded — the single required check
+  (#41) that aggregates the blocking jobs — **not** the whole-workflow conclusion
+  (issue #213). `ci.yml` also runs non-gating housekeeping jobs (`bench-report`,
+  and this badge job itself) that push regenerable artifacts to `main` and can be
+  rejected (non-fast-forward, or the ruleset's `GH013` — #199) without main's code
+  being red; keying on `CI Gate` stops a best-effort push failure from reading as
+  a broken `main`. The fetch step re-scopes each run to its `CI Gate` outcome
+  before computing. The denominator counts `success + failure + timed_out +
+  startup_failure`; `cancelled` / `skipped` / `action_required` / `stale` /
+  `neutral` are **excluded** — they're queue churn or human intervention, not
+  signal about main's code health.
 - **Percentage** = healthy ÷ counted over each window. The badge message carries
   `n/d` so a small denominator isn't mistaken for a strong signal, and a window
   with too few counted runs is greyed rather than colour-coded.
@@ -66,13 +73,23 @@ actor, issue #199) with `[skip ci]` — so the refresh never trips the queue and
 its own commit never becomes a counted build. The push is best-effort and never
 gates.
 
-Refresh locally the same way the workflow does:
+Refresh locally the same way the workflow does. Fetch the run list, then re-scope
+each run's `conclusion` to its `CI Gate` job (only non-success runs need the extra
+lookup — a green run's gate is green by definition):
 
 ```sh
+repo=pickeringtech/go-collections
 gh api --paginate \
-  '/repos/pickeringtech/go-collections/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100' \
+  "/repos/$repo/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100" \
   --jq '.workflow_runs[] | {id:.id, sha:.head_sha, conclusion:.conclusion, timestamp:.created_at}' \
-  > build/ci-runs.ndjson
+  > build/ci-runs-raw.ndjson
+: > build/ci-runs.ndjson
+while IFS= read -r run; do
+  if [ "$(jq -r .conclusion <<<"$run")" = success ]; then echo "$run"; continue; fi
+  gate=$(gh api "/repos/$repo/actions/runs/$(jq -r .id <<<"$run")/jobs" \
+    --jq 'first(.jobs[] | select(.name=="CI Gate") | .conclusion) // ""')
+  [ "$gate" = success ] && jq -c '.conclusion="success"' <<<"$run" || echo "$run"
+done < build/ci-runs-raw.ndjson >> build/ci-runs.ndjson
 make ci-health-report CI_RUNS=build/ci-runs.ndjson
 ```
 

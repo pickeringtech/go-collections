@@ -18,10 +18,23 @@ name: CI health badges (main-only — recompute & publish)
 # queue lands on main. The merge_group validation runs sit on the queue ref
 # (gh-readonly-queue/...), not main, so they're excluded; and the bench-report
 # refresh commits carry `[skip ci]`, so they never start a run to be counted.
-# Healthy = success; the denominator counts success + failure + timed_out +
-# startup_failure (see tools/cihealth). The numbers come out of `gh api`; the
-# cihealth tool merges, prunes and renders. Daily is plenty for a rolling-window
-# health badge (issue #209) — no need to also fire on every completed run.
+# Healthy = the run's `CI Gate` job succeeded; the denominator counts
+# success + failure + timed_out + startup_failure (see tools/cihealth).
+#
+# WHY the `CI Gate` job and not the whole-workflow conclusion (issue #213). The
+# badge measures whether main's *code* is green, not whether every job in the
+# workflow passed. `ci.yml` also runs non-gating housekeeping jobs — `bench-report`
+# (and, by the same pattern, this very job) push regenerable artifacts to main and
+# can be rejected (non-fast-forward, or the merge-queue ruleset's GH013 — see
+# #199) without main's code being red. Those pushes are best-effort, yet a failed
+# push still flips the whole run's conclusion to `failure`. `CI Gate` is the single
+# required check (#41) that aggregates exactly the blocking jobs, so its outcome is
+# the true code-health signal; keying on it stops a housekeeping push from reading
+# as a broken main. The fetch step below re-scopes each run to its `CI Gate` job.
+#
+# The numbers come out of `gh api`; the cihealth tool merges, prunes and renders.
+# Daily is plenty for a rolling-window health badge (issue #209) — no need to also
+# fire on every completed run.
 
 on:
   schedule:
@@ -59,17 +72,43 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.mod
       - name: Fetch completed CI runs on main (push events)
-        # The jq projection is the small stable contract the cihealth tool reads
-        # (tools/cihealth/parse.go). `--paginate` walks every page so a busy
+        # Emits the small stable contract the cihealth tool reads
+        # (tools/cihealth/parse.go): one NDJSON object per run with
+        # {id, sha, conclusion, timestamp}. `--paginate` walks every page so a busy
         # window isn't truncated at 100; the store's age-prune bounds growth.
+        #
+        # `conclusion` here is re-scoped to the run's `CI Gate` job, not the
+        # whole-workflow conclusion (issue #213 — see the header). A SUCCEEDED run
+        # needs no lookup: every job passed, so `CI Gate` did too. Only a non-success
+        # run is re-checked — if its `CI Gate` job (the single required check)
+        # succeeded, the run counts as healthy regardless of a failed housekeeping
+        # push; otherwise the original conclusion stands. So the extra jobs-API call
+        # happens only on the rare red run, and a green-code/red-housekeeping run no
+        # longer drags the badge down.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           mkdir -p build
           gh api --paginate \
             "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100" \
             --jq '.workflow_runs[] | {id: .id, sha: .head_sha, conclusion: .conclusion, timestamp: .created_at}' \
-            > build/ci-runs.ndjson
+            > build/ci-runs-raw.ndjson
+          : > build/ci-runs.ndjson
+          while IFS= read -r run; do
+            if [ "$(jq -r '.conclusion' <<<"$run")" = "success" ]; then
+              printf '%s\n' "$run" >> build/ci-runs.ndjson
+              continue
+            fi
+            id=$(jq -r '.id' <<<"$run")
+            gate=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs" \
+              --jq 'first(.jobs[] | select(.name == "CI Gate") | .conclusion) // ""')
+            if [ "$gate" = "success" ]; then
+              jq -c '.conclusion = "success"' <<<"$run" >> build/ci-runs.ndjson
+            else
+              printf '%s\n' "$run" >> build/ci-runs.ndjson
+            fi
+          done < build/ci-runs-raw.ndjson
           echo "fetched $(wc -l < build/ci-runs.ndjson) completed run(s)"
       - name: Merge into the tally store and recompute the badges
         # Thin wrapper over `make ci-health-report` so local and CI generation

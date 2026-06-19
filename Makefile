@@ -252,13 +252,11 @@ bench-render: ## Re-render BENCHMARKS.md, docs/bench.svg, and the README preview
 
 # Refresh the main-branch CI health badges (issue #209). Merges newly-fetched CI
 # run history (CI_RUNS, NDJSON — defaults to stdin) into the persisted tally
-# store, then recomputes the 7/30/90-day shields endpoint JSON from it. The
-# scheduled ci-health-badges workflow pipes `gh api` in; locally, fetch a file
-# first, e.g.:
-#   gh api --paginate \
-#     '/repos/pickeringtech/go-collections/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100' \
-#     --jq '.workflow_runs[] | {id:.id, sha:.head_sha, conclusion:.conclusion, timestamp:.created_at}' \
-#     > build/ci-runs.ndjson
+# store, then recomputes the 7/30/90-day shields endpoint JSON from it. Each run's
+# conclusion is the `CI Gate` (code-signal) outcome, not the whole-workflow
+# conclusion (issue #213). The scheduled ci-health-badges workflow does the fetch
+# + CI-Gate re-scope and pipes it in; to refresh locally, build that NDJSON the
+# same way (see the recipe in docs/ci-health/README.md), then:
 #   make ci-health-report CI_RUNS=build/ci-runs.ndjson
 ci-health-report: ## Refresh docs/ci-health/ badge JSON + tally from CI run history (CI_RUNS=<ndjson>)
 	@mkdir -p $(BUILD_DIR) $(CIHEALTH_DATA_DIR)

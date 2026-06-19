@@ -17,6 +17,13 @@ import (
 //
 // A run with any other (or empty/in-progress) conclusion is excluded too, so an
 // unfamiliar future conclusion is ignored rather than silently miscounted.
+//
+// The Conclusion this tool counts is the run's CODE-SIGNAL outcome — the `CI Gate`
+// job, the single required check (#41) — not the whole-workflow conclusion (issue
+// #213). The fetch layer (the ci-health-badges workflow) does that re-scoping
+// before piping runs in, so a failed non-gating housekeeping push (bench-report /
+// ci-health, GH013 — #199) doesn't read here as a broken main. This tool stays a
+// pure counter: it trusts the conclusion it's given.
 var countedConclusions = map[string]bool{
 	"success":         true,
 	"failure":         true,

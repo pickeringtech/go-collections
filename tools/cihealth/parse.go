@@ -13,6 +13,9 @@ import (
 //
 //	gh api .../runs --jq '.workflow_runs[]
 //	  | {id: .id, sha: .head_sha, conclusion: .conclusion, timestamp: .created_at}'
+//
+// conclusion is the run's CODE-SIGNAL outcome — its `CI Gate` job, re-scoped by
+// the workflow before piping in (issue #213), not the whole-workflow conclusion.
 type runJSON struct {
 	ID         int64  `json:"id"`
 	SHA        string `json:"sha"`
