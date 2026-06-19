@@ -86,7 +86,8 @@ func FuzzSum(f *testing.F) {
 		if sum != a+b+c {
 			t.Errorf("Sum() = %v, want %v", sum, a+b+c)
 		}
-		if rev, _ := stats.Sum([]int{c, b, a}); rev != sum {
+		rev, _ := stats.Sum([]int{c, b, a})
+		if rev != sum {
 			t.Errorf("Sum not order-independent: %v vs %v", sum, rev)
 		}
 	})
