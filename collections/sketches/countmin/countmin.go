@@ -16,9 +16,9 @@ var ErrInvalidConfig = errors.New("countmin: invalid configuration")
 // maxCounters caps the number of counters (w*d) New will allocate. Bounds tight
 // enough to need more than this — from a minuscule epsilon or delta — are almost
 // certainly a misconfiguration, and the unbounded product risks integer
-// overflow, so New rejects them. 1<<48 counters is 2 PiB, far beyond any real
+// overflow, so New rejects them. 1<<40 counters is 8 TiB, far beyond any real
 // in-memory sketch.
-const maxCounters = 1 << 48
+const maxCounters = 1 << 40
 
 // Sketch is a Count-Min sketch: it tracks approximate frequencies of elements
 // in sublinear space. Estimate never under-reports a count — it returns the

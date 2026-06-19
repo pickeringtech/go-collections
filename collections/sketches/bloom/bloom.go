@@ -37,9 +37,9 @@ type Filter[T comparable] struct {
 // maxBits caps the bit-array size New will allocate. A filter needing more bits
 // than this — from an enormous expectedItems or a minuscule falsePositiveRate —
 // is almost certainly a misconfiguration, and the unbounded size risks integer
-// overflow, so New rejects it. 1<<48 bits is 32 TiB, far beyond any real
+// overflow, so New rejects it. 1<<40 bits is 128 GiB, far beyond any real
 // in-memory filter.
-const maxBits = 1 << 48
+const maxBits = 1 << 40
 
 // Interface guard.
 var _ Membership[string] = (*Filter[string])(nil)

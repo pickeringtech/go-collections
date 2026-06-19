@@ -32,7 +32,8 @@ func TestNew_InvalidConfig(t *testing.T) {
 		{"rate above one", 100, 1.5},
 		// Absurd capacity: the optimal bit count exceeds the allocation cap, so
 		// New rejects it instead of overflowing or panicking on allocation.
-		{"astronomically large", 1 << 60, 0.01},
+		// (Inputs stay within a 32-bit int so the test builds on all GOARCHes.)
+		{"astronomically large", 1_000_000_000, 1e-300},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
