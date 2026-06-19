@@ -81,6 +81,13 @@ func newConfig(opts []Option) config {
 	for _, opt := range opts {
 		opt(&cfg)
 	}
+	// Normalise an out-of-range policy back to the default so run and resolve
+	// cannot disagree about it: run only cancels for StopOnError, while resolve
+	// treats any unrecognised value as StopOnError, and that split would be a
+	// surprising contract for an exported API.
+	if cfg.policy < StopOnError || cfg.policy > ContinueOnError {
+		cfg.policy = StopOnError
+	}
 	return cfg
 }
 
@@ -192,7 +199,10 @@ func run(ctx context.Context, n int, cfg config, task func(context.Context, int)
 					cancel()
 				}
 			}
-			return err
+			// Always report success to the limiter: its []error return is
+			// unused (errors are tracked by index above), so returning the real
+			// error would only push it onto the limiter's slow lock+append path.
+			return nil
 		}
 	}
 

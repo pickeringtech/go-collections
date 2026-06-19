@@ -27,10 +27,11 @@ func TestMap(t *testing.T) {
 		opts  []concurrency.Option
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    []int
-		wantErr bool
+		name      string
+		args      args
+		want      []int
+		wantErr   bool
+		wantErrIs error
 	}{
 		{
 			name: "doubles every element preserving order",
@@ -64,8 +65,11 @@ func TestMap(t *testing.T) {
 				},
 			},
 			// output[1] stays zero (failed); other positions may or may not be
-			// filled depending on scheduling, so only the error is asserted.
-			wantErr: true,
+			// filled depending on scheduling, so only the error is asserted. The
+			// error must be the work error itself (StopOnError's documented
+			// contract), not a context error from the internal cancellation.
+			wantErr:   true,
+			wantErrIs: errBoom,
 		},
 	}
 	for _, tt := range tests {
@@ -73,6 +77,9 @@ func TestMap(t *testing.T) {
 			got, err := concurrency.Map(context.Background(), tt.args.input, tt.args.fn, tt.args.opts...)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Map() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErrIs != nil && !errors.Is(err, tt.wantErrIs) {
+				t.Errorf("Map() error = %v, want it to wrap %v", err, tt.wantErrIs)
 			}
 			if tt.want != nil && !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Map() = %v, want %v", got, tt.want)
@@ -134,6 +141,17 @@ func TestMapErrorPolicies(t *testing.T) {
 		}
 		if got := len(joined.Unwrap()); got != 2 {
 			t.Errorf("Map() collected %d errors, want 2", got)
+		}
+	})
+
+	t.Run("unknown policy is normalised to stop on error", func(t *testing.T) {
+		// An out-of-range ErrorPolicy must behave exactly like the default
+		// StopOnError - returning the work error - rather than splitting between
+		// run (no cancel) and resolve (first error).
+		_, err := concurrency.Map(context.Background(), input, failEven,
+			concurrency.WithErrorPolicy(concurrency.ErrorPolicy(99)))
+		if !errors.Is(err, errBoom) {
+			t.Errorf("Map() error = %v, want errBoom under normalised policy", err)
 		}
 	})
 
