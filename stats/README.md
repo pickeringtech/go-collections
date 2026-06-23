@@ -120,7 +120,8 @@ These conventions are deliberate:
 - **NaN/Inf policy.** This splits by family, not uniformly. The
   variance/covariance/correlation family, the arithmetic reductions (`Sum`,
   `Product`, `CumulativeSum`) and the transforms **propagate** non-finite input:
-  the result is non-finite and `ok == true`, never silently filtered out, so a
+  the result is non-finite (`ok == true` where there is an `ok` flag —
+  `CumulativeSum` returns a bare `[]T`), never silently filtered out, so a
   `NaN` in the data surfaces as a `NaN` statistic rather than a plausible-looking
   wrong number. The means, the quantile family (including `Median`), `Range`,
   `Mode`, `Entropy` and `Gini` instead **reject** it with `ok == false`, since
