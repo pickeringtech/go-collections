@@ -104,9 +104,10 @@
 // Callbacks passed to ForEach and the iterator methods (All, Keys, Values) run
 // after the lock is released, against a point-in-time snapshot taken under the
 // lock. They may therefore safely re-enter the same cache (read it, or mutate
-// it) without deadlocking. The eviction callback registered with WithOnEvict is
-// the exception: it fires while the lock is held, so it must not call back into
-// the cache — keep it cheap and non-blocking.
+// it) without deadlocking. The eviction callback registered with WithOnEvict
+// behaves the same way: it fires after the lock is released, so it may safely
+// call back into the same cache without deadlocking — but keep it cheap and
+// non-blocking to avoid stalling the operation that triggered the eviction.
 //
 // # Performance
 //
