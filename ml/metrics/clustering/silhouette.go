@@ -53,27 +53,37 @@ func validate(points [][]float64, labels []int) (clusters int, ok bool) {
 	return k, true
 }
 
+// clusterDistances sums, for point i, the distances to every other point
+// grouped by the other point's cluster label (i itself excluded). ok is false
+// when dist returns a non-finite or negative distance, since such a value would
+// push a coefficient outside the documented [−1, 1] range.
+func clusterDistances(points [][]float64, labels []int, i int, dist DistanceFunc) (sums map[int]float64, counts map[int]int, ok bool) {
+	sums = make(map[int]float64)
+	counts = make(map[int]int)
+	for j := range points {
+		if i == j {
+			continue
+		}
+		d := dist(points[i], points[j])
+		if math.IsNaN(d) || math.IsInf(d, 0) || d < 0 {
+			return nil, nil, false
+		}
+		sums[labels[j]] += d
+		counts[labels[j]]++
+	}
+	return sums, counts, true
+}
+
 // samples computes the per-sample silhouette coefficients under dist, assuming
-// validate has already passed. ok is false when dist returns a non-finite or
-// negative distance, since such a value would push a coefficient outside the
-// documented [−1, 1] range.
+// validate has already passed. ok is false when dist misbehaves (see
+// clusterDistances).
 func samples(points [][]float64, labels []int, dist DistanceFunc) ([]float64, bool) {
-	n := len(points)
-	s := make([]float64, n)
+	s := make([]float64, len(points))
 	for i := range points {
 		// Mean distance from point i to each cluster (excluding i itself).
-		sums := make(map[int]float64)
-		counts := make(map[int]int)
-		for j := range points {
-			if i == j {
-				continue
-			}
-			d := dist(points[i], points[j])
-			if math.IsNaN(d) || math.IsInf(d, 0) || d < 0 {
-				return nil, false
-			}
-			sums[labels[j]] += d
-			counts[labels[j]]++
+		sums, counts, ok := clusterDistances(points, labels, i, dist)
+		if !ok {
+			return nil, false
 		}
 
 		own := labels[i]
