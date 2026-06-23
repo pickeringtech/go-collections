@@ -87,9 +87,9 @@
 //	// onto a full deque drops the element at the opposite end (a sliding window);
 //	// RejectWhenFull makes the push a no-op instead.
 //	window := collections.NewBoundedDeque[int](2, deques.OverwriteOldest)
-//	window.PushBackInPlace(1)
-//	window.PushBackInPlace(2)
-//	window.PushBackInPlace(3) // drops 1; window holds 2 3
+//	window = window.PushBack(1)
+//	window = window.PushBack(2)
+//	window = window.PushBack(3) // drops 1; window holds 2 3
 //
 // # Heaps - Priority Queues
 //
