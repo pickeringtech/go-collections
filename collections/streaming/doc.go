@@ -38,8 +38,19 @@
 // # Exact vs Approximate
 //
 // TopK is exact: Result is precisely the k highest-ranked elements seen, never
-// an estimate. (Approximate sketches — frequency, cardinality — are a separate
-// concern and live elsewhere.)
+// an estimate. Reservoir and WeightedReservoir are exact in their sampling
+// probabilities — they are randomized, but the distribution they draw from is
+// the precise one specified, not an approximation. (Approximate sketches —
+// frequency, cardinality — are a separate concern and live elsewhere.)
+//
+// # Determinism and Seeding
+//
+// The sampling types take an explicit *math/rand/v2.Rand as their last
+// constructor parameter and are deterministic by default: passing nil uses a
+// fixed seed (equivalent to NewRand(0)), so the same stream always yields the
+// same sample. Supply your own generator — NewRand(seed) is provided for
+// convenience — to vary or pin the sequence. The generator is non-cryptographic;
+// it is meant for reproducibility, not security.
 //
 // # Thread Safety
 //
@@ -52,4 +63,15 @@
 // TopK[T]:
 //   - Streaming top-k by an arbitrary LessFunc, backed by a size-bounded
 //     min-heap (collections/heaps). Add is O(log k); Result is O(k log k).
+//
+// Reservoir[T]:
+//   - Uniform fixed-size sampling over an unbounded stream (Vitter's Algorithm
+//     R). Every element seen is retained with equal probability k/n. Add is
+//     O(1) in O(k) memory.
+//
+// WeightedReservoir[T]:
+//   - Weighted fixed-size sampling without replacement (Efraimidis & Spirakis
+//     A-Res), backed by a size-bounded min-heap (collections/heaps). An
+//     element's retention probability grows with its weight. Add is O(log k) in
+//     O(k) memory.
 package streaming
