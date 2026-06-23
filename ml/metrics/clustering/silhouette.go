@@ -13,8 +13,10 @@ type DistanceFunc func(a, b []float64) float64
 
 // EuclideanDistance is the default metric — the straight-line (L2) distance
 // between two points, sqrt(Σ(aᵢ − bᵢ)²). It delegates to the module's canonical
-// stats.EuclideanDistance; validate has already guaranteed equal-length,
-// finite, non-empty coordinate rows, so the ok flag is always true here.
+// stats.EuclideanDistance. validate guarantees equal-length, finite coordinate
+// rows before this runs, so the ok flag is discarded: the only remaining input
+// that makes it false is a zero-dimensional row, whose distance is 0 anyway —
+// the same value the previous local implementation returned.
 func EuclideanDistance(a, b []float64) float64 {
 	d, _ := stats.EuclideanDistance(a, b)
 	return d
