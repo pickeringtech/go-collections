@@ -64,7 +64,7 @@ func Manhattan[T constraints.Numeric](a, b []T) (float64, bool) {
 //
 // Non-finite inputs (NaN/Inf) propagate to a non-finite result with ok == true.
 func Minkowski[T constraints.Numeric](a, b []T, p float64) (float64, bool) {
-	if math.IsNaN(p) || math.IsInf(p, 1) || p < 1 {
+	if math.IsNaN(p) || math.IsInf(p, 0) || p < 1 {
 		return 0, false
 	}
 	if len(a) != len(b) || len(a) == 0 {
