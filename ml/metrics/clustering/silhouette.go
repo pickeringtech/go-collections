@@ -54,8 +54,10 @@ func validate(points [][]float64, labels []int) (clusters int, ok bool) {
 }
 
 // samples computes the per-sample silhouette coefficients under dist, assuming
-// validate has already passed.
-func samples(points [][]float64, labels []int, dist DistanceFunc) []float64 {
+// validate has already passed. ok is false when dist returns a non-finite or
+// negative distance, since such a value would push a coefficient outside the
+// documented [−1, 1] range.
+func samples(points [][]float64, labels []int, dist DistanceFunc) ([]float64, bool) {
 	n := len(points)
 	s := make([]float64, n)
 	for i := range points {
@@ -67,6 +69,9 @@ func samples(points [][]float64, labels []int, dist DistanceFunc) []float64 {
 				continue
 			}
 			d := dist(points[i], points[j])
+			if math.IsNaN(d) || math.IsInf(d, 0) || d < 0 {
+				return nil, false
+			}
 			sums[labels[j]] += d
 			counts[labels[j]]++
 		}
@@ -99,7 +104,7 @@ func samples(points [][]float64, labels []int, dist DistanceFunc) []float64 {
 			s[i] = (b - a) / denom
 		}
 	}
-	return s
+	return s, true
 }
 
 // SilhouetteSamplesWith returns the silhouette coefficient of every sample
@@ -110,13 +115,15 @@ func samples(points [][]float64, labels []int, dist DistanceFunc) []float64 {
 //
 // ok is false (and the result is nil) when the inputs cannot be summarised:
 // fewer than two points, len(labels) != len(points), ragged coordinate rows,
-// any non-finite coordinate, or a cluster count outside [2, n−1].
+// any non-finite coordinate, or a cluster count outside [2, n−1]. It is also
+// false when dist is nil or returns a non-finite or negative distance, since
+// such a metric would void the [−1, 1] guarantee.
 func SilhouetteSamplesWith(points [][]float64, labels []int, dist DistanceFunc) ([]float64, bool) {
 	_, ok := validate(points, labels)
-	if !ok {
+	if !ok || dist == nil {
 		return nil, false
 	}
-	return samples(points, labels, dist), true
+	return samples(points, labels, dist)
 }
 
 // SilhouetteSamples is SilhouetteSamplesWith using EuclideanDistance.

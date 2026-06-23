@@ -124,6 +124,36 @@ func TestSilhouetteScoreWithCustomMetric(t *testing.T) {
 	}
 }
 
+func TestSilhouetteWithNilMetric(t *testing.T) {
+	if s, ok := clustering.SilhouetteSamplesWith(wellSeparated, twoClusters, nil); ok || s != nil {
+		t.Errorf("SilhouetteSamplesWith(nil) = %v %v, want nil false", s, ok)
+	}
+	if score, ok := clustering.SilhouetteScoreWith(wellSeparated, twoClusters, nil); ok || score != 0 {
+		t.Errorf("SilhouetteScoreWith(nil) = %v %v, want 0 false", score, ok)
+	}
+}
+
+func TestSilhouetteRejectsMisbehavingMetric(t *testing.T) {
+	tests := []struct {
+		name string
+		dist clustering.DistanceFunc
+	}{
+		{"NaN", func(a, b []float64) float64 { return math.NaN() }},
+		{"Inf", func(a, b []float64) float64 { return math.Inf(1) }},
+		{"negative", func(a, b []float64) float64 { return -1 }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if s, ok := clustering.SilhouetteSamplesWith(wellSeparated, twoClusters, tt.dist); ok || s != nil {
+				t.Errorf("SilhouetteSamplesWith = %v %v, want nil false", s, ok)
+			}
+			if score, ok := clustering.SilhouetteScoreWith(wellSeparated, twoClusters, tt.dist); ok || score != 0 {
+				t.Errorf("SilhouetteScoreWith = %v %v, want 0 false", score, ok)
+			}
+		})
+	}
+}
+
 func TestNoMutation(t *testing.T) {
 	points := [][]float64{{0, 0}, {0.5, 0}, {10, 0}, {10.5, 0}}
 	snapshot := make([][]float64, len(points))
