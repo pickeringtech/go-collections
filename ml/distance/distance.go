@@ -6,26 +6,21 @@ import (
 
 	"github.com/pickeringtech/go-collections/constraints"
 	"github.com/pickeringtech/go-collections/ml/similarity"
+	"github.com/pickeringtech/go-collections/stats"
 )
 
 // Euclidean computes the L2 (straight-line) distance between two numeric
 // vectors: √(Σ (aᵢ - bᵢ)²). It is the most common notion of physical distance
 // in n-dimensional space.
 //
-// It returns ok == false for empty input or vectors of differing lengths —
-// the distance is undefined in those cases. Non-finite inputs (NaN/Inf)
-// propagate to a non-finite result with ok == true, following the package's
-// NaN/Inf policy.
+// It delegates to stats.EuclideanDistance, the module's canonical vector
+// geometry, whose scaled sum-of-squares is both overflow-safe and
+// Kahan-precise. It returns ok == false for empty input or vectors of differing
+// lengths — the distance is undefined in those cases. Non-finite inputs
+// (NaN/Inf) propagate to a non-finite result with ok == true, following the
+// package's NaN/Inf policy.
 func Euclidean[T constraints.Numeric](a, b []T) (float64, bool) {
-	if len(a) != len(b) || len(a) == 0 {
-		return 0, false
-	}
-	var dist float64
-	for i := range a {
-		diff := float64(a[i]) - float64(b[i])
-		dist = math.Hypot(dist, diff)
-	}
-	return dist, true
+	return stats.EuclideanDistance(a, b)
 }
 
 // Manhattan computes the L1 (taxicab) distance between two numeric vectors:
