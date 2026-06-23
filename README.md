@@ -13,7 +13,7 @@
 
 **A comprehensive, type-safe, and high-performance collections library for Go**
 
-Go Collections provides data structures and utilities for working with collections in Go. It includes thread-safe maps, mathematical sets, and flexible lists.
+Go Collections provides data structures and utilities for working with collections in Go. It includes thread-safe maps, mathematical sets, and flexible lists — plus deques, heaps, LRU caches and probabilistic sketches, bounded-concurrency transforms, and a growing numeric surface for statistics, relational (split-apply-combine) reshaping, and machine-learning metrics.
 
 ## Features
 
@@ -89,15 +89,24 @@ func main() {
 | **[Slices](./slices/)** | Enhanced slice operations | Filtering, mapping, reducing |
 | **[Maps](./maps/)** | Native map utilities | Key extraction, value transformation |
 | **[Channels](./channels/)** | Channel-based pipelines | Stream processing, fan-out/fan-in |
+| **[Concurrency](./concurrency/)** | Bounded-concurrency work limiters and data-parallel transforms | Order-preserving parallel Map/ForEach/Batch over a worker pool |
 | **[Constraints](./constraints/)** | Type constraints for generics | Custom generic functions |
-| **[Sketches](./collections/sketches/)** | Probabilistic data structures | MinHash for approximate Jaccard over large sets |
+| **[Sketches](./collections/sketches/)** | Probabilistic data structures | MinHash, Bloom, Count-Min, HyperLogLog over large sets |
 
-### ML / Data Engineering
+### Statistics & Data Engineering
+
+| Package | Description | Use Cases |
+|---------|-------------|-----------|
+| **[Stats](./stats/)** | Numeric summaries over slices | Sums, means, quantiles, variance, covariance/correlation, regression, value-rescaling transforms |
+| **[Relational](./relational/)** | Split-apply-combine over native slices/maps | GroupBy and aggregate, the four joins, pivot/unpivot, partition |
+
+### ML
 
 | Package | Description | Use Cases |
 |---------|-------------|-----------|
 | **[ml/distance](./ml/distance/)** | Distance metrics (lower = closer) | Euclidean, Manhattan, Minkowski, Cosine, Hamming, Levenshtein |
 | **[ml/similarity](./ml/similarity/)** | Similarity metrics (higher = more alike) | Cosine similarity, Jaccard, Dice, Overlap |
+| **[ml/metrics](./ml/metrics/)** | Model-evaluation metrics by problem type | Regression (MSE/RMSE/R²), classification (precision/recall/F1, ROC/AUC), clustering (silhouette), ranking (DCG/NDCG, MAP) |
 
 ## Choose Your Data Structure
 
@@ -280,6 +289,9 @@ build-and-run E2E-tested against golden output in CI on every PR:
 - **[set-algebra](./examples/cmd/set-algebra)** — union / intersection / difference / subset over `sets`
 - **[worker-pipeline](./examples/cmd/worker-pipeline)** — fan-out/fan-in a stream through a bounded worker pool (`channels` + `concurrency`)
 - **[ordered-processing](./examples/cmd/ordered-processing)** — reverse, replay and sort with `lists`
+- **[collection-transform](./examples/cmd/collection-transform)** — Map / FlatMap / Reduce across `lists`, `sets` and `dicts`
+- **[leaderboard](./examples/cmd/leaderboard)** — tally a scoring stream with a concurrent dict, then rank with a sorted dict and a heap
+- **[stream-cache](./examples/cmd/stream-cache)** — replay key accesses through a bounded `lru` cache and a `deques` ring buffer over a context-governed `channels` stream
 
 They consume the library as a separate module, so they double as a
 downstream-consumer smoke test. See the [examples README](./examples/README.md).
@@ -290,13 +302,19 @@ downstream-consumer smoke test. See the [examples README](./examples/README.md).
 - **[Sets Documentation](./collections/sets/README.md)** - Mathematical sets
 - **[Lists Documentation](./collections/lists/README.md)** - Ordered sequences
 - **[Multimaps Documentation](./collections/multimaps/README.md)** - One key, many values
+- **[Deques Documentation](./collections/deques/README.md)** - Double-ended queue / bounded ring buffer
+- **[Heaps Documentation](./collections/heaps/README.md)** - Binary heap / priority queue
 - **[LRU Documentation](./collections/lru/README.md)** - Bounded cache with eviction
 - **[Slices Utilities](./slices/README.md)** - Enhanced slice operations
 - **[Maps Utilities](./maps/README.md)** - Native map helpers
 - **[Channels Utilities](./channels/README.md)** - Pipeline processing
+- **[Concurrency Utilities](./concurrency/)** - Bounded-concurrency work limiters and parallel transforms
 - **[Sketches](./collections/sketches/README.md)** - MinHash and other probabilistic sketches
+- **[Stats](./stats/README.md)** - Numeric summaries: means, quantiles, variance, correlation, regression, transforms
+- **[Relational](./relational/README.md)** - Split-apply-combine: GroupBy/aggregate, joins, pivot/unpivot, partition
 - **[ML Distance](./ml/distance/README.md)** - Distance metrics (Euclidean, Manhattan, Minkowski, Cosine, Hamming, Levenshtein)
 - **[ML Similarity](./ml/similarity/README.md)** - Similarity metrics (Cosine, Jaccard, Dice, Overlap)
+- **[ML Metrics](./ml/metrics/README.md)** - Model-evaluation metrics (regression, classification, clustering, ranking)
 - **[Mutation Testing](./docs/mutation-testing.md)** - How we verify the tests catch regressions, not just run lines
 
 ## Contributing
