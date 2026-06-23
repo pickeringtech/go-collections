@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/pickeringtech/go-collections/channels"
+	"github.com/pickeringtech/go-collections/slices"
 )
 
 // FuzzFromSliceCollect asserts the round-trip invariant: streaming a slice
@@ -100,6 +101,105 @@ func FuzzPipelineFilterMap(f *testing.F) {
 			if got[i] != want[i] {
 				t.Fatalf("pipeline[%d] = %d, want %d", i, got[i], want[i])
 			}
+		}
+	})
+}
+
+// FuzzTumblingWindow is a differential fuzz test: streaming an arbitrary byte
+// slice through TumblingWindow must reproduce slices.Chunk with its trailing
+// partial chunk dropped — same window count, same widths (all == size), same
+// element order — and never panic.
+func FuzzTumblingWindow(f *testing.F) {
+	f.Add([]byte(nil), 2)
+	f.Add([]byte{}, 2)
+	f.Add([]byte{1}, 1)
+	f.Add([]byte{1, 2, 3, 4, 5, 6}, 3)
+	f.Add([]byte{1, 2, 3, 4, 5, 6, 7}, 3)
+	f.Add([]byte{1, 2, 3}, 0)
+
+	f.Fuzz(func(t *testing.T, data []byte, size int) {
+		// Keep size in a sane band so fuzzing explores boundaries without
+		// allocating absurd windows; non-positive stays meaningful.
+		if size > len(data)+8 {
+			size = len(data) + 8
+		}
+		if size < -2 {
+			size = -2
+		}
+
+		ctx := context.Background()
+		out := channels.TumblingWindow(ctx, channels.FromSlice(ctx, data), size)
+
+		var want [][]byte
+		for _, chunk := range slices.Chunk(data, size) {
+			if len(chunk) == size {
+				want = append(want, chunk)
+			}
+		}
+
+		idx := 0
+		for w := range out {
+			if idx >= len(want) {
+				t.Fatalf("TumblingWindow emitted more windows than the chunk-oracle (size=%d, data=%v)", size, data)
+			}
+			if len(w) != size {
+				t.Fatalf("window %d width = %d, want %d", idx, len(w), size)
+			}
+			for j := range w {
+				if w[j] != want[idx][j] {
+					t.Fatalf("window %d element %d = %d, want %d", idx, j, w[j], want[idx][j])
+				}
+			}
+			idx++
+		}
+		if idx != len(want) {
+			t.Fatalf("TumblingWindow emitted %d windows, chunk-oracle has %d (size=%d)", idx, len(want), size)
+		}
+	})
+}
+
+// FuzzSlidingWindow is a differential fuzz test for the step==1 case: streaming
+// an arbitrary byte slice through SlidingWindow with step 1 must reproduce
+// slices.Window exactly — same window count, same widths (all == size), same
+// element order — and never panic.
+func FuzzSlidingWindow(f *testing.F) {
+	f.Add([]byte(nil), 2)
+	f.Add([]byte{}, 2)
+	f.Add([]byte{1}, 1)
+	f.Add([]byte{1, 2, 3, 4, 5}, 3)
+	f.Add([]byte{1, 2, 3, 4, 5, 6}, 2)
+	f.Add([]byte{1, 2, 3}, 0)
+
+	f.Fuzz(func(t *testing.T, data []byte, size int) {
+		if size > len(data)+8 {
+			size = len(data) + 8
+		}
+		if size < -2 {
+			size = -2
+		}
+
+		ctx := context.Background()
+		out := channels.SlidingWindow(ctx, channels.FromSlice(ctx, data), size, 1)
+
+		want := slices.Window(data, size) // step-1 sliding window is exactly this
+
+		idx := 0
+		for w := range out {
+			if idx >= len(want) {
+				t.Fatalf("SlidingWindow emitted more windows than the window-oracle (size=%d, data=%v)", size, data)
+			}
+			if len(w) != size {
+				t.Fatalf("window %d width = %d, want %d", idx, len(w), size)
+			}
+			for j := range w {
+				if w[j] != want[idx][j] {
+					t.Fatalf("window %d element %d = %d, want %d", idx, j, w[j], want[idx][j])
+				}
+			}
+			idx++
+		}
+		if idx != len(want) {
+			t.Fatalf("SlidingWindow emitted %d windows, window-oracle has %d (size=%d)", idx, len(want), size)
 		}
 	})
 }
