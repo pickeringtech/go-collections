@@ -20,12 +20,17 @@ lowStock := maps.Filter(inventory, func(item string, count int) bool {
 })
 // Result: {"oranges": 30, "bananas": 20}
 
-// Transform values
-doubled := maps.MapValues(inventory, func(count int) int {
-    return count * 2
+// Map rebuilds the map and can change the key, the value, or both;
+// here it doubles each value and keeps the key.
+doubled := maps.Map(inventory, func(item string, count int) (string, int) {
+    return item, count * 2
 })
 // Result: {"apples": 100, "oranges": 60, "bananas": 40}
 ```
+
+Every operation is a standalone function that takes a map and returns a new one,
+so compose them by nesting the calls (`maps.Map(maps.Filter(m, keep), transform)`)
+rather than chaining methods.
 
 ## Maps vs Collections/Dicts - When to Use What?
 
@@ -83,68 +88,53 @@ topPerformers := maps.Filter(highScores, func(name string, score int) bool {
 // Result: {"alice": 95, "charlie": 92}
 ```
 
-### Transform Operations
+### Map - Transform Keys and/or Values
 
-#### MapValues - Transform All Values
+`Map` is the single transform primitive: the function receives each key and
+value and returns the new key and value. Change only the value, only the key, or
+both - there are no separate `MapValues`/`MapKeys` helpers.
+
 ```go
-// Convert temperatures from Celsius to Fahrenheit
+// Transform values only - return the key unchanged
 temperatures := map[string]int{
     "New York": 20, "London": 15, "Tokyo": 25,
 }
 
-fahrenheit := maps.MapValues(temperatures, func(celsius int) int {
-    return celsius*9/5 + 32
+fahrenheit := maps.Map(temperatures, func(city string, celsius int) (string, int) {
+    return city, celsius*9/5 + 32
 })
 // Result: {"New York": 68, "London": 59, "Tokyo": 77}
 
-// Convert scores to grades
+// The value type can change too - here int scores become string grades
 scores := map[string]int{"alice": 95, "bob": 87, "charlie": 92}
-grades := maps.MapValues(scores, func(score int) string {
-    if score >= 90 { return "A" }
-    if score >= 80 { return "B" }
-    return "C"
+grades := maps.Map(scores, func(name string, score int) (string, string) {
+    if score >= 90 {
+        return name, "A"
+    }
+    if score >= 80 {
+        return name, "B"
+    }
+    return name, "C"
 })
 // Result: {"alice": "A", "bob": "B", "charlie": "A"}
-```
 
-#### MapKeys - Transform All Keys
-```go
-// Clean up API field names
-apiResponse := map[string]interface{}{
-    "user_id":    123,
-    "user_name":  "alice",
-    "user_email": "alice@example.com",
+// Transform keys only - return the value unchanged
+apiResponse := map[string]int{
+    "user_id":   123,
+    "user_age":  30,
 }
 
-cleanFields := maps.MapKeys(apiResponse, func(key string) string {
-    return strings.TrimPrefix(key, "user_")
+cleanFields := maps.Map(apiResponse, func(key string, value int) (string, int) {
+    return strings.TrimPrefix(key, "user_"), value
 })
-// Result: {"id": 123, "name": "alice", "email": "alice@example.com"}
+// Result: {"id": 123, "age": 30}
 
-// Convert keys to uppercase
-data := map[string]int{"apple": 1, "banana": 2}
-upperKeys := maps.MapKeys(data, strings.ToUpper)
-// Result: {"APPLE": 1, "BANANA": 2}
-```
-
-#### Map - Transform Both Keys and Values
-```go
-// Transform user data
+// Transform both keys and values at once
 users := map[int]string{1: "alice", 2: "bob", 3: "charlie"}
-
 userEmails := maps.Map(users, func(id int, name string) (string, string) {
     return name, fmt.Sprintf("%s@company.com", name)
 })
 // Result: {"alice": "alice@company.com", "bob": "bob@company.com", ...}
-
-// Create reverse mapping with transformation
-inventory := map[string]int{"apples": 50, "oranges": 30}
-stockLevels := maps.Map(inventory, func(item string, count int) (int, string) {
-    level := "high"
-    if count < 40 { level = "low" }
-    return count, fmt.Sprintf("%s (%s stock)", item, level)
-})
-// Result: {50: "apples (high stock)", 30: "oranges (low stock)"}
 ```
 
 ### Utility Operations
@@ -160,23 +150,30 @@ students := maps.Keys(scores)
 allScores := maps.Values(scores)
 // Result: [95, 87, 92] (order not guaranteed)
 
-// Process extracted data with slices package
+// Process extracted data with the slices package
 sortedStudents := slices.Sort(students, func(a, b string) bool { return a < b })
-averageScore := slices.Reduce(allScores, 0, func(acc, score int) int {
+total := slices.Reduce(allScores, func(acc, score int) int {
     return acc + score
-}) / len(allScores)
+})
+averageScore := total / len(allScores)
 ```
 
 #### Invert - Swap Keys and Values
+
+There is no dedicated `Invert`; swap keys and values with `Map` by returning the
+value as the new key and the key as the new value.
+
 ```go
 // Create reverse lookup
 userRoles := map[string]string{
     "alice": "admin", "bob": "user", "charlie": "admin",
 }
 
-roleUsers := maps.Invert(userRoles)
+roleUsers := maps.Map(userRoles, func(user, role string) (string, string) {
+    return role, user
+})
 // Result: {"admin": "charlie", "user": "bob"}
-// Note: Duplicate values will overwrite, only last key is kept
+// Note: Duplicate values collide, so only the last key written is kept.
 
 // Better approach for multiple values per key
 roleToUsers := make(map[string][]string)
@@ -186,32 +183,35 @@ for user, role := range userRoles {
 // Result: {"admin": ["alice", "charlie"], "user": ["bob"]}
 ```
 
-#### Merge - Combine Maps
+#### Update - Combine Maps
+
+`Update` copies the first map and applies the entries from the second on top,
+so colliding keys take the second map's value.
+
 ```go
 // Merge configuration maps
 defaults := map[string]string{
-    "host": "localhost",
-    "port": "8080",
+    "host":  "localhost",
+    "port":  "8080",
     "debug": "false",
 }
 
 userConfig := map[string]string{
-    "host": "production.com",
+    "host":  "production.com",
     "debug": "true",
 }
 
-finalConfig := maps.Merge(defaults, userConfig)
+finalConfig := maps.Update(defaults, userConfig)
 // Result: {"host": "production.com", "port": "8080", "debug": "true"}
 // userConfig values override defaults
 
-// Merge multiple maps
+// Combine more than two maps by nesting - later maps override earlier ones
 config1 := map[string]int{"a": 1, "b": 2}
 config2 := map[string]int{"b": 3, "c": 4}
 config3 := map[string]int{"c": 5, "d": 6}
 
-merged := maps.Merge(config1, config2, config3)
+merged := maps.Update(maps.Update(config1, config2), config3)
 // Result: {"a": 1, "b": 3, "c": 5, "d": 6}
-// Later maps override earlier ones
 ```
 
 ## Real-World Examples
@@ -235,52 +235,35 @@ dbConfig := maps.Filter(rawConfig, func(key, value string) bool {
     return strings.HasPrefix(key, "database.")
 })
 
-// Clean up keys (remove prefix)
-cleanDbConfig := maps.MapKeys(dbConfig, func(key string) string {
-    return strings.TrimPrefix(key, "database.")
+// Clean up keys (remove prefix), keeping the values unchanged
+cleanDbConfig := maps.Map(dbConfig, func(key, value string) (string, string) {
+    return strings.TrimPrefix(key, "database."), value
 })
 // Result: {"host": "localhost", "port": "5432", "name": "myapp"}
-
-// Convert port to integer
-dbConfigTyped := maps.MapValues(cleanDbConfig, func(value string) interface{} {
-    if key == "port" {
-        port, _ := strconv.Atoi(value)
-        return port
-    }
-    return value
-})
 ```
 
 ### API Response Processing
 ```go
 // Process API response data
-apiResponse := map[string]interface{}{
+apiResponse := map[string]any{
     "user_id":       123,
     "user_name":     "Alice Johnson",
     "user_email":    "alice@example.com",
     "user_active":   true,
-    "created_at":    "2023-01-01T00:00:00Z",
-    "updated_at":    "2023-06-01T12:00:00Z",
     "internal_id":   "abc123",
     "internal_flag": true,
 }
 
 // Extract only user fields
-userFields := maps.Filter(apiResponse, func(key string, value interface{}) bool {
+userFields := maps.Filter(apiResponse, func(key string, value any) bool {
     return strings.HasPrefix(key, "user_")
 })
 
-// Clean up field names
-cleanUserData := maps.MapKeys(userFields, func(key string) string {
-    return strings.TrimPrefix(key, "user_")
+// Clean up field names by stripping the prefix from each key
+cleanUserData := maps.Map(userFields, func(key string, value any) (string, any) {
+    return strings.TrimPrefix(key, "user_"), value
 })
 // Result: {"id": 123, "name": "Alice Johnson", "email": "alice@example.com", "active": true}
-
-// Convert to specific types
-typedUserData := maps.MapValues(cleanUserData, func(value interface{}) interface{} {
-    // Type conversion logic here
-    return value
-})
 ```
 
 ### Data Aggregation
@@ -299,35 +282,22 @@ sales2023 := maps.Filter(salesData, func(quarter string, amount int) bool {
     return strings.Contains(quarter, "2023")
 })
 
-// Calculate growth rates
-previousAmount := 0
-growthRates := maps.MapValues(sales2023, func(amount int) float64 {
-    if previousAmount == 0 {
-        previousAmount = amount
-        return 0.0
-    }
-    growth := float64(amount-previousAmount) / float64(previousAmount) * 100
-    previousAmount = amount
-    return growth
-})
-
-// Total sales
-totalSales := slices.Reduce(maps.Values(sales2023), 0, func(acc, amount int) int {
+// Total sales - extract the values, then reduce with the slices package
+totalSales := slices.Reduce(maps.Values(sales2023), func(acc, amount int) int {
     return acc + amount
 })
+// Result: 55000
 ```
 
 ### Environment Variable Processing
 ```go
 // Process environment variables
 envVars := map[string]string{
-    "APP_NAME":        "myapp",
-    "APP_VERSION":     "1.0.0",
-    "APP_DEBUG":       "true",
-    "DB_HOST":         "localhost",
-    "DB_PORT":         "5432",
-    "REDIS_URL":       "redis://localhost:6379",
-    "LOG_LEVEL":       "info",
+    "APP_NAME":    "myapp",
+    "APP_VERSION": "1.0.0",
+    "APP_DEBUG":   "true",
+    "DB_HOST":     "localhost",
+    "DB_PORT":     "5432",
 }
 
 // Group by prefix
@@ -335,23 +305,11 @@ appConfig := maps.Filter(envVars, func(key, value string) bool {
     return strings.HasPrefix(key, "APP_")
 })
 
-dbConfig := maps.Filter(envVars, func(key, value string) bool {
-    return strings.HasPrefix(key, "DB_")
-})
-
-// Convert to lowercase keys
-appConfigLower := maps.MapKeys(appConfig, func(key string) string {
-    return strings.ToLower(strings.TrimPrefix(key, "APP_"))
+// Normalise the keys: strip the prefix and lowercase, keeping the value
+appConfigLower := maps.Map(appConfig, func(key, value string) (string, string) {
+    return strings.ToLower(strings.TrimPrefix(key, "APP_")), value
 })
 // Result: {"name": "myapp", "version": "1.0.0", "debug": "true"}
-
-// Convert boolean strings
-appConfigTyped := maps.MapValues(appConfigLower, func(value string) interface{} {
-    if value == "true" || value == "false" {
-        return value == "true"
-    }
-    return value
-})
 ```
 
 ## Performance Guide
@@ -372,8 +330,8 @@ appConfigTyped := maps.MapValues(appConfigLower, func(value string) interface{} 
 BenchmarkFilter/Manual-16        100M    15.2 ns/op     0 B/op    0 allocs/op
 BenchmarkFilter/Functional-16     50M    28.4 ns/op    64 B/op    1 allocs/op
 
-BenchmarkMapValues/Manual-16     100M    18.1 ns/op     0 B/op    0 allocs/op
-BenchmarkMapValues/Functional-16  45M    32.7 ns/op    72 B/op    1 allocs/op
+BenchmarkMap/Manual-16           100M    18.1 ns/op     0 B/op    0 allocs/op
+BenchmarkMap/Functional-16        45M    32.7 ns/op    72 B/op    1 allocs/op
 ```
 
 **Key Insights:**
@@ -402,18 +360,19 @@ itemSet := collections.NewSet(items...)
 inventoryDict := collections.NewDict(
     slices.Map(items, func(item string) collections.Pair[string, int] {
         return collections.Pair[string, int]{Key: item, Value: inventory[item]}
-    })...
+    })...,
 )
 
 // Process collections data back to maps
-userDict := collections.NewDict(...)
 userMap := make(map[int]string)
 userDict.ForEach(func(id int, name string) {
     userMap[id] = name
 })
 
-// Apply maps transformations
-processedUsers := maps.MapValues(userMap, strings.ToUpper)
+// Apply maps transformations - uppercase each value, keep the key
+processedUsers := maps.Map(userMap, func(id int, name string) (int, string) {
+    return id, strings.ToUpper(name)
+})
 ```
 
 ## Best Practices
@@ -425,21 +384,26 @@ activeUsers := maps.Filter(users, func(id int, user User) bool {
     return user.Active
 })
 
-// Good: Use MapValues for value transformation
-uppercaseNames := maps.MapValues(names, strings.ToUpper)
+// Good: Use Map to transform values, returning the key unchanged
+uppercaseNames := maps.Map(names, func(id int, name string) (int, string) {
+    return id, strings.ToUpper(name)
+})
 
-// Good: Use MapKeys for key transformation
-cleanKeys := maps.MapKeys(apiData, func(key string) string {
-    return strings.TrimPrefix(key, "api_")
+// Good: Use Map to transform keys, returning the value unchanged
+cleanKeys := maps.Map(apiData, func(key string, value int) (string, int) {
+    return strings.TrimPrefix(key, "api_"), value
 })
 ```
 
-### 2. Consider Performance
+### 2. Compose by Nesting
 ```go
-// For business logic - prioritize clarity
-processedConfig := maps.Filter(config, isValid).
-    MapValues(normalize).
-    MapKeys(cleanKey)
+// For business logic - prioritise clarity by nesting standalone calls
+normalised := maps.Map(
+    maps.Filter(config, isValid),
+    func(key string, value int) (string, int) {
+        return cleanKey(key), normalize(value)
+    },
+)
 
 // For hot paths - use manual iteration
 func processHotPath(data map[string]int) map[string]int {
@@ -468,11 +432,11 @@ func processUserData(users map[int]User) map[int]string {
     if users == nil {
         return make(map[int]string)
     }
-    return maps.MapValues(users, func(user User) string {
+    return maps.Map(users, func(id int, user User) (int, string) {
         if user.Name == "" {
-            return "Unknown"
+            return id, "Unknown"
         }
-        return user.Name
+        return id, user.Name
     })
 }
 ```
@@ -482,20 +446,17 @@ func processUserData(users map[int]User) map[int]string {
 ### Essential Operations
 ```go
 // Filter
-maps.Filter(m, func(k K, v V) bool { ... })     // Keep matching pairs
+maps.Filter(m, func(k K, v V) bool { ... })          // Keep matching pairs
 
-// Transform
-maps.MapKeys(m, func(k K) K2 { ... })           // Transform keys
-maps.MapValues(m, func(v V) V2 { ... })         // Transform values
-maps.Map(m, func(k K, v V) (K2, V2) { ... })    // Transform both
+// Transform (Map is the single primitive for keys and/or values)
+maps.Map(m, func(k K, v V) (OK, OV) { ... })         // Transform keys, values, or both
 
 // Extract
-maps.Keys(m)                                    // Get all keys
-maps.Values(m)                                  // Get all values
+maps.Keys(m)                                         // Get all keys
+maps.Values(m)                                       // Get all values
 
-// Utility
-maps.Invert(m)                                  // Swap keys/values
-maps.Merge(m1, m2, m3)                          // Combine maps
+// Combine
+maps.Update(m1, m2)                                  // m2's entries override m1's
 ```
 
 Use these operations to process configuration data and API responses, and to transform existing map data with functional operations.
