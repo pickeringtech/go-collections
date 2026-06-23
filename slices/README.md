@@ -10,10 +10,11 @@ import "github.com/pickeringtech/go-collections/slices"
 // Transform data with functional style
 numbers := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 
-// Chain operations elegantly
+// Each operation is a standalone function that takes a slice and returns a
+// new one, so compose them by nesting the calls (or use intermediate vars).
 evens := slices.Filter(numbers, func(n int) bool { return n%2 == 0 })
 squares := slices.Map(evens, func(n int) int { return n * n })
-sum := slices.Reduce(squares, 0, func(acc, n int) int { return acc + n })
+sum := slices.Reduce(squares, func(acc, n int) int { return acc + n })
 
 fmt.Printf("Sum of squares of evens: %d\n", sum) // 220
 ```
@@ -43,11 +44,14 @@ for _, n := range squares {
 
 **Functional approach is clean and expressive:**
 ```go
-// Functional approach - elegant and clear
-sum := slices.Filter(numbers, isEven).
-    Map(square).
-    Reduce(0, add)
+// Functional approach - each step is a standalone call
+evens := slices.Filter(numbers, isEven)
+squares := slices.Map(evens, square)
+sum := slices.Reduce(squares, add)
 ```
+
+Operations are plain functions, not methods, so there is no fluent
+`Filter(...).Map(...)` chaining - nest the calls or use intermediate variables.
 
 ## Core Operations
 
@@ -64,12 +68,6 @@ upper := slices.Map(names, strings.ToUpper)
 users := []User{{Name: "Alice", Age: 25}, {Name: "Bob", Age: 30}}
 ages := slices.Map(users, func(u User) int { return u.Age })
 // Result: [25, 30]
-
-// Transform with index
-indexed := slices.MapWithIndex(names, func(i int, name string) string {
-    return fmt.Sprintf("%d: %s", i+1, name)
-})
-// Result: ["1: alice", "2: bob", "3: charlie"]
 ```
 
 #### Filter - Keep Matching Elements
@@ -92,22 +90,33 @@ activeAdults := slices.Filter(adults, func(u User) bool { return u.Active })
 ```
 
 #### Reduce - Combine Into Single Value
+
+`Reduce[I, O]` is two-argument: it takes the input slice and a reduction
+function `func(acc O, item I) O`. The accumulator starts at the zero value of
+`O`, so there is no separate initial-value parameter.
+
 ```go
-// Sum numbers
+// Sum numbers - the accumulator starts at 0
 numbers := []int{1, 2, 3, 4, 5}
-sum := slices.Reduce(numbers, 0, func(acc, n int) int { return acc + n })
+sum := slices.Reduce(numbers, func(acc, n int) int { return acc + n })
 // Result: 15
 
-// Find maximum
-max := slices.Reduce(numbers, numbers[0], func(acc, n int) int {
-    if n > acc { return n }
+// Find maximum (inputs are positive, so a zero start is safe here)
+max := slices.Reduce(numbers, func(acc, n int) int {
+    if n > acc {
+        return n
+    }
     return acc
 })
 // Result: 5
 
-// Build map from slice
+// Build a map from a slice - the accumulator is a nil map until the first
+// call, so initialise it on first use.
 words := []string{"apple", "banana", "cherry"}
-lengths := slices.Reduce(words, make(map[string]int), func(acc map[string]int, word string) map[string]int {
+lengths := slices.Reduce(words, func(acc map[string]int, word string) map[string]int {
+    if acc == nil {
+        acc = map[string]int{}
+    }
     acc[word] = len(word)
     return acc
 })
@@ -131,29 +140,29 @@ users := []User{{Name: "Alice"}, {Name: "Bob"}}
 user, found := slices.Find(users, func(u User) bool { return u.Name == "Bob" })
 ```
 
-#### Contains - Check Existence
+#### IndexOf - Locate a Value
 ```go
 fruits := []string{"apple", "banana", "cherry"}
 
-hasApple := slices.Contains(fruits, "apple")        // true
-hasMango := slices.Contains(fruits, "mango")        // false
+hasApple := slices.IndexOf(fruits, "apple") != -1   // true
+hasMango := slices.IndexOf(fruits, "mango") != -1   // false
 
-// Custom comparison
+// For a predicate-based existence check, use AnyMatch
 users := []User{{ID: 1}, {ID: 2}, {ID: 3}}
-hasUser := slices.ContainsFunc(users, func(u User) bool { return u.ID == 2 })
+hasUser := slices.AnyMatch(users, func(u User) bool { return u.ID == 2 })
 ```
 
-#### All/Any - Condition Checking
+#### AllMatch/AnyMatch - Condition Checking
 ```go
 numbers := []int{2, 4, 6, 8}
 
-allEven := slices.All(numbers, func(n int) bool { return n%2 == 0 })  // true
-anyOdd := slices.Any(numbers, func(n int) bool { return n%2 == 1 })   // false
+allEven := slices.AllMatch(numbers, func(n int) bool { return n%2 == 0 })  // true
+anyOdd := slices.AnyMatch(numbers, func(n int) bool { return n%2 == 1 })   // false
 
 // Check user permissions
 users := []User{{Role: "admin"}, {Role: "user"}}
-allAdmins := slices.All(users, func(u User) bool { return u.Role == "admin" }) // false
-hasAdmin := slices.Any(users, func(u User) bool { return u.Role == "admin" })  // true
+allAdmins := slices.AllMatch(users, func(u User) bool { return u.Role == "admin" }) // false
+hasAdmin := slices.AnyMatch(users, func(u User) bool { return u.Role == "admin" })  // true
 ```
 
 ### Utility Operations
@@ -254,10 +263,11 @@ users := []User{
     {Name: "Charlie", Age: 30, Active: false, Email: "charlie@example.com"},
 }
 
-// Get emails of active adult users
-emails := slices.Filter(users, func(u User) bool {
+// Get emails of active adult users - filter, then map the result
+activeAdults := slices.Filter(users, func(u User) bool {
     return u.Active && u.Age >= 18
-}).Map(func(u User) string {
+})
+emails := slices.Map(activeAdults, func(u User) string {
     return u.Email
 })
 
@@ -275,19 +285,22 @@ logs := []LogEntry{
 }
 
 // Count errors by type
-errorCounts := slices.Filter(logs, func(log LogEntry) bool {
+errors := slices.Filter(logs, func(log LogEntry) bool {
     return log.Level == "ERROR"
-}).Reduce(make(map[string]int), func(acc map[string]int, log LogEntry) map[string]int {
-    errorType := extractErrorType(log.Message)
-    acc[errorType]++
+})
+errorCounts := slices.Reduce(errors, func(acc map[string]int, log LogEntry) map[string]int {
+    if acc == nil {
+        acc = map[string]int{}
+    }
+    acc[extractErrorType(log.Message)]++
     return acc
 })
 
 // Find recent critical errors
 recentCritical := slices.Filter(logs, func(log LogEntry) bool {
     return log.Level == "ERROR" &&
-           time.Since(log.Timestamp) < time.Hour &&
-           strings.Contains(log.Message, "critical")
+        time.Since(log.Timestamp) < time.Hour &&
+        strings.Contains(log.Message, "critical")
 })
 ```
 
@@ -302,13 +315,18 @@ configLines := []string{
     "cache.enabled=true",
 }
 
-// Parse valid config entries
-config := slices.Filter(configLines, func(line string) bool {
+// Parse valid config entries - filter, map to entries, then reduce to a map
+validLines := slices.Filter(configLines, func(line string) bool {
     return !strings.HasPrefix(line, "#") && strings.Contains(line, "=")
-}).Map(func(line string) ConfigEntry {
+})
+entries := slices.Map(validLines, func(line string) ConfigEntry {
     parts := strings.SplitN(line, "=", 2)
     return ConfigEntry{Key: parts[0], Value: parts[1]}
-}).Reduce(make(map[string]string), func(acc map[string]string, entry ConfigEntry) map[string]string {
+})
+config := slices.Reduce(entries, func(acc map[string]string, entry ConfigEntry) map[string]string {
+    if acc == nil {
+        acc = map[string]string{}
+    }
     acc[entry.Key] = entry.Value
     return acc
 })
@@ -351,22 +369,12 @@ BenchmarkReduce/Functional-16    150M    11.4 ns/op     0 B/op    0 allocs/op
 ### Optimization Tips
 
 ```go
-// Good: Chain operations to minimize intermediate allocations
-result := slices.Filter(data, condition1).
-    Filter(condition2).
-    Map(transform)
+// Good: Use Reduce for aggregations - it allocates no intermediate slice
+sum := slices.Reduce(numbers, add)
 
-// Avoid: Multiple separate operations
-filtered1 := slices.Filter(data, condition1)
-filtered2 := slices.Filter(filtered1, condition2)
-result := slices.Map(filtered2, transform)
-
-// Good: Use Reduce for aggregations
-sum := slices.Reduce(numbers, 0, add)
-
-// Avoid: Map then reduce when you can reduce directly
+// Avoid: Map then Reduce when you can reduce directly
 squares := slices.Map(numbers, square)
-sum := slices.Reduce(squares, 0, add)
+sum := slices.Reduce(squares, add)
 ```
 
 ## Integration with Collections
@@ -378,8 +386,8 @@ Slices package works seamlessly with the collections package:
 users := []User{...}
 
 // Create set of active user emails
-activeEmails := slices.Filter(users, func(u User) bool { return u.Active }).
-    Map(func(u User) string { return u.Email })
+active := slices.Filter(users, func(u User) bool { return u.Active })
+activeEmails := slices.Map(active, func(u User) string { return u.Email })
 
 emailSet := collections.NewSet(activeEmails...)
 
@@ -387,7 +395,7 @@ emailSet := collections.NewSet(activeEmails...)
 userRoles := collections.NewDict(
     slices.Map(users, func(u User) collections.Pair[int, string] {
         return collections.Pair[int, string]{Key: u.ID, Value: u.Role}
-    })...
+    })...,
 )
 
 // Process collections data with slices
@@ -399,40 +407,19 @@ adminUsers := slices.Filter(allUsers, func(u User) bool { return u.Role == "admi
 
 ### 1. Prefer Readability
 ```go
-// Clear and expressive
-activeAdultEmails := slices.Filter(users, isActive).
-    Filter(isAdult).
-    Map(getEmail)
+// Clear and expressive - one standalone call per step
+active := slices.Filter(users, isActive)
+adults := slices.Filter(active, isAdult)
+emails := slices.Map(adults, getEmail)
 
-// Overly complex single operation
-activeAdultEmails := slices.Filter(users, func(u User) bool {
+// A single combined predicate is fine too when the logic is simple
+activeAdults := slices.Filter(users, func(u User) bool {
     return u.Active && u.Age >= 18
-}).Map(func(u User) string { return u.Email })
+})
+emails := slices.Map(activeAdults, getEmail)
 ```
 
-### 2. Consider Performance
-```go
-// For business logic - prioritize clarity
-processedData := slices.Filter(data, isValid).
-    Map(transform).
-    Filter(isRelevant)
-
-// For hot paths - use manual loops
-func processHotPath(data []Item) []Result {
-    results := make([]Result, 0, len(data))
-    for _, item := range data {
-        if isValid(item) {
-            transformed := transform(item)
-            if isRelevant(transformed) {
-                results = append(results, transformed)
-            }
-        }
-    }
-    return results
-}
-```
-
-### 3. Use Appropriate Operations
+### 2. Use Appropriate Operations
 ```go
 // Use Find for first match
 user, found := slices.Find(users, func(u User) bool { return u.ID == targetID })
@@ -441,22 +428,38 @@ user, found := slices.Find(users, func(u User) bool { return u.ID == targetID })
 matches := slices.Filter(users, func(u User) bool { return u.ID == targetID })
 if len(matches) > 0 { user = matches[0] }
 
-// Use Contains for existence checks
-hasAdmin := slices.Any(users, func(u User) bool { return u.Role == "admin" })
+// Use AnyMatch for existence checks
+hasAdmin := slices.AnyMatch(users, func(u User) bool { return u.Role == "admin" })
 
 // Don't use Filter for existence
 admins := slices.Filter(users, func(u User) bool { return u.Role == "admin" })
 hasAdmin := len(admins) > 0
 ```
 
-### 4. Handle Edge Cases
+### 3. Handle Edge Cases
 ```go
-// Safe operations
-func safeProcess(data []int) int {
+// Safe operations - sum is a natural fit for Reduce because the zero-value
+// accumulator (0) is the correct starting point.
+func safeSum(data []int) int {
     if len(data) == 0 {
         return 0
     }
-    return slices.Reduce(data, data[0], max)
+    return slices.Reduce(data, func(acc, n int) int { return acc + n })
+}
+
+// For max, don't lean on Reduce - its accumulator starts at the zero value, so
+// an all-negative slice would wrongly yield 0. Seed from the first element.
+func safeMax(data []int) (int, bool) {
+    if len(data) == 0 {
+        return 0, false
+    }
+    max := data[0]
+    for _, n := range data[1:] {
+        if n > max {
+            max = n
+        }
+    }
+    return max, true
 }
 
 // Validate inputs
@@ -473,20 +476,20 @@ func processUsers(users []User) []string {
 ### Essential Operations
 ```go
 // Transform
-slices.Map(slice, transformFunc)           // Transform each element
-slices.Filter(slice, predicateFunc)        // Keep matching elements
-slices.Reduce(slice, initial, combineFunc) // Combine into single value
+slices.Map(slice, transformFunc)            // Transform each element
+slices.Filter(slice, predicateFunc)         // Keep matching elements
+slices.Reduce(slice, combineFunc)           // Combine into single value (acc starts at zero)
 
 // Search
-element, found := slices.Find(slice, predicateFunc)    // First match
-exists := slices.Contains(slice, element)              // Check existence
-all := slices.All(slice, predicateFunc)               // All match condition
-any := slices.Any(slice, predicateFunc)               // Any match condition
+element, found := slices.Find(slice, predicateFunc)  // First match
+index := slices.IndexOf(slice, value)                // Position, or -1 if absent
+all := slices.AllMatch(slice, predicateFunc)         // All match condition
+any := slices.AnyMatch(slice, predicateFunc)         // Any match condition
 
 // Utility
-slices.Unique(slice)                       // Remove duplicates
-slices.Reverse(slice)                      // Reverse order
-slices.Chunk(slice, size)                  // Split into groups
+slices.Unique(slice)                        // Remove duplicates
+slices.Reverse(slice)                       // Reverse order
+slices.Chunk(slice, size)                   // Split into groups
 ```
 
 Start with `Map`, `Filter`, and `Reduce` - these three operations can handle most data transformation needs!
