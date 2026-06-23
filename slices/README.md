@@ -438,17 +438,28 @@ hasAdmin := len(admins) > 0
 
 ### 3. Handle Edge Cases
 ```go
-// Safe operations
-func safeProcess(data []int) int {
+// Safe operations - sum is a natural fit for Reduce because the zero-value
+// accumulator (0) is the correct starting point.
+func safeSum(data []int) int {
     if len(data) == 0 {
         return 0
     }
-    return slices.Reduce(data, func(acc, n int) int {
-        if n > acc {
-            return n
+    return slices.Reduce(data, func(acc, n int) int { return acc + n })
+}
+
+// For max, don't lean on Reduce - its accumulator starts at the zero value, so
+// an all-negative slice would wrongly yield 0. Seed from the first element.
+func safeMax(data []int) (int, bool) {
+    if len(data) == 0 {
+        return 0, false
+    }
+    max := data[0]
+    for _, n := range data[1:] {
+        if n > max {
+            max = n
         }
-        return acc
-    })
+    }
+    return max, true
 }
 
 // Validate inputs

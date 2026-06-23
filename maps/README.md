@@ -172,8 +172,10 @@ userRoles := map[string]string{
 roleUsers := maps.Map(userRoles, func(user, role string) (string, string) {
     return role, user
 })
-// Result: {"admin": "charlie", "user": "bob"}
-// Note: Duplicate values collide, so only the last key written is kept.
+// Result: {"admin": <alice or charlie>, "user": "bob"}
+// Note: Duplicate values collide. Both "alice" and "charlie" map to "admin",
+// and because Go map iteration order is randomized, which one survives is not
+// deterministic - don't rely on a particular winner.
 
 // Better approach for multiple values per key
 roleToUsers := make(map[string][]string)
