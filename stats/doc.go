@@ -111,7 +111,9 @@
 //   - PercentileOfScore is the inverse of Percentile: the percentage of values
 //     at or below a given score.
 //   - Dot, Norm, EuclideanDistance and CosineSimilarity provide the vector
-//     operations common to ML-adjacent work.
+//     operations common to ML-adjacent work. These are the module's canonical
+//     vector geometry: the ml/distance, ml/similarity and clustering metrics
+//     delegate here rather than carrying their own copies.
 //
 // As elsewhere, the moment-based statistics (regression, skewness, kurtosis) and
 // the vector operations let non-finite values propagate (ok == true with a
