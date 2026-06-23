@@ -55,8 +55,9 @@ func validate(points [][]float64, labels []int) (clusters int, ok bool) {
 
 // clusterDistances sums, for point i, the distances to every other point
 // grouped by the other point's cluster label (i itself excluded). ok is false
-// when dist returns a non-finite or negative distance, since such a value would
-// push a coefficient outside the documented [−1, 1] range.
+// when dist returns a non-finite or negative distance — or when summing many
+// large distances overflows to ±Inf — since either would push a coefficient
+// outside the documented [−1, 1] range.
 func clusterDistances(points [][]float64, labels []int, i int, dist DistanceFunc) (sums map[int]float64, counts map[int]int, ok bool) {
 	sums = make(map[int]float64)
 	counts = make(map[int]int)
@@ -69,6 +70,11 @@ func clusterDistances(points [][]float64, labels []int, i int, dist DistanceFunc
 			return nil, nil, false
 		}
 		sums[labels[j]] += d
+		if math.IsInf(sums[labels[j]], 0) {
+			// The running total overflowed; a mean built from it would
+			// yield Inf/Inf == NaN downstream, voiding the range guarantee.
+			return nil, nil, false
+		}
 		counts[labels[j]]++
 	}
 	return sums, counts, true

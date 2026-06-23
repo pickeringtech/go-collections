@@ -42,9 +42,10 @@
 // — when the inputs cannot be summarised: fewer than two points, a label slice
 // of the wrong length, ragged coordinate rows, any non-finite coordinate, or a
 // cluster count outside [2, n−1] (silhouette is undefined for a single cluster
-// or for one-point-per-cluster). For the *With variants ok is also false when
-// the supplied DistanceFunc is nil or returns a non-finite or negative
-// distance, which would otherwise void the [−1, 1] guarantee. A lone point in
-// its cluster is given a silhouette of 0. Inputs are never mutated, and the
-// mean over samples routes through stats.Mean.
+// or for one-point-per-cluster). For the SilhouetteScoreWith and
+// SilhouetteSamplesWith variants ok is also false when the supplied
+// DistanceFunc is nil or returns a non-finite or negative distance, which would
+// otherwise void the [−1, 1] guarantee. A lone point in its cluster is given a
+// silhouette of 0. Inputs are never mutated, and the mean over samples routes
+// through stats.Mean.
 package clustering

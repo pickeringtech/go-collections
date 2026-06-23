@@ -154,6 +154,23 @@ func TestSilhouetteRejectsMisbehavingMetric(t *testing.T) {
 	}
 }
 
+func TestSilhouetteRejectsOverflowingMetric(t *testing.T) {
+	// A finite, non-negative metric whose accumulated sum overflows to +Inf.
+	// Point 0's own cluster has two other members, so MaxFloat64 + MaxFloat64
+	// overflows before any mean is taken — which would otherwise produce a NaN
+	// coefficient while still reporting ok == true.
+	points := [][]float64{{0, 0}, {1, 0}, {2, 0}, {10, 0}, {11, 0}}
+	labels := []int{0, 0, 0, 1, 1}
+	huge := func(a, b []float64) float64 { return math.MaxFloat64 }
+
+	if s, ok := clustering.SilhouetteSamplesWith(points, labels, huge); ok || s != nil {
+		t.Errorf("SilhouetteSamplesWith = %v %v, want nil false", s, ok)
+	}
+	if score, ok := clustering.SilhouetteScoreWith(points, labels, huge); ok || score != 0 {
+		t.Errorf("SilhouetteScoreWith = %v %v, want 0 false", score, ok)
+	}
+}
+
 func TestNoMutation(t *testing.T) {
 	points := [][]float64{{0, 0}, {0.5, 0}, {10, 0}, {10.5, 0}}
 	snapshot := make([][]float64, len(points))
