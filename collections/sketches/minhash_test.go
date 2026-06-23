@@ -225,3 +225,52 @@ func TestNewMinHash_negativeNumHashesClampedToOne(t *testing.T) {
 		t.Fatalf("EstimatedJaccard = %v, want in [0,1]", est)
 	}
 }
+
+func TestEstimatedJaccard_nilSketches(t *testing.T) {
+	valid := sketches.NewMinHash[string](16, nil)
+
+	cases := []struct {
+		name string
+		a, b *sketches.MinHash[string]
+	}{
+		{"both nil", nil, nil},
+		{"first nil", nil, valid},
+		{"second nil", valid, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			est, ok := sketches.EstimatedJaccard(tc.a, tc.b)
+			if ok {
+				t.Fatalf("EstimatedJaccard ok = true, want false for nil sketch")
+			}
+			if est != 0 {
+				t.Fatalf("EstimatedJaccard = %v, want 0 for nil sketch", est)
+			}
+		})
+	}
+}
+
+func TestEstimatedJaccard_zeroValueSketch(t *testing.T) {
+	// A zero-value sketch has no permutations; it must not yield (NaN, true).
+	valid := sketches.NewMinHash[string](16, nil)
+
+	cases := []struct {
+		name string
+		a, b *sketches.MinHash[string]
+	}{
+		{"both zero-value", &sketches.MinHash[string]{}, &sketches.MinHash[string]{}},
+		{"first zero-value", &sketches.MinHash[string]{}, valid},
+		{"second zero-value", valid, &sketches.MinHash[string]{}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			est, ok := sketches.EstimatedJaccard(tc.a, tc.b)
+			if ok {
+				t.Fatalf("EstimatedJaccard ok = true, want false for zero-value sketch")
+			}
+			if est != 0 {
+				t.Fatalf("EstimatedJaccard = %v, want 0 for zero-value sketch", est)
+			}
+		})
+	}
+}
