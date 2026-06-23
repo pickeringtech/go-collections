@@ -106,7 +106,7 @@ A tier of richer operations, all keeping the package conventions (see below).
 
 ## Conventions
 
-These conventions are deliberate and apply uniformly across the package:
+These conventions are deliberate:
 
 - **Numerical stability.** Variance, covariance and correlation use
   [Welford's online algorithm](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm),
@@ -117,9 +117,15 @@ These conventions are deliberate and apply uniformly across the package:
 - **Empty/edge contract.** Statistics on undefined input return `ok == false`
   rather than a silent zero. Sample variants are undefined for fewer than two
   elements; population variants only for empty input.
-- **NaN/Inf policy.** Non-finite inputs propagate: the result is non-finite and
-  `ok == true`. Values are never silently filtered out, so a `NaN` in the data
-  surfaces as a `NaN` statistic rather than a plausible-looking wrong number.
+- **NaN/Inf policy.** This splits by family, not uniformly. The
+  variance/covariance/correlation family, the arithmetic reductions (`Sum`,
+  `Product`, `CumulativeSum`) and the transforms **propagate** non-finite input:
+  the result is non-finite (`ok == true` where there is an `ok` flag —
+  `CumulativeSum` returns a bare `[]T`), never silently filtered out, so a
+  `NaN` in the data surfaces as a `NaN` statistic rather than a plausible-looking
+  wrong number. The means, the quantile family (including `Median`), `Range`,
+  `Mode`, `Entropy` and `Gini` instead **reject** it with `ok == false`, since
+  the statistic would be undefined. See [`doc.go`](doc.go) for the full split.
 - **Sample vs population.** Both variants are offered where
   [Bessel's correction](https://en.wikipedia.org/wiki/Bessel%27s_correction)
   applies, named unambiguously, so the choice is always the caller's.

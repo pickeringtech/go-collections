@@ -145,6 +145,10 @@ func ForEach[T any](ctx context.Context, input []T, fn EachFunc[T], opts ...Opti
 // batches run at once. It is the batched counterpart of ForEach; for a batched
 // transform, compose slices.Chunk with Map instead.
 //
+// Each batch aliases input's backing array (it is a slices.Chunk view), so
+// appending to a batch is safe but mutating a batch element in place (batch[j] =
+// …) writes through to input; copy first if fn must not touch the original.
+//
 // If size <= 0, or input is empty or nil, there are no chunks, fn is never
 // called and the result is nil. The error follows the configured ErrorPolicy; a
 // cancelled context always wins and is returned in preference to any work error.
