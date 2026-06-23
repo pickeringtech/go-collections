@@ -113,10 +113,18 @@ func (m *MinHash[T]) Signature() []uint64 {
 // It returns ok == false when the two sketches are incompatible: they must have
 // the same number of hash functions (numHashes) and the same permutation
 // coefficients. Sketches created with different rng instances will typically
-// have mismatched parameters and are not comparable.
+// have mismatched parameters and are not comparable. A nil sketch, or a
+// zero-value sketch with no permutations (e.g. &MinHash[T]{}), is likewise
+// not comparable and yields ok == false.
 //
 // The estimate is in [0, 1].
 func EstimatedJaccard[T comparable](a, b *MinHash[T]) (float64, bool) {
+	if a == nil || b == nil {
+		return 0, false
+	}
+	if len(a.perms) == 0 || len(b.perms) == 0 {
+		return 0, false
+	}
 	if len(a.perms) != len(b.perms) {
 		return 0, false
 	}
