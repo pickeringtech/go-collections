@@ -15,7 +15,7 @@ Non-finite inputs (NaN/Inf) propagate with `ok == true`.
 |----------|---------|-------|
 | `Euclidean[T](a, b []T)` | √(Σ (aᵢ−bᵢ)²) | L2 straight-line distance |
 | `Manhattan[T](a, b []T)` | Σ \|aᵢ−bᵢ\| | L1 taxicab distance |
-| `Minkowski[T](a, b []T, p)` | (Σ \|aᵢ−bᵢ\|ᵖ)^(1/p) | Generalises L1 and L2; `p<1` → `ok=false` |
+| `Minkowski[T](a, b []T, p)` | (Σ \|aᵢ−bᵢ\|ᵖ)^(1/p) | Generalises L1 and L2; non-finite `p` or `p<1` → `ok=false`; large `p` handled stably |
 | `CosineDistance[T](a, b []T)` | 1 − CosineSimilarity(a, b) | In [0, 2]; zero-vector → `ok=false` |
 
 ```go

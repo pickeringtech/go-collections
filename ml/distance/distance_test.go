@@ -223,6 +223,30 @@ func TestMinkowski(t *testing.T) {
 			ok:   false,
 		},
 		{
+			name: "NaN p is undefined",
+			args: args{a: []float64{0, 0}, b: []float64{1, 1}, p: math.NaN()},
+			want: 0,
+			ok:   false,
+		},
+		{
+			name: "+Inf p is undefined",
+			args: args{a: []float64{0, 0}, b: []float64{1, 1}, p: math.Inf(1)},
+			want: 0,
+			ok:   false,
+		},
+		{
+			name: "-Inf p is undefined",
+			args: args{a: []float64{0, 0}, b: []float64{1, 1}, p: math.Inf(-1)},
+			want: 0,
+			ok:   false,
+		},
+		{
+			name: "all-zero differences give zero",
+			args: args{a: []float64{2, 3}, b: []float64{2, 3}, p: 3},
+			want: 0,
+			ok:   true,
+		},
+		{
 			name: "length mismatch is undefined",
 			args: args{a: []float64{1, 2, 3}, b: []float64{1, 2}, p: 2},
 			want: 0,
@@ -245,6 +269,52 @@ func TestMinkowski(t *testing.T) {
 				t.Fatalf("Minkowski() = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestMinkowskiNaNInputPropagates(t *testing.T) {
+	a := []float64{math.NaN(), 0}
+	b := []float64{0, 0}
+	got, ok := distance.Minkowski(a, b, 3)
+	if !ok {
+		t.Fatalf("ok = false, want true (NaN propagates with ok == true)")
+	}
+	if !math.IsNaN(got) {
+		t.Fatalf("Minkowski() = %v, want NaN", got)
+	}
+}
+
+func TestMinkowskiInfInputPropagates(t *testing.T) {
+	a := []float64{math.Inf(1), 0}
+	b := []float64{0, 0}
+	got, ok := distance.Minkowski(a, b, 3)
+	if !ok {
+		t.Fatalf("ok = false, want true (Inf propagates with ok == true)")
+	}
+	if !math.IsInf(got, 0) && !math.IsNaN(got) {
+		t.Fatalf("Minkowski() = %v, want a non-finite result", got)
+	}
+}
+
+// TestMinkowskiLargePStable verifies that large p does not overflow. A naive
+// Σ diffᵖ implementation drives math.Pow(1e4, 100) to +Inf and then
+// math.Pow(+Inf, 1/100) back to +Inf, losing the answer entirely. Factoring
+// out the max term keeps the result finite and close to the dominating
+// coordinate (the Chebyshev limit the metric approaches as p grows).
+func TestMinkowskiLargePStable(t *testing.T) {
+	a := []float64{0, 0}
+	b := []float64{1e4, 5e3}
+	got, ok := distance.Minkowski(a, b, 100)
+	if !ok {
+		t.Fatalf("ok = false, want true")
+	}
+	if math.IsInf(got, 0) || math.IsNaN(got) {
+		t.Fatalf("Minkowski() = %v, want a finite result (no overflow)", got)
+	}
+	// With p=100 the smaller coordinate contributes (5e3/1e4)^100 ≈ 8e-31, so
+	// the result is the larger coordinate to well within tolerance.
+	if !floatsClose(got, 1e4) {
+		t.Fatalf("Minkowski() = %v, want ~1e4", got)
 	}
 }
 

@@ -48,27 +48,53 @@ func Manhattan[T constraints.Numeric](a, b []T) (float64, bool) {
 
 // Minkowski computes the Lp distance between two numeric vectors:
 // (Σ |aᵢ - bᵢ|ᵖ)^(1/p). It generalises both Manhattan (p=1) and Euclidean
-// (p=2). For p → ∞ the result approaches the Chebyshev distance.
+// (p=2). As p → ∞ the metric approaches the Chebyshev (max-coordinate)
+// distance, but p itself must be finite — pass increasing finite values to
+// approximate that limit.
 //
 // It returns ok == false for:
 //   - empty input or vectors of differing lengths;
-//   - p < 1 — values below 1 do not satisfy the triangle inequality and
-//     therefore do not define a valid distance metric.
+//   - p that is not a finite value ≥ 1 (p < 1, NaN, or ±Inf) — values below 1
+//     do not satisfy the triangle inequality, and a non-finite p is not a
+//     valid metric parameter.
+//
+// Large finite p is handled stably: the largest absolute difference is factored
+// out before exponentiation, so the result neither overflows to +Inf nor
+// collapses to a single dimension as it would under a naive Σ diffᵖ.
 //
 // Non-finite inputs (NaN/Inf) propagate to a non-finite result with ok == true.
 func Minkowski[T constraints.Numeric](a, b []T, p float64) (float64, bool) {
-	if p < 1 {
+	if math.IsNaN(p) || math.IsInf(p, 1) || p < 1 {
 		return 0, false
 	}
 	if len(a) != len(b) || len(a) == 0 {
 		return 0, false
 	}
+	// Factor out the largest absolute difference so math.Pow operates on values
+	// in [0, 1], avoiding overflow/underflow for large p. A NaN difference
+	// propagates per the package policy; an infinite max dominates the sum.
+	var maxDiff float64
+	for i := range a {
+		diff := math.Abs(float64(a[i]) - float64(b[i]))
+		if math.IsNaN(diff) {
+			return math.NaN(), true
+		}
+		if diff > maxDiff {
+			maxDiff = diff
+		}
+	}
+	if math.IsInf(maxDiff, 1) {
+		return math.Inf(1), true
+	}
+	if maxDiff == 0 {
+		return 0, true
+	}
 	var sum float64
 	for i := range a {
 		diff := math.Abs(float64(a[i]) - float64(b[i]))
-		sum += math.Pow(diff, p)
+		sum += math.Pow(diff/maxDiff, p)
 	}
-	return math.Pow(sum, 1/p), true
+	return maxDiff * math.Pow(sum, 1/p), true
 }
 
 // CosineDistance computes the cosine distance between two numeric vectors:
