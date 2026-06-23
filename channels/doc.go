@@ -81,6 +81,15 @@
 //   - Filter: forward only the elements matching a predicate
 //   - Reduce: fold the stream into a single running value
 //
+// Windowing (each batches the stream into a channel of slices):
+//   - TumblingWindow: fixed-width, non-overlapping windows (trailing partial
+//     window dropped)
+//   - SlidingWindow: fixed-width windows advancing by a step (overlap, tumble,
+//     or skip depending on step vs size)
+//   - SessionWindow: variable-width windows split by a gap predicate, flushed on
+//     input close
+//   - WindowedReduce: window the stream then reduce each window to one value
+//
 // Sources and sinks:
 //   - FromSlice / FromMap: turn a slice or map into a channel
 //   - CollectAsSlice / CollectNAsSlice: drain a channel into a slice
@@ -121,6 +130,46 @@
 //	input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
 //	totals := channels.Reduce(ctx, input, func(acc, n int) int { return acc + n })
 //	total := channels.CollectAsSlice(totals) // [15]
+//
+// # Windowing a Stream
+//
+// The windowing verbs batch a stream of T into a channel of []T, so a stream
+// can be aggregated in chunks rather than element by element. Each window is
+// emitted as a defensive copy, and every verb tears its goroutine down on
+// context cancellation exactly like Map:
+//
+//	input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5, 6, 7})
+//
+//	// Fixed-width, non-overlapping; the trailing partial window [7] is dropped.
+//	tumbling := channels.TumblingWindow(ctx, input, 3) // [1 2 3], [4 5 6]
+//
+//	// Width 3 advancing by 1 — overlapping, full windows only.
+//	sliding := channels.SlidingWindow(ctx, input, 3, 1) // [1 2 3], [2 3 4], ...
+//
+// SlidingWindow's step selects the regime: step == size tumbles, step > size
+// skips elements between windows, step < size overlaps them. Both verbs emit
+// full windows only and align with slices.Chunk / slices.Window.
+//
+// SessionWindow groups consecutive elements into variable-width sessions split
+// by a gap predicate, flushing the open session when the input closes:
+//
+//	gap := func(prev, next int) bool { return next-prev <= 5 } // continue?
+//	sessions := channels.SessionWindow(ctx, input, gap)
+//
+// Note SessionWindow buffers a whole session before emitting it, so its memory
+// grows with the longest session and is unbounded if the gap predicate never
+// fires — unlike the fixed-width verbs, which are bounded by the window size.
+//
+// WindowedReduce composes a windowing verb with a per-window aggregation, so a
+// stats reduction drops straight in without this package duplicating it:
+//
+//	windower := func(ctx context.Context, in <-chan float64) <-chan []float64 {
+//		return channels.TumblingWindow(ctx, in, 3)
+//	}
+//	means := channels.WindowedReduce(ctx, input, windower, func(w []float64) float64 {
+//		m, _ := stats.Mean(w)
+//		return m
+//	})
 //
 // # Error Handling
 //

@@ -88,10 +88,11 @@ func main() {
 |---------|-------------|-----------|
 | **[Slices](./slices/)** | Enhanced slice operations | Filtering, mapping, reducing |
 | **[Maps](./maps/)** | Native map utilities | Key extraction, value transformation |
-| **[Channels](./channels/)** | Channel-based pipelines | Stream processing, fan-out/fan-in |
+| **[Channels](./channels/)** | Channel-based pipelines | Stream processing, fan-out/fan-in, tumbling/sliding/session windowing |
 | **[Concurrency](./concurrency/)** | Bounded-concurrency work limiters and data-parallel transforms | Order-preserving parallel Map/ForEach/Batch over a worker pool |
 | **[Constraints](./constraints/)** | Type constraints for generics | Custom generic functions |
 | **[Sketches](./collections/sketches/)** | Probabilistic data structures | MinHash, Bloom, Count-Min, HyperLogLog over large sets |
+| **[Streaming](./collections/streaming/)** | Bounded-memory algorithms for unbounded streams | Top-k, reservoir sampling, bootstrap resampling, online mean/variance/EWMA/min-max |
 
 ### Statistics & Data Engineering
 
