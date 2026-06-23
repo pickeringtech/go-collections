@@ -66,7 +66,8 @@
 // T, so an integer sum is exact (no float round-off) at the cost of possible
 // overflow on very large inputs.
 //
-// function. The exact-in-T arithmetic reductions (Sum, Product and the running
+// Non-finite inputs (NaN, ±Inf) are handled per family, not uniformly. The
+// exact-in-T arithmetic reductions (Sum, Product and the running
 // CumulativeSum) let them propagate per IEEE arithmetic — a NaN in the data
 // yields a NaN result (ok == true where there is an ok flag) — as do the
 // variance/covariance/correlation family and the transforms, so the value
