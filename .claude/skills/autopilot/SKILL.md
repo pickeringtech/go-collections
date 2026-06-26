@@ -108,19 +108,27 @@ restate it compactly so the next turn continues without re-reading transcripts.
 
 ## Per-iteration state machine
 
-Run these six steps in order each iteration. Three are **model-driven**
+Run the steps below in order each iteration. Three are **model-driven**
 judgement (ASSESS / CRITIC / PLAN — use `--plan-model`); DISPATCH is
 **deterministic** fan-out; FOLD is **plain merge code**, not an agent.
 
 ```
 1.   ASSESS   → agent reads drive state + last_results → structured "where are we"
 1.5  CRITIC   → cheap drift check: does the proposed direction still serve the ORIGINAL goal?
-2.   CHECK    → evaluate the composite stop policy (below); maybe stop/gate
-3.   PLAN     → agent proposes the next phase: {goal, work-list, fan-out shape}
+2.   CHECK    → evaluate the composite stop policy (below) on accumulated state; maybe stop/gate
+3.   PLAN     → agent proposes the next phase: {goal, work-list, fan-out shape} + maybe a gate flag
+3.5  GATE     → if PLAN flagged a gate, PAUSE (AskUserQuestion) BEFORE dispatching; resume on answer
 4.   DISPATCH → Workflow runs that phase deterministically (parallel/pipeline)
 5.   FOLD     → merge results into drive state; dedup against the CUMULATIVE seen-set
 6.   loop     → ScheduleWakeup or continue inline
 ```
+
+CHECK (step 2) and GATE (step 3.5) are **two distinct gate points, not one**.
+CHECK evaluates the stop policy against *accumulated* state carried in from prior
+iterations, **before** spending a model call on PLAN. GATE handles the *fresh*
+risk PLAN just surfaced about the phase it proposed — it must fire **before**
+DISPATCH, so a risky/destructive phase is never executed in the same iteration
+it was flagged.
 
 ### 1. ASSESS — *(judgement, `--plan-model`)*
 A subagent reads the drive state (goal, prior phase artifacts, `last_results`)
@@ -154,11 +162,21 @@ any level fires, stop or gate **before** spending a model call on PLAN/DISPATCH.
 A subagent proposes the **single next phase**: its sub-goal, the **work-list**
 (the concrete items to fan out over), and the **fan-out shape**
 (`parallel` barrier vs `pipeline`, and roughly how many agents). PLAN also
-**flags for a gate** if the next phase is ambiguous, risky (destructive/outward
-action), or oversized/needs-decomposition — that flag is what the Human-gate
-level of CHECK keys off next iteration (and immediately, for same-iteration
-risk). PLAN proposes **one** phase, not the whole remaining pipeline — the next
-phase after that is re-decided from *its* results.
+**raises a gate flag** if the next phase is ambiguous, risky (destructive/outward
+action), or oversized/needs-decomposition. That flag is handled by the **GATE
+step immediately below — before DISPATCH**, in the *same* iteration; it does not
+wait for the next loop. PLAN proposes **one** phase, not the whole remaining
+pipeline — the next phase after that is re-decided from *its* results.
+
+### 3.5 GATE — *(controller, deterministic) — honour PLAN's flag before dispatching*
+If PLAN raised a gate flag, **stop here and ask** (`AskUserQuestion`) **before**
+DISPATCH runs anything — present the proposed phase and why it was flagged, get
+a decision, fold it into drive state, then continue (proceed, revise the phase,
+or abandon it). This is the control-flow guarantee that a risky/destructive or
+ambiguous phase is **never executed in the iteration it was flagged**. Honour it
+even under `--no-gates` — that flag suppresses only non-essential gates, never a
+risk/ambiguity/destructive one (see the stop policy). If PLAN raised no flag,
+GATE is a no-op and DISPATCH proceeds.
 
 ### 4. DISPATCH — *(deterministic fan-out via `Workflow`)*
 Execute the planned phase. Two routes:
