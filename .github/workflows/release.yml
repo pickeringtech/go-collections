@@ -33,12 +33,12 @@ jobs:
     name: API compatibility (gorelease vs previous release)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # gorelease and the tag lookup both need the full tag history, which
           # the default shallow checkout omits.
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod
@@ -46,7 +46,7 @@ jobs:
       # (issue #151). Restore-then-`go install`: install is a fast no-op on a hit
       # and only recompiles on a deliberate version bump.
       - name: Cache gorelease binary
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/go/bin/gorelease
           key: ${{ runner.os }}-tool-gorelease-${{ env.GORELEASE_VERSION }}

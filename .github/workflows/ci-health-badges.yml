@@ -56,7 +56,7 @@ jobs:
     name: Recompute & publish CI health badges
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Full history so the rebase-on-reject retry below has something to
           # rebase onto if main advances while this job runs.
@@ -67,7 +67,7 @@ jobs:
           # the queue. Also rewrites the remote to SSH so the push/pull go over
           # the key, not the read-only token.
           ssh-key: ${{ secrets.BENCH_REPORT_DEPLOY_KEY }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod
