@@ -43,8 +43,8 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 5 * * *'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod
@@ -52,7 +52,7 @@ jobs:
       # (issue #151). Restore-then-`go install`: install is a fast no-op on a hit
       # and only recompiles on a deliberate version bump.
       - name: Cache govulncheck binary
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/go/bin/govulncheck
           key: ${{ runner.os }}-tool-govulncheck-${{ env.GOVULNCHECK_VERSION }}
@@ -72,8 +72,8 @@ jobs:
     # about an upcoming toolchain change, not a gate.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v6
         with:
           # Stable toolchain only bootstraps the gotip installer below.
           go-version: stable
