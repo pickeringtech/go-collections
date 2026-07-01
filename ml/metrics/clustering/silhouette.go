@@ -53,22 +53,43 @@ func validate(points [][]float64, labels []int) (clusters int, ok bool) {
 	return k, true
 }
 
+// clusterDistances sums, for point i, the distances to every other point
+// grouped by the other point's cluster label (i itself excluded). ok is false
+// when dist returns a non-finite or negative distance — or when summing many
+// large distances overflows to ±Inf — since either would push a coefficient
+// outside the documented [−1, 1] range.
+func clusterDistances(points [][]float64, labels []int, i int, dist DistanceFunc) (sums map[int]float64, counts map[int]int, ok bool) {
+	sums = make(map[int]float64)
+	counts = make(map[int]int)
+	for j := range points {
+		if i == j {
+			continue
+		}
+		d := dist(points[i], points[j])
+		if math.IsNaN(d) || math.IsInf(d, 0) || d < 0 {
+			return nil, nil, false
+		}
+		sums[labels[j]] += d
+		if math.IsInf(sums[labels[j]], 0) {
+			// The running total overflowed; a mean built from it would
+			// yield Inf/Inf == NaN downstream, voiding the range guarantee.
+			return nil, nil, false
+		}
+		counts[labels[j]]++
+	}
+	return sums, counts, true
+}
+
 // samples computes the per-sample silhouette coefficients under dist, assuming
-// validate has already passed.
-func samples(points [][]float64, labels []int, dist DistanceFunc) []float64 {
-	n := len(points)
-	s := make([]float64, n)
+// validate has already passed. ok is false when dist misbehaves (see
+// clusterDistances).
+func samples(points [][]float64, labels []int, dist DistanceFunc) ([]float64, bool) {
+	s := make([]float64, len(points))
 	for i := range points {
 		// Mean distance from point i to each cluster (excluding i itself).
-		sums := make(map[int]float64)
-		counts := make(map[int]int)
-		for j := range points {
-			if i == j {
-				continue
-			}
-			d := dist(points[i], points[j])
-			sums[labels[j]] += d
-			counts[labels[j]]++
+		sums, counts, ok := clusterDistances(points, labels, i, dist)
+		if !ok {
+			return nil, false
 		}
 
 		own := labels[i]
@@ -99,7 +120,7 @@ func samples(points [][]float64, labels []int, dist DistanceFunc) []float64 {
 			s[i] = (b - a) / denom
 		}
 	}
-	return s
+	return s, true
 }
 
 // SilhouetteSamplesWith returns the silhouette coefficient of every sample
@@ -110,13 +131,15 @@ func samples(points [][]float64, labels []int, dist DistanceFunc) []float64 {
 //
 // ok is false (and the result is nil) when the inputs cannot be summarised:
 // fewer than two points, len(labels) != len(points), ragged coordinate rows,
-// any non-finite coordinate, or a cluster count outside [2, n−1].
+// any non-finite coordinate, or a cluster count outside [2, n−1]. It is also
+// false when dist is nil or returns a non-finite or negative distance, since
+// such a metric would void the [−1, 1] guarantee.
 func SilhouetteSamplesWith(points [][]float64, labels []int, dist DistanceFunc) ([]float64, bool) {
 	_, ok := validate(points, labels)
-	if !ok {
+	if !ok || dist == nil {
 		return nil, false
 	}
-	return samples(points, labels, dist), true
+	return samples(points, labels, dist)
 }
 
 // SilhouetteSamples is SilhouetteSamplesWith using EuclideanDistance.
