@@ -41,6 +41,10 @@ Returns follow the `(result, ok)` idiom; `ok` is `false` (result zero) when the
 input cannot be summarised: fewer than two points, a label slice of the wrong
 length, ragged coordinate rows, any non-finite coordinate, or a cluster count
 outside `[2, n−1]` (silhouette is undefined for one cluster or for
-one-point-per-cluster). A lone point in its cluster is given a silhouette of 0.
+one-point-per-cluster). For the `…With` variants `ok` is also `false` when the
+supplied `DistanceFunc` is `nil`, returns a non-finite or negative distance, or
+produces distances that overflow when summed — any of which would otherwise
+void the `[−1, 1]` guarantee. A lone point in its cluster is given a silhouette
+of 0.
 Inputs are never mutated; the mean over samples routes through
 [`stats.Mean`](../../../stats).
