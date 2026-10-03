@@ -12,8 +12,8 @@ func ExampleConcatenate() {
 	b := []int{4, 5, 6}
 
 	joined := slices.Concatenate(a, b)
-	fmt.Printf("%v", joined)
-	// Output: [1 2 3 4 5 6]
+	fmt.Printf("joined: %v, original: %v / %v", joined, a, b)
+	// Output: joined: [1 2 3 4 5 6], original: [1 2 3] / [4 5 6]
 }
 
 func TestConcatenate(t *testing.T) {
@@ -66,6 +66,22 @@ func TestConcatenate(t *testing.T) {
 			},
 			want: []int{1, 2, 3},
 		},
+		{
+			name: "nil inputs result in a non-nil empty slice",
+			args: args{
+				inputA: nil,
+				inputB: nil,
+			},
+			want: []int{},
+		},
+		{
+			name: "empty inputs result in a non-nil empty slice",
+			args: args{
+				inputA: []int{},
+				inputB: []int{},
+			},
+			want: []int{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -74,6 +90,38 @@ func TestConcatenate(t *testing.T) {
 				t.Errorf("Concatenate() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestConcatenate_DoesNotAliasInputs(t *testing.T) {
+	inputA := make([]int, 2, 4)
+	copy(inputA, []int{1, 2})
+	inputABacking := inputA[:cap(inputA)]
+	inputABackingBefore := append([]int{}, inputABacking...)
+
+	inputB := make([]int, 1, 3)
+	inputB[0] = 3
+	inputBBacking := inputB[:cap(inputB)]
+	inputBBackingBefore := append([]int{}, inputBBacking...)
+
+	got := slices.Concatenate(inputA, inputB)
+	if !reflect.DeepEqual(got, []int{1, 2, 3}) {
+		t.Fatalf("Concatenate() = %v, want [1 2 3]", got)
+	}
+	if !reflect.DeepEqual(inputABacking, inputABackingBefore) {
+		t.Errorf("Concatenate modified inputA backing array: got %v, want %v", inputABacking, inputABackingBefore)
+	}
+	if !reflect.DeepEqual(inputBBacking, inputBBackingBefore) {
+		t.Errorf("Concatenate modified inputB backing array: got %v, want %v", inputBBacking, inputBBackingBefore)
+	}
+
+	got[0] = 10
+	got[2] = 30
+	if !reflect.DeepEqual(inputABacking, inputABackingBefore) {
+		t.Errorf("Concatenate result aliases inputA: got %v, want %v", inputABacking, inputABackingBefore)
+	}
+	if !reflect.DeepEqual(inputBBacking, inputBBackingBefore) {
+		t.Errorf("Concatenate result aliases inputB: got %v, want %v", inputBBacking, inputBBackingBefore)
 	}
 }
 
@@ -1482,6 +1530,22 @@ func TestPush(t *testing.T) {
 			},
 			want: []int{1, 2, 3},
 		},
+		{
+			name: "nil input and nil new elements result in a non-nil empty slice",
+			args: args{
+				input:       nil,
+				newElements: nil,
+			},
+			want: []int{},
+		},
+		{
+			name: "empty input and empty new elements result in a non-nil empty slice",
+			args: args{
+				input:       []int{},
+				newElements: []int{},
+			},
+			want: []int{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1490,6 +1554,27 @@ func TestPush(t *testing.T) {
 				t.Errorf("Push() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestPush_DoesNotAliasInput(t *testing.T) {
+	input := make([]int, 2, 4)
+	copy(input, []int{1, 2})
+	inputBacking := input[:cap(input)]
+	inputBackingBefore := append([]int{}, inputBacking...)
+
+	got := slices.Push(input, 3)
+	if !reflect.DeepEqual(got, []int{1, 2, 3}) {
+		t.Fatalf("Push() = %v, want [1 2 3]", got)
+	}
+	if !reflect.DeepEqual(inputBacking, inputBackingBefore) {
+		t.Errorf("Push modified input backing array: got %v, want %v", inputBacking, inputBackingBefore)
+	}
+
+	got[0] = 10
+	got[2] = 30
+	if !reflect.DeepEqual(inputBacking, inputBackingBefore) {
+		t.Errorf("Push result aliases input: got %v, want %v", inputBacking, inputBackingBefore)
 	}
 }
 
@@ -1671,6 +1756,22 @@ func TestPushFront(t *testing.T) {
 			},
 			want: []int{4, 5, 6},
 		},
+		{
+			name: "nil input and nil new elements result in a non-nil empty slice",
+			args: args{
+				input:       nil,
+				newElements: nil,
+			},
+			want: []int{},
+		},
+		{
+			name: "empty input and empty new elements result in a non-nil empty slice",
+			args: args{
+				input:       []int{},
+				newElements: []int{},
+			},
+			want: []int{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1679,6 +1780,36 @@ func TestPushFront(t *testing.T) {
 				t.Errorf("PushFront() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestPushFront_DoesNotAliasInputs(t *testing.T) {
+	input := []int{1, 2}
+	inputBefore := append([]int{}, input...)
+
+	newElements := make([]int, 1, 3)
+	newElements[0] = 0
+	newElementsBacking := newElements[:cap(newElements)]
+	newElementsBackingBefore := append([]int{}, newElementsBacking...)
+
+	got := slices.PushFront(input, newElements...)
+	if !reflect.DeepEqual(got, []int{0, 1, 2}) {
+		t.Fatalf("PushFront() = %v, want [0 1 2]", got)
+	}
+	if !reflect.DeepEqual(input, inputBefore) {
+		t.Errorf("PushFront modified input: got %v, want %v", input, inputBefore)
+	}
+	if !reflect.DeepEqual(newElementsBacking, newElementsBackingBefore) {
+		t.Errorf("PushFront modified newElements backing array: got %v, want %v", newElementsBacking, newElementsBackingBefore)
+	}
+
+	got[0] = 10
+	got[1] = 11
+	if !reflect.DeepEqual(input, inputBefore) {
+		t.Errorf("PushFront result aliases input: got %v, want %v", input, inputBefore)
+	}
+	if !reflect.DeepEqual(newElementsBacking, newElementsBackingBefore) {
+		t.Errorf("PushFront result aliases newElements: got %v, want %v", newElementsBacking, newElementsBackingBefore)
 	}
 }
 
