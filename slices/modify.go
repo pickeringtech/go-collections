@@ -5,9 +5,12 @@ import (
 	"strings"
 )
 
-// Concatenate joins two slices together, with inputA being joined with inputB following its last element.
+// Concatenate joins two slices together, with inputA being joined with inputB following its last element. It returns a
+// new slice without modifying or aliasing either input. If both inputs are empty, the result is a non-nil empty slice.
 func Concatenate[T any](inputA, inputB []T) []T {
-	return append(inputA, inputB...)
+	output := make([]T, 0, len(inputA)+len(inputB))
+	output = append(output, inputA...)
+	return append(output, inputB...)
 }
 
 // Copy duplicates the entries within the input into a new slice which is returned. If the input is empty or nil, the
@@ -126,24 +129,25 @@ func PopFront[T any](input []T) (T, bool, []T) {
 	return firstElement, true, newSlice
 }
 
-// Push adds new elements to the end of the input slice.
+// Push adds new elements to the end of the input slice in a new slice without modifying or aliasing the input. If the
+// input and new elements are empty, it returns a non-nil empty slice.
 func Push[T any](input []T, newElements ...T) []T {
-	return append(input, newElements...)
+	return PushCopy(input, newElements...)
 }
 
-// PushCopy returns a new slice containing the elements of input followed by
-// newElements. Unlike Push, the result never aliases input's backing array
-// (Push appends into input's spare capacity when present), and it is built with
-// a single allocation sized to hold every element - avoiding the extra
-// reallocation of copying and then pushing separately. The result is non-nil
-// even when both input and newElements are empty.
+// PushCopy returns a new slice containing the elements of input followed by newElements. Like Push, it never aliases
+// the input's backing array and returns a non-nil empty slice when both inputs are empty. Its name emphasizes that the
+// input is copied into the result.
 func PushCopy[T any](input []T, newElements ...T) []T {
 	out := make([]T, 0, len(input)+len(newElements))
 	out = append(out, input...)
 	return append(out, newElements...)
 }
 
-// PushFront adds the new elements to the front of the input slice.
+// PushFront adds new elements to the front of the input slice in a new slice without modifying or aliasing either input.
+// If the input and new elements are empty, it returns a non-nil empty slice.
 func PushFront[T any](input []T, newElements ...T) []T {
-	return append(newElements, input...)
+	output := make([]T, 0, len(input)+len(newElements))
+	output = append(output, newElements...)
+	return append(output, input...)
 }
