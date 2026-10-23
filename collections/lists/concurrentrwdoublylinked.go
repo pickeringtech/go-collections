@@ -22,7 +22,11 @@ import (
 type ConcurrentRWDoublyLinked[T any] struct {
 	_    nocopy.NoCopy
 	data *DoublyLinked[T]
-	lock sync.RWMutex
+	// version counts writes to data. Every mutating method increments it
+	// under the write lock, so FilterInPlace can tell whether anything wrote
+	// to the list while its predicate ran outside the lock.
+	version uint64
+	lock    sync.RWMutex
 }
 
 // NewConcurrentRWDoublyLinked creates a new ConcurrentRWDoublyLinked with the given values.
@@ -105,30 +109,32 @@ func (cl *ConcurrentRWDoublyLinked[T]) Filter(fn func(T) bool) List[T] {
 	return NewArray(slices.Filter(snapshot, fn)...)
 }
 
-// FilterInPlace removes elements that don't satisfy the predicate. The predicate
-// is evaluated after the lock is released, against a point-in-time snapshot
-// taken under the lock, so it may safely call back into the collection.
+// FilterInPlace removes elements that don't satisfy the predicate. The
+// predicate is called once per element, in order, after the lock is released,
+// against a point-in-time snapshot taken under the lock, so it may safely call
+// back into the collection.
 //
-// Removal is applied as a multiset diff against the current contents: each
-// element the predicate rejected removes one deeply-equal occurrence from the
-// list as it stands at apply time. Elements inserted concurrently in the
-// evaluation window are therefore preserved rather than discarded wholesale.
+// If nothing wrote to the list while the predicate ran, the list is left
+// holding exactly the elements the predicate kept, in their original order —
+// the same result as DoublyLinked.FilterInPlace. If a write did land in that window
+// (from another goroutine, or from the predicate itself), removal falls back to
+// a multiset diff against the current contents so the concurrent write is
+// preserved: each rejected element removes the first deeply-equal
+// (reflect.DeepEqual) occurrence from the list as it stands at apply time. In
+// that fallback a rejected element that is not DeepEqual to itself (such as
+// NaN) is kept, and when the list holds several deeply-equal elements the first
+// is removed rather than the one rejected.
 func (cl *ConcurrentRWDoublyLinked[T]) FilterInPlace(fn func(T) bool) {
 	cl.lock.RLock()
 	snapshot := cl.data.AsSlice()
+	version := cl.version
 	cl.lock.RUnlock()
 
-	var removed []T
-	for _, element := range snapshot {
-		if !fn(element) {
-			removed = append(removed, element)
-		}
-	}
+	kept, rejected := partitionElements(snapshot, fn)
 
 	cl.lock.Lock()
-	for _, element := range removed {
-		cl.data.RemoveInPlace(element)
-	}
+	applyFilter(cl.data, kept, rejected, cl.version == version)
+	cl.version++
 	cl.lock.Unlock()
 }
 
@@ -175,6 +181,7 @@ func (cl *ConcurrentRWDoublyLinked[T]) Remove(element T) List[T] {
 func (cl *ConcurrentRWDoublyLinked[T]) RemoveAtInPlace(index int) (T, bool) {
 	cl.lock.Lock()
 	defer cl.lock.Unlock()
+	cl.version++
 	return cl.data.RemoveAtInPlace(index)
 }
 
@@ -183,6 +190,7 @@ func (cl *ConcurrentRWDoublyLinked[T]) RemoveAtInPlace(index int) (T, bool) {
 func (cl *ConcurrentRWDoublyLinked[T]) RemoveInPlace(element T) bool {
 	cl.lock.Lock()
 	defer cl.lock.Unlock()
+	cl.version++
 	return cl.data.RemoveInPlace(element)
 }
 
@@ -190,6 +198,7 @@ func (cl *ConcurrentRWDoublyLinked[T]) RemoveInPlace(element T) bool {
 func (cl *ConcurrentRWDoublyLinked[T]) Clear() {
 	cl.lock.Lock()
 	defer cl.lock.Unlock()
+	cl.version++
 	cl.data.Clear()
 }
 
@@ -235,6 +244,7 @@ func (cl *ConcurrentRWDoublyLinked[T]) Insert(index int, elements ...T) List[T] 
 func (cl *ConcurrentRWDoublyLinked[T]) InsertInPlace(index int, elements ...T) {
 	cl.lock.Lock()
 	defer cl.lock.Unlock()
+	cl.version++
 	cl.data.InsertInPlace(index, elements...)
 }
 
@@ -249,6 +259,7 @@ func (cl *ConcurrentRWDoublyLinked[T]) Sort(lessThan func(T, T) bool) List[T] {
 func (cl *ConcurrentRWDoublyLinked[T]) SortInPlace(lessThan func(T, T) bool) {
 	cl.lock.Lock()
 	defer cl.lock.Unlock()
+	cl.version++
 	cl.data.SortInPlace(lessThan)
 }
 
@@ -263,6 +274,7 @@ func (cl *ConcurrentRWDoublyLinked[T]) Push(element T) List[T] {
 func (cl *ConcurrentRWDoublyLinked[T]) PushInPlace(element T) {
 	cl.lock.Lock()
 	defer cl.lock.Unlock()
+	cl.version++
 	cl.data.PushInPlace(element)
 }
 
@@ -277,6 +289,7 @@ func (cl *ConcurrentRWDoublyLinked[T]) Pop() (T, bool, List[T]) {
 func (cl *ConcurrentRWDoublyLinked[T]) PopInPlace() (T, bool) {
 	cl.lock.Lock()
 	defer cl.lock.Unlock()
+	cl.version++
 	return cl.data.PopInPlace()
 }
 
@@ -308,6 +321,7 @@ func (cl *ConcurrentRWDoublyLinked[T]) Dequeue() (T, bool, List[T]) {
 func (cl *ConcurrentRWDoublyLinked[T]) DequeueInPlace() (T, bool) {
 	cl.lock.Lock()
 	defer cl.lock.Unlock()
+	cl.version++
 	return cl.data.DequeueInPlace()
 }
 

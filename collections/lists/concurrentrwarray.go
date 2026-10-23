@@ -17,37 +17,43 @@ import (
 type ConcurrentRWArray[T any] struct {
 	_        nocopy.NoCopy
 	elements []T
-	lock     sync.RWMutex
+	// version counts writes to elements. Every mutating method increments it
+	// under the write lock, so FilterInPlace can tell whether anything wrote
+	// to the list while its predicate ran outside the lock.
+	version uint64
+	lock    sync.RWMutex
 }
 
 // FilterInPlace retains only the elements for which fn returns true, modifying
-// the receiver. The predicate is evaluated after the lock is released, against
-// a point-in-time snapshot taken under the lock, so it may safely call back into
-// the collection. It is safe for concurrent use.
+// the receiver. The predicate is called once per element, in order, after the
+// lock is released, against a point-in-time snapshot taken under the lock, so
+// it may safely call back into the collection. It is safe for concurrent use.
 //
-// Removal is applied as a multiset diff against the current contents: each
-// element the predicate rejected removes one deeply-equal occurrence from the
-// list as it stands at apply time. Elements inserted concurrently in the
-// evaluation window are therefore preserved rather than discarded wholesale.
+// If nothing wrote to the list while the predicate ran, the list is left
+// holding exactly the elements the predicate kept, in their original order —
+// the same result as Array.FilterInPlace. If a write did land in that window
+// (from another goroutine, or from the predicate itself), removal falls back to
+// a multiset diff against the current contents so the concurrent write is
+// preserved: each rejected element removes the first deeply-equal
+// (reflect.DeepEqual) occurrence from the list as it stands at apply time. In
+// that fallback a rejected element that is not DeepEqual to itself (such as
+// NaN) is kept, and when the list holds several deeply-equal elements the first
+// is removed rather than the one rejected.
 func (a *ConcurrentRWArray[T]) FilterInPlace(fn func(T) bool) {
 	a.lock.RLock()
 	snapshot := slices.Copy(a.elements)
+	version := a.version
 	a.lock.RUnlock()
 
-	var removed []T
-	for _, element := range snapshot {
-		if !fn(element) {
-			removed = append(removed, element)
-		}
-	}
+	kept, rejected := partitionElements(snapshot, fn)
 
 	a.lock.Lock()
-	for _, element := range removed {
-		index := indexOfDeepEqual(a.elements, element)
-		if index >= 0 {
-			a.elements = slices.Delete(a.elements, index)
-		}
+	if a.version == version {
+		a.elements = kept
+	} else {
+		a.elements = removeEachDeepEqual(a.elements, rejected)
 	}
+	a.version++
 	a.lock.Unlock()
 }
 
@@ -56,6 +62,7 @@ func (a *ConcurrentRWArray[T]) FilterInPlace(fn func(T) bool) {
 func (a *ConcurrentRWArray[T]) InsertInPlace(index int, element ...T) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	a.version++
 
 	a.elements = slices.Insert(a.elements, index, element...)
 }
@@ -65,6 +72,7 @@ func (a *ConcurrentRWArray[T]) InsertInPlace(index int, element ...T) {
 func (a *ConcurrentRWArray[T]) PushInPlace(element T) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	a.version++
 
 	a.elements = slices.Push(a.elements, element)
 }
@@ -75,6 +83,7 @@ func (a *ConcurrentRWArray[T]) PushInPlace(element T) {
 func (a *ConcurrentRWArray[T]) PopInPlace() (T, bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	a.version++
 
 	res, ok, newSli := slices.Pop(a.elements)
 	a.elements = newSli
@@ -86,6 +95,7 @@ func (a *ConcurrentRWArray[T]) PopInPlace() (T, bool) {
 func (a *ConcurrentRWArray[T]) EnqueueInPlace(element T) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	a.version++
 
 	a.elements = slices.Push(a.elements, element)
 }
@@ -96,6 +106,7 @@ func (a *ConcurrentRWArray[T]) EnqueueInPlace(element T) {
 func (a *ConcurrentRWArray[T]) DequeueInPlace() (T, bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	a.version++
 
 	res, ok, newSli := slices.PopFront(a.elements)
 	a.elements = newSli
@@ -328,6 +339,7 @@ func (a *ConcurrentRWArray[T]) Remove(element T) List[T] {
 func (a *ConcurrentRWArray[T]) RemoveAtInPlace(index int) (T, bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	a.version++
 
 	if index < 0 || index >= len(a.elements) {
 		var zero T
@@ -344,6 +356,7 @@ func (a *ConcurrentRWArray[T]) RemoveAtInPlace(index int) (T, bool) {
 func (a *ConcurrentRWArray[T]) RemoveInPlace(element T) bool {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	a.version++
 
 	index := indexOfDeepEqual(a.elements, element)
 	if index < 0 {
@@ -358,6 +371,7 @@ func (a *ConcurrentRWArray[T]) RemoveInPlace(element T) bool {
 func (a *ConcurrentRWArray[T]) Clear() {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	a.version++
 
 	a.elements = nil
 }
@@ -421,6 +435,7 @@ func (a *ConcurrentRWArray[T]) Sort(lessThan func(T, T) bool) List[T] {
 func (a *ConcurrentRWArray[T]) SortInPlace(lessThan func(T, T) bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	a.version++
 
 	slices.SortInPlace(a.elements, lessThan)
 }
