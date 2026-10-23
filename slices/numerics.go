@@ -40,7 +40,9 @@ func (n NumericSlice[T]) Min() (T, bool) {
 //
 // Max is an ordering reduction (it works on any constraints.Ordered, strings
 // included, and matches the standard library's slices.Max), so it lives here in
-// slices rather than in stats.
+// slices rather than in stats. Like the standard library it folds with the
+// builtin max, so for floats a NaN anywhere in the input makes the result NaN,
+// and +0.0 is preferred over -0.0.
 func Max[T constraints.Ordered](input []T) (T, bool) {
 	if len(input) == 0 {
 		var zero T
@@ -48,9 +50,7 @@ func Max[T constraints.Ordered](input []T) (T, bool) {
 	}
 	result := input[0]
 	for _, element := range input[1:] {
-		if element > result {
-			result = element
-		}
+		result = max(result, element)
 	}
 	return result, true
 }
@@ -60,7 +60,9 @@ func Max[T constraints.Ordered](input []T) (T, bool) {
 //
 // Min is an ordering reduction (it works on any constraints.Ordered, strings
 // included, and matches the standard library's slices.Min), so it lives here in
-// slices rather than in stats.
+// slices rather than in stats. Like the standard library it folds with the
+// builtin min, so for floats a NaN anywhere in the input makes the result NaN,
+// and -0.0 is preferred over +0.0.
 func Min[T constraints.Ordered](input []T) (T, bool) {
 	if len(input) == 0 {
 		var zero T
@@ -68,9 +70,7 @@ func Min[T constraints.Ordered](input []T) (T, bool) {
 	}
 	result := input[0]
 	for _, element := range input[1:] {
-		if element < result {
-			result = element
-		}
+		result = min(result, element)
 	}
 	return result, true
 }

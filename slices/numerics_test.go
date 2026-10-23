@@ -2,9 +2,12 @@ package slices_test
 
 import (
 	"fmt"
+	"math"
+	stdslices "slices"
+	"testing"
+
 	"github.com/pickeringtech/go-collections/constraints"
 	"github.com/pickeringtech/go-collections/slices"
-	"testing"
 )
 
 func ExampleNumericSlice_Mean() {
@@ -421,6 +424,62 @@ func TestMax(t *testing.T) {
 			got, gotOK := slices.Max(tt.args.input)
 			if got != tt.want || gotOK != tt.wantOK {
 				t.Errorf("Max() = (%v, %v), want (%v, %v)", got, gotOK, tt.want, tt.wantOK)
+			}
+		})
+	}
+}
+
+// sameFloat reports whether a and b are the same float64 result: both NaN, or
+// equal with the same sign (so it tells -0.0 from +0.0, which == does not).
+func sameFloat(a, b float64) bool {
+	if math.IsNaN(a) || math.IsNaN(b) {
+		return math.IsNaN(a) && math.IsNaN(b)
+	}
+	return a == b && math.Signbit(a) == math.Signbit(b)
+}
+
+// TestMaxMin_Floats pins that Max and Min match the standard library's
+// slices.Max and slices.Min on floats, as their docs promise: any NaN forces a
+// NaN result wherever it appears, and of -0.0 and +0.0 Max picks +0.0 and Min
+// picks -0.0. A plain > / < scan once returned a NaN only when it came first.
+func TestMaxMin_Floats(t *testing.T) {
+	nan := math.NaN()
+	negZero := math.Copysign(0, -1)
+	tests := []struct {
+		name    string
+		input   []float64
+		wantMax float64
+		wantMin float64
+	}{
+		{name: "no NaN", input: []float64{1.5, -2, 3}, wantMax: 3, wantMin: -2},
+		{name: "NaN first", input: []float64{nan, 1, 2}, wantMax: nan, wantMin: nan},
+		{name: "NaN in the middle", input: []float64{1, nan, 2}, wantMax: nan, wantMin: nan},
+		{name: "NaN last", input: []float64{1, 2, nan}, wantMax: nan, wantMin: nan},
+		{name: "only NaN", input: []float64{nan}, wantMax: nan, wantMin: nan},
+		{name: "infinities", input: []float64{math.Inf(-1), 0, math.Inf(1)}, wantMax: math.Inf(1), wantMin: math.Inf(-1)},
+		{name: "negative zero first", input: []float64{negZero, 0}, wantMax: 0, wantMin: negZero},
+		{name: "negative zero last", input: []float64{0, negZero}, wantMax: 0, wantMin: negZero},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotMax, okMax := slices.Max(tt.input)
+			if !okMax || !sameFloat(gotMax, tt.wantMax) {
+				t.Errorf("Max(%v) = (%v, %v), want (%v, true)", tt.input, gotMax, okMax, tt.wantMax)
+			}
+			gotMin, okMin := slices.Min(tt.input)
+			if !okMin || !sameFloat(gotMin, tt.wantMin) {
+				t.Errorf("Min(%v) = (%v, %v), want (%v, true)", tt.input, gotMin, okMin, tt.wantMin)
+			}
+
+			// Differential oracle: the documented contract is "matches the
+			// standard library".
+			stdMax := stdslices.Max(tt.input)
+			if !sameFloat(gotMax, stdMax) {
+				t.Errorf("Max(%v) = %v, standard library slices.Max = %v", tt.input, gotMax, stdMax)
+			}
+			stdMin := stdslices.Min(tt.input)
+			if !sameFloat(gotMin, stdMin) {
+				t.Errorf("Min(%v) = %v, standard library slices.Min = %v", tt.input, gotMin, stdMin)
 			}
 		})
 	}
