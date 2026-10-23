@@ -10,7 +10,7 @@ for the full reference.
 | API | Use when | Completion and results |
 | --- | --- | --- |
 | `NewBlockingWorkLimiter(limit)` | All tasks are ready as a `[]WorkFunc`. | `Run(work)` blocks until all tasks finish and returns their errors. |
-| `NewBackgroundWorkLimiter(limit)` | Tasks arrive over time. | `Start` → `Add` → `Stop` → `Wait` → `Errors`; `Add` can block while handing off work. |
+| `NewBackgroundWorkLimiter(limit)` | Tasks arrive over time. | `Start` → `Add` → `Stop` → `Wait` → `Errors`; `Add` blocks until a worker is free (back-pressure), so never call it from work running on the same limiter. |
 | `Map` | Transform each slice element. | Returns a result slice in input order and an error. |
 | `ForEach` | Perform a side effect for each slice element. | Waits for running callbacks and returns an error. |
 | `Batch` | Process consecutive chunks of a slice. | Runs chunk callbacks concurrently and returns an error. |
