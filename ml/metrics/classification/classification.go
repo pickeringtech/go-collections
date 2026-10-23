@@ -119,14 +119,23 @@ func ConfusionMatrix[T comparable](yTrue, yPred []T) (Matrix[T], bool) {
 // yTrue is empty, len(yTrue) != len(yPred), or any label is NaN (which could
 // never equal itself, so it would silently count as a miss).
 func Accuracy[T comparable](yTrue, yPred []T) (float64, bool) {
-	if !pairedLabels(yTrue, yPred) {
+	if len(yTrue) == 0 || len(yTrue) != len(yPred) {
 		return 0, false
 	}
 
+	// One pass that also rejects NaN labels. A matching pair cannot hold a NaN
+	// (NaN equals nothing), so the NaN test is needed only on a mismatch; this
+	// keeps the common path as cheap as a plain count, where a separate
+	// pairedLabels scan of both slices would triple the cost.
 	var correct int
-	for i := range yTrue {
-		if yTrue[i] == yPred[i] {
+	for i, t := range yTrue {
+		p := yPred[i]
+		if t == p {
 			correct++
+			continue
+		}
+		if t != t || p != p {
+			return 0, false
 		}
 	}
 	return float64(correct) / float64(len(yTrue)), true
