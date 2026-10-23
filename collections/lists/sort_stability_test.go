@@ -50,6 +50,10 @@ func TestList_SortIsStable(t *testing.T) {
 		{"DoublyLinkedCircular", func(e ...keyedRecord) lists.MutableList[keyedRecord] {
 			return lists.NewDoublyLinkedCircular(e...)
 		}},
+		{"ConcurrentArray", func(e ...keyedRecord) lists.MutableList[keyedRecord] { return lists.NewConcurrentArray(e...) }},
+		{"ConcurrentRWArray", func(e ...keyedRecord) lists.MutableList[keyedRecord] {
+			return lists.NewConcurrentRWArray(e...)
+		}},
 		{"ConcurrentLinked", func(e ...keyedRecord) lists.MutableList[keyedRecord] { return lists.NewConcurrentLinked(e...) }},
 		{"ConcurrentRWLinked", func(e ...keyedRecord) lists.MutableList[keyedRecord] {
 			return lists.NewConcurrentRWLinked(e...)

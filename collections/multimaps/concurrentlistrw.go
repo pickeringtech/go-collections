@@ -21,7 +21,11 @@ import (
 type ConcurrentRWListMultimap[K comparable, V any] struct {
 	_    nocopy.NoCopy
 	data ListMultimap[K, V]
-	lock sync.RWMutex
+	// version counts writes to data. Every mutating method increments it
+	// under the write lock, so FilterInPlace can tell whether anything wrote
+	// to the multimap while its predicate ran outside the lock.
+	version uint64
+	lock    sync.RWMutex
 }
 
 // NewConcurrentRWListMultimap creates a new thread-safe, list-backed multimap
@@ -47,7 +51,9 @@ func (c *ConcurrentRWListMultimap[K, V]) Get(key K) []V {
 	return c.data.Get(key)
 }
 
-// ContainsKey reports whether the given key has at least one value bound to it.
+// ContainsKey reports whether the given key is present. A key is dropped as
+// soon as its last value is removed, so a present key always has at least one
+// value bound.
 func (c *ConcurrentRWListMultimap[K, V]) ContainsKey(key K) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
@@ -115,17 +121,13 @@ func (c *ConcurrentRWListMultimap[K, V]) ForEachKey(fn func(key K, values []V)) 
 	}
 }
 
-// All returns an iterator over every entry. The entries are snapshotted under
-// the read lock, so iteration is safe against concurrent mutation and never
-// holds the lock while calling yield (yield may safely call back into the
-// multimap).
+// All returns an iterator over every entry. Each range over it snapshots the
+// entries under the read lock when it begins — not when All is called — and
+// yields them after releasing it, so iteration is safe against concurrent
+// mutation and yield may safely call back into the multimap.
 func (c *ConcurrentRWListMultimap[K, V]) All() iter.Seq2[K, V] {
-	c.lock.RLock()
-	entries := c.data.Entries()
-	c.lock.RUnlock()
-
 	return func(yield func(K, V) bool) {
-		for _, entry := range entries {
+		for _, entry := range c.Entries() {
 			if !yield(entry.Key, entry.Value) {
 				return
 			}
@@ -133,17 +135,11 @@ func (c *ConcurrentRWListMultimap[K, V]) All() iter.Seq2[K, V] {
 	}
 }
 
-// KeysSeq returns an iterator over the distinct keys. The keys are snapshotted
-// under the read lock, so iteration is safe against concurrent mutation and
-// never holds the lock while calling yield (yield may safely call back into the
-// multimap).
+// KeysSeq returns an iterator over the distinct keys, snapshotted under the
+// read lock when a range over it begins (see All).
 func (c *ConcurrentRWListMultimap[K, V]) KeysSeq() iter.Seq[K] {
-	c.lock.RLock()
-	keys := c.data.Keys()
-	c.lock.RUnlock()
-
 	return func(yield func(K) bool) {
-		for _, key := range keys {
+		for _, key := range c.Keys() {
 			if !yield(key) {
 				return
 			}
@@ -170,28 +166,36 @@ func (c *ConcurrentRWListMultimap[K, V]) Filter(fn func(key K, value V) bool) Mu
 }
 
 // FilterInPlace removes every entry that does not satisfy the predicate. The
-// predicate is evaluated after the lock is released, against a point-in-time
-// snapshot taken under the lock, so it may safely call back into the multimap.
+// predicate is called once per entry — for each key, in the order its values
+// were bound — after the lock is released, against a point-in-time snapshot
+// taken under the lock, so it may safely call back into the multimap.
 //
-// Each rejected (key, value) entry removes one matching entry from the multimap
-// as it stands at apply time, so entries added concurrently in the evaluation
-// window are preserved.
+// If nothing wrote to the multimap while the predicate ran, it is left holding
+// exactly the bindings the predicate kept, in order — the same result as
+// ListMultimap.FilterInPlace. If a write did land in that window (from another
+// goroutine, or from the predicate itself), removal falls back to reconciling
+// against the current contents so the concurrent write is preserved: each
+// rejected entry removes the first binding of its key to a deeply-equal
+// (reflect.DeepEqual) value. In that fallback a rejected value that is not
+// DeepEqual to itself (such as NaN) is kept, and when a key holds several
+// deeply-equal values the first is removed rather than the one rejected.
 func (c *ConcurrentRWListMultimap[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	c.lock.RLock()
 	entries := c.data.Entries()
+	version := c.version
 	c.lock.RUnlock()
 
-	var toRemove []Entry[K, V]
-	for _, entry := range entries {
-		if !fn(entry.Key, entry.Value) {
-			toRemove = append(toRemove, entry)
-		}
-	}
+	kept, rejected := partitionEntries(entries, fn)
 
 	c.lock.Lock()
-	for _, entry := range toRemove {
-		c.data.RemoveInPlace(entry.Key, entry.Value)
+	if c.version == version {
+		c.data = kept
+	} else {
+		for _, entry := range rejected {
+			c.data.RemoveInPlace(entry.Key, entry.Value)
+		}
 	}
+	c.version++
 	c.lock.Unlock()
 }
 
@@ -298,6 +302,7 @@ func (c *ConcurrentRWListMultimap[K, V]) PutAll(key K, values ...V) Multimap[K, 
 func (c *ConcurrentRWListMultimap[K, V]) PutInPlace(key K, value V) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	c.version++
 	c.data.PutInPlace(key, value)
 }
 
@@ -305,6 +310,7 @@ func (c *ConcurrentRWListMultimap[K, V]) PutInPlace(key K, value V) {
 func (c *ConcurrentRWListMultimap[K, V]) PutAllInPlace(key K, values ...V) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	c.version++
 	c.data.PutAllInPlace(key, values...)
 }
 
@@ -326,6 +332,7 @@ func (c *ConcurrentRWListMultimap[K, V]) RemoveAll(key K) Multimap[K, V] {
 func (c *ConcurrentRWListMultimap[K, V]) RemoveInPlace(key K, value V) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	c.version++
 	return c.data.RemoveInPlace(key, value)
 }
 
@@ -333,6 +340,7 @@ func (c *ConcurrentRWListMultimap[K, V]) RemoveInPlace(key K, value V) bool {
 func (c *ConcurrentRWListMultimap[K, V]) RemoveAllInPlace(key K) ([]V, bool) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	c.version++
 	return c.data.RemoveAllInPlace(key)
 }
 
@@ -340,5 +348,6 @@ func (c *ConcurrentRWListMultimap[K, V]) RemoveAllInPlace(key K) ([]V, bool) {
 func (c *ConcurrentRWListMultimap[K, V]) Clear() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	c.version++
 	c.data.Clear()
 }

@@ -2,7 +2,6 @@ package dicts
 
 import (
 	"iter"
-	"reflect"
 	"sync"
 
 	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
@@ -25,7 +24,11 @@ import (
 type ConcurrentTree[K constraints.Ordered, V any] struct {
 	_    nocopy.NoCopy
 	tree *Tree[K, V]
-	lock sync.Mutex
+	// version counts writes to tree. Every mutating method increments it
+	// under the write lock, so FilterInPlace can tell whether anything wrote
+	// to the dictionary while its predicate ran outside the lock.
+	version uint64
+	lock    sync.Mutex
 }
 
 // NewConcurrentTree creates a new ConcurrentTree dictionary with the given key-value pairs.
@@ -132,35 +135,30 @@ func (ch *ConcurrentTree[K, V]) Filter(fn func(key K, value V) bool) Dict[K, V] 
 }
 
 // FilterInPlace removes all key-value pairs that do not satisfy the given
-// predicate, modifying the dictionary in place. The predicate is evaluated
-// after the lock is released, against a point-in-time snapshot taken under the
-// lock, so it may safely call back into the collection.
+// predicate, modifying the dictionary in place. The predicate is called once
+// per entry, in ascending key order, after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection.
 //
-// Removal is applied conditionally: a rejected key is deleted only if its
-// current value still equals (reflect.DeepEqual) the value the predicate saw,
-// so a concurrent write that changes or replaces the value in the evaluation
-// window is preserved rather than silently discarded.
+// If nothing wrote to the dictionary while the predicate ran, exactly the
+// rejected keys are deleted — the same result as Tree.FilterInPlace. If a write
+// did land in that window (from another goroutine, or from the predicate
+// itself), removal falls back to compare-before-delete: a rejected key is
+// deleted only if its current value still equals (reflect.DeepEqual) the value
+// the predicate saw, so the concurrent write is preserved rather than silently
+// discarded. In that fallback a rejected entry whose value is not DeepEqual to
+// itself (NaN, or a struct holding one) is kept.
 func (ch *ConcurrentTree[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	ch.lock.Lock()
 	items := ch.tree.Items()
+	version := ch.version
 	ch.lock.Unlock()
 
-	var toRemove []Pair[K, V]
-	for _, item := range items {
-		if !fn(item.Key, item.Value) {
-			toRemove = append(toRemove, item)
-		}
-	}
+	rejected := rejectedPairs(items, fn)
 
 	ch.lock.Lock()
-	var keys []K
-	for _, item := range toRemove {
-		current, exists := ch.tree.Get(item.Key, item.Value)
-		if exists && reflect.DeepEqual(current, item.Value) {
-			keys = append(keys, item.Key)
-		}
-	}
-	ch.tree.RemoveManyInPlace(keys...)
+	removeRejected(ch.tree, rejected, ch.version == version)
+	ch.version++
 	ch.lock.Unlock()
 }
 
@@ -328,6 +326,7 @@ func (ch *ConcurrentTree[K, V]) PutMany(pairs ...Pair[K, V]) Dict[K, V] {
 func (ch *ConcurrentTree[K, V]) PutInPlace(key K, value V) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	ch.tree.PutInPlace(key, value)
 }
 
@@ -335,6 +334,7 @@ func (ch *ConcurrentTree[K, V]) PutInPlace(key K, value V) {
 func (ch *ConcurrentTree[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	ch.tree.PutManyInPlace(pairs...)
 }
 
@@ -347,6 +347,7 @@ func (ch *ConcurrentTree[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 func (ch *ConcurrentTree[K, V]) UpdateInPlace(key K, fn func(old V, existed bool) V) V {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	return ch.tree.UpdateInPlace(key, fn)
 }
 
@@ -371,6 +372,7 @@ func (ch *ConcurrentTree[K, V]) RemoveMany(keys ...K) Dict[K, V] {
 func (ch *ConcurrentTree[K, V]) RemoveInPlace(key K) (V, bool) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	return ch.tree.RemoveInPlace(key)
 }
 
@@ -378,6 +380,7 @@ func (ch *ConcurrentTree[K, V]) RemoveInPlace(key K) (V, bool) {
 func (ch *ConcurrentTree[K, V]) RemoveManyInPlace(keys ...K) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	ch.tree.RemoveManyInPlace(keys...)
 }
 
@@ -385,6 +388,7 @@ func (ch *ConcurrentTree[K, V]) RemoveManyInPlace(keys ...K) {
 func (ch *ConcurrentTree[K, V]) Clear() {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	ch.tree.Clear()
 }
 
@@ -424,52 +428,23 @@ func (ch *ConcurrentTree[K, V]) Range(lo, hi K) []Pair[K, V] {
 	return ch.tree.Range(lo, hi)
 }
 
-// All returns an iterator over all entries in ascending key order. The entries
-// are snapshotted under the lock, so iteration is safe against concurrent
-// mutation and never holds the lock while calling the consumer.
+// All returns an iterator over all entries in ascending key order. Each range
+// over it snapshots the entries under the lock when it begins — not when All
+// is called — and yields them after releasing it, so it is safe against
+// concurrent mutation and the loop body may call back into the dictionary.
 func (ch *ConcurrentTree[K, V]) All() iter.Seq2[K, V] {
-	ch.lock.Lock()
-	items := ch.tree.Items()
-	ch.lock.Unlock()
-	return seq2FromPairs(items)
+	return pairsSeq(ch.Items)
 }
 
 // Backward returns an iterator over all entries in descending key order,
-// snapshotted under the lock.
+// snapshotted under the lock when a range over it begins (see All).
 func (ch *ConcurrentTree[K, V]) Backward() iter.Seq2[K, V] {
-	ch.lock.Lock()
-	items := ch.tree.Items()
-	ch.lock.Unlock()
-	return seq2FromPairsReverse(items)
+	return reversePairsSeq(ch.Items)
 }
 
 // RangeAll returns an iterator over the entries whose key is within the inclusive
-// range [lo, hi], in ascending key order, snapshotted under the lock.
+// range [lo, hi], in ascending key order, snapshotted under the lock when a
+// range over it begins (see All).
 func (ch *ConcurrentTree[K, V]) RangeAll(lo, hi K) iter.Seq2[K, V] {
-	ch.lock.Lock()
-	items := ch.tree.Range(lo, hi)
-	ch.lock.Unlock()
-	return seq2FromPairs(items)
-}
-
-// seq2FromPairs returns an iterator that yields the given pairs in order.
-func seq2FromPairs[K constraints.Ordered, V any](items []Pair[K, V]) iter.Seq2[K, V] {
-	return func(yield func(K, V) bool) {
-		for _, item := range items {
-			if !yield(item.Key, item.Value) {
-				return
-			}
-		}
-	}
-}
-
-// seq2FromPairsReverse returns an iterator that yields the given pairs in reverse order.
-func seq2FromPairsReverse[K constraints.Ordered, V any](items []Pair[K, V]) iter.Seq2[K, V] {
-	return func(yield func(K, V) bool) {
-		for i := len(items) - 1; i >= 0; i-- {
-			if !yield(items[i].Key, items[i].Value) {
-				return
-			}
-		}
-	}
+	return pairsSeq(func() []Pair[K, V] { return ch.Range(lo, hi) })
 }

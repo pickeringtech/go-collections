@@ -24,5 +24,12 @@ func (ch *ConcurrentHashRW[T]) AddInPlace(element T) {
 - Always `defer` the unlock — never unlock manually. (Exception: methods that
   invoke a user callback release the lock manually before calling it — see
   [[callback-reentrancy]].)
-- Store the lock as a **pointer** (`lock *sync.Mutex`) so the struct never copies a mutex by value.
+- Store the lock as a **value** (`lock sync.Mutex` / `lock sync.RWMutex`) next to a
+  blank `_ nocopy.NoCopy` field, with pointer receivers throughout. The value
+  mutex makes the zero value lock-safe; the guard makes `go vet` flag any copy
+  of the struct (see [[safe-variants]]).
+- A mutating method on a type that carries a `version` write counter bumps it
+  (`ch.version++`) right after taking the write lock — every one of them, with
+  no exceptions for no-op calls, or a concurrent `FilterInPlace` can silently
+  overwrite that write (see [[callback-reentrancy]]).
 - Hold the lock for the whole method body, including any copy-out work (see [[immutable-return-contract]]) — **except** when the body invokes a user callback, which must run outside the lock against a snapshot ([[callback-reentrancy]]).

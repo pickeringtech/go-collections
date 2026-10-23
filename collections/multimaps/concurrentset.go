@@ -47,7 +47,9 @@ func (c *ConcurrentSetMultimap[K, V]) Get(key K) []V {
 	return c.data.Get(key)
 }
 
-// ContainsKey reports whether the given key has at least one value bound to it.
+// ContainsKey reports whether the given key is present. A key is dropped as
+// soon as its last value is removed, so a present key always has at least one
+// value bound.
 func (c *ConcurrentSetMultimap[K, V]) ContainsKey(key K) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -115,16 +117,13 @@ func (c *ConcurrentSetMultimap[K, V]) ForEachKey(fn func(key K, values []V)) {
 	}
 }
 
-// All returns an iterator over every entry. The entries are snapshotted under
-// the lock, so iteration is safe against concurrent mutation and never holds the
-// lock while calling yield (yield may safely call back into the multimap).
+// All returns an iterator over every entry. Each range over it snapshots the
+// entries under the lock when it begins — not when All is called — and
+// yields them after releasing it, so iteration is safe against concurrent
+// mutation and yield may safely call back into the multimap.
 func (c *ConcurrentSetMultimap[K, V]) All() iter.Seq2[K, V] {
-	c.lock.Lock()
-	entries := c.data.Entries()
-	c.lock.Unlock()
-
 	return func(yield func(K, V) bool) {
-		for _, entry := range entries {
+		for _, entry := range c.Entries() {
 			if !yield(entry.Key, entry.Value) {
 				return
 			}
@@ -132,17 +131,11 @@ func (c *ConcurrentSetMultimap[K, V]) All() iter.Seq2[K, V] {
 	}
 }
 
-// KeysSeq returns an iterator over the distinct keys. The keys are snapshotted
-// under the lock, so iteration is safe against concurrent mutation and never
-// holds the lock while calling yield (yield may safely call back into the
-// multimap).
+// KeysSeq returns an iterator over the distinct keys, snapshotted under the
+// lock when a range over it begins (see All).
 func (c *ConcurrentSetMultimap[K, V]) KeysSeq() iter.Seq[K] {
-	c.lock.Lock()
-	keys := c.data.Keys()
-	c.lock.Unlock()
-
 	return func(yield func(K) bool) {
-		for _, key := range keys {
+		for _, key := range c.Keys() {
 			if !yield(key) {
 				return
 			}
@@ -172,9 +165,11 @@ func (c *ConcurrentSetMultimap[K, V]) Filter(fn func(key K, value V) bool) Multi
 // predicate is evaluated after the lock is released, against a point-in-time
 // snapshot taken under the lock, so it may safely call back into the multimap.
 //
-// Each rejected (key, value) entry removes one matching entry from the multimap
-// as it stands at apply time, so entries added concurrently in the evaluation
-// window are preserved.
+// Each rejected (key, value) entry is removed from the multimap as it stands at
+// apply time. A set-backed binding is identified by its value, so with no
+// concurrent write this is exactly SetMultimap.FilterInPlace's result, and an
+// entry added concurrently in the evaluation window is never in the removal
+// set, so it is preserved.
 func (c *ConcurrentSetMultimap[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	c.lock.Lock()
 	entries := c.data.Entries()

@@ -11,10 +11,12 @@ collections:
     description: Immutable base interface returns new collections; Mutable* embeds it and adds InPlace forms
 
 concurrency:
+  callback-reentrancy:
+    description: Run user callbacks outside the lock on a snapshot; FilterInPlace is exact unless a write (detected via the version counter) raced the predicate
   immutable-return-contract:
     description: Immutable ops on a concurrent type return the same concurrent type; InPlace stays void
   lock-discipline:
-    description: Acquire lock + defer unlock as first lines of every method; mutex by pointer; RLock for reads
+    description: Acquire lock + defer unlock as first lines of every method; value mutex + nocopy guard; RLock for reads; bump the write version on every mutation
   safe-variants:
     description: Concurrent* (sync.Mutex) and ConcurrentRW* (sync.RWMutex) variants per collection
   worker-pool-limiter:

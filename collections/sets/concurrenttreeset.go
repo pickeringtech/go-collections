@@ -47,11 +47,15 @@ func wrapConcurrentTreeSet[T constraints.Ordered](set *TreeSet[T]) *ConcurrentTr
 }
 
 // snapshotOperand returns a non-locking, point-in-time copy of other suitable for
-// the inner TreeSet's binary operations. It must be called *before* ch.lock is
-// taken: snapshotting copies other under other's own lock, and doing that while
-// holding ch.lock would invert lock order against an opposite-operand call and
-// deadlock (a.Difference(b) racing b.Difference(a)). It returns nil when other is
-// the receiver, in which case the caller operates on ch.set under the lock.
+// the inner TreeSet's element-wise binary operations (Union, UnionInPlace,
+// DifferenceInPlace), which only enumerate other's elements. The
+// membership-based operations call other.Contains instead, because copying
+// other into a TreeSet would replace its equality with cmp.Compare's. It must
+// be called *before* ch.lock is taken: snapshotting copies other under other's
+// own lock, and doing that while holding ch.lock would invert lock order
+// against an opposite-operand call and deadlock (a.Union(b) racing b.Union(a)).
+// It returns nil when other is the receiver, in which case the caller operates
+// on ch.set under the lock.
 func (ch *ConcurrentTreeSet[T]) snapshotOperand(other Set[T]) Set[T] {
 	if other == Set[T](ch) {
 		return nil
@@ -288,15 +292,15 @@ func (ch *ConcurrentTreeSet[T]) RemoveMany(elements ...T) Set[T] {
 
 // Difference creates a new set containing elements in this set but not in the other set.
 // Returns a new thread-safe ConcurrentTreeSet without modifying the original.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.Difference(b) racing b.Difference(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentTreeSet[T]) Difference(other Set[T]) Set[T] {
-	operand := ch.snapshotOperand(other)
-
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	if operand == nil {
-		operand = ch.set
-	}
-	return wrapConcurrentTreeSet(ch.set.Difference(operand).(*TreeSet[T]))
+	return ch.Filter(func(element T) bool { return !other.Contains(element) })
 }
 
 // RemoveInPlace removes the given element from the set.
@@ -335,27 +339,27 @@ func (ch *ConcurrentTreeSet[T]) Clear() {
 
 // Intersection creates a new set containing elements present in both sets.
 // Returns a new thread-safe ConcurrentTreeSet without modifying the original.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.Intersection(b) racing b.Intersection(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentTreeSet[T]) Intersection(other Set[T]) Set[T] {
-	operand := ch.snapshotOperand(other)
-
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	if operand == nil {
-		operand = ch.set
-	}
-	return wrapConcurrentTreeSet(ch.set.Intersection(operand).(*TreeSet[T]))
+	return ch.Filter(other.Contains)
 }
 
 // IsSubsetOf returns true if this set is a subset of the other set.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.IsSubsetOf(b) racing b.IsSubsetOf(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentTreeSet[T]) IsSubsetOf(other Set[T]) bool {
-	operand := ch.snapshotOperand(other)
-
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	if operand == nil {
-		operand = ch.set
-	}
-	return ch.set.IsSubsetOf(operand)
+	return ch.AllMatch(other.Contains)
 }
 
 // IsSupersetOf returns true if this set is a superset of the other set.
@@ -364,39 +368,41 @@ func (ch *ConcurrentTreeSet[T]) IsSupersetOf(other Set[T]) bool {
 }
 
 // IsDisjoint returns true if this set has no elements in common with the other set.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.IsDisjoint(b) racing b.IsDisjoint(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentTreeSet[T]) IsDisjoint(other Set[T]) bool {
-	operand := ch.snapshotOperand(other)
-
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	if operand == nil {
-		operand = ch.set
-	}
-	return ch.set.IsDisjoint(operand)
+	return ch.NoneMatch(other.Contains)
 }
 
 // Equals returns true if both sets contain exactly the same elements.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.Equals(b) racing b.Equals(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentTreeSet[T]) Equals(other Set[T]) bool {
-	operand := ch.snapshotOperand(other)
-
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	if operand == nil {
-		operand = ch.set
-	}
-	return ch.set.Equals(operand)
+	return sameMembers(ch.AsSlice(), other)
 }
 
-// IntersectionInPlace keeps only elements that are present in both sets.
+// IntersectionInPlace keeps only elements that are present in both sets. It is
+// FilterInPlace with other.Contains as the predicate, so other is consulted
+// outside the receiver's lock.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.IntersectionInPlace(b) racing b.IntersectionInPlace(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentTreeSet[T]) IntersectionInPlace(other Set[T]) {
-	operand := ch.snapshotOperand(other)
-
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	if operand == nil {
-		operand = ch.set
-	}
-	ch.set.IntersectionInPlace(operand)
+	ch.FilterInPlace(other.Contains)
 }
 
 // Min returns the smallest element.
@@ -435,51 +441,23 @@ func (ch *ConcurrentTreeSet[T]) Range(lo, hi T) []T {
 	return ch.set.Range(lo, hi)
 }
 
-// All returns an iterator over all elements in ascending order. The elements are
-// snapshotted under the lock, so iteration is safe against concurrent mutation
-// and never holds the lock while calling the consumer.
+// All returns an iterator over all elements in ascending order. Each range over
+// it snapshots the elements under the lock when it begins — not when All is
+// called — and yields them after releasing it, so it is safe against
+// concurrent mutation and the loop body may call back into the set.
 func (ch *ConcurrentTreeSet[T]) All() iter.Seq[T] {
-	ch.lock.Lock()
-	elements := ch.set.AsSlice()
-	ch.lock.Unlock()
-	return seqFromSlice(elements)
+	return elementsSeq(ch.AsSlice)
 }
 
-// Backward returns an iterator over all elements in descending order, snapshotted under the lock.
+// Backward returns an iterator over all elements in descending order,
+// snapshotted under the lock when a range over it begins (see All).
 func (ch *ConcurrentTreeSet[T]) Backward() iter.Seq[T] {
-	ch.lock.Lock()
-	elements := ch.set.AsSlice()
-	ch.lock.Unlock()
-	return seqFromSliceReverse(elements)
+	return reverseElementsSeq(ch.AsSlice)
 }
 
 // RangeAll returns an iterator over the elements within the inclusive range
-// [lo, hi], in ascending order, snapshotted under the lock.
+// [lo, hi], in ascending order, snapshotted under the lock when a range over
+// it begins (see All).
 func (ch *ConcurrentTreeSet[T]) RangeAll(lo, hi T) iter.Seq[T] {
-	ch.lock.Lock()
-	elements := ch.set.Range(lo, hi)
-	ch.lock.Unlock()
-	return seqFromSlice(elements)
-}
-
-// seqFromSlice returns an iterator that yields the given elements in order.
-func seqFromSlice[T constraints.Ordered](elements []T) iter.Seq[T] {
-	return func(yield func(T) bool) {
-		for _, element := range elements {
-			if !yield(element) {
-				return
-			}
-		}
-	}
-}
-
-// seqFromSliceReverse returns an iterator that yields the given elements in reverse order.
-func seqFromSliceReverse[T constraints.Ordered](elements []T) iter.Seq[T] {
-	return func(yield func(T) bool) {
-		for i := len(elements) - 1; i >= 0; i-- {
-			if !yield(elements[i]) {
-				return
-			}
-		}
-	}
+	return elementsSeq(func() []T { return ch.Range(lo, hi) })
 }

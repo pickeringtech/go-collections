@@ -26,60 +26,82 @@ func (ch *ConcurrentHash[K, V]) ForEach(fn func(key K, value V)) {
 ```
 
 ```go
-// In-place mutation: snapshot, evaluate outside the lock, re-acquire to apply.
-// Apply conditionally — a key is deleted only if its value still matches the
-// snapshot — so a write that lands in the evaluation window is preserved rather
-// than clobbered (see the trade-off note below).
+// In-place mutation: snapshot (and record the write version), evaluate outside
+// the lock, re-acquire to apply. If nothing wrote in between, apply the exact
+// result; otherwise reconcile conservatively so the racing write survives.
 func (ch *ConcurrentHash[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	ch.lock.Lock()
 	items := make([]Pair[K, V], 0, len(ch.data))
 	for key, value := range ch.data {
 		items = append(items, Pair[K, V]{Key: key, Value: value})
 	}
+	version := ch.version
 	ch.lock.Unlock()
 
-	var toRemove []Pair[K, V]
-	for _, item := range items {
-		if !fn(item.Key, item.Value) {
-			toRemove = append(toRemove, item)
-		}
-	}
+	rejected := rejectedPairs(items, fn) // fn runs here, outside the lock
 
 	ch.lock.Lock()
-	for _, item := range toRemove {
-		current, exists := ch.data[item.Key]
-		if exists && reflect.DeepEqual(current, item.Value) {
-			delete(ch.data, item.Key)
-		}
-	}
+	removeRejected(Hash[K, V](ch.data), rejected, ch.version == version)
+	ch.version++ // the apply phase is itself a write
 	ch.lock.Unlock()
 }
 ```
 
 Applies to every callback-taking method: `ForEach`/`ForEachKey`/`ForEachValue`/
 `ForEachWithIndex`, `Filter`/`FilterInPlace`, `AllMatch`/`AnyMatch`/`NoneMatch`,
-`Find`/`FindKey`/`FindValue`/`FindIndex`. The `All`/`Range`/`RangeAll` iterators
-already follow this — they snapshot under the lock and yield outside it.
+`Find`/`FindKey`/`FindValue`/`FindIndex`, and the `iter.Seq` iterators
+(`All`/`KeysSeq`/`ValuesSeq`/`Backward`/`RangeAll`).
+
+**Iterator snapshot timing — one rule for every dict, set and multimap.** An
+iterator reads the collection **when a range over it begins** — the snapshot
+is taken inside the returned func (e.g. `return pairsSeq(ch.Items)`), never
+when `All()` is called — so a stored `iter.Seq` always reflects the
+collection at the moment it is ranged. Concurrent types take that snapshot
+under the lock and yield outside it; the plain tree types (`dicts.Tree`,
+`sets.TreeSet`) snapshot too, because mutating an AVL tree under a live
+traversal skips entries; the plain map-backed types range their live Go map
+and follow Go's map-iteration rules. Each package doc states the rule, and
+each type has a test that creates an iterator, writes, then ranges it.
 
 - **Trade-off — document it.** The callback observes a **point-in-time snapshot**
-  taken under the lock, not a live view. For `FilterInPlace` the apply phase must
-  therefore not blindly clobber writes that landed while the predicate ran:
-  removal is **conditional on the entry being unchanged since the snapshot**, with
-  the conditioning tailored to what each structure stores:
-    - **Maps** (key→value): compare-before-delete — delete a rejected key only if
-      its current value still `reflect.DeepEqual`s the snapshot value, so a
-      concurrent *update* to that key survives.
-    - **Sets and multimaps** (the element / the `(key, value)` entry *is* the
-      datum — there is no separate value to diff): remove by element / by entry
-      against the *current* contents, deleting only what is still present. A
-      concurrent *insert* is never in the removal set, so it survives.
-    - **Lists** (ordered, duplicates, unstable positions): a multiset diff against
-      the *current* contents — remove one deeply-equal occurrence per rejected
-      element — rather than overwriting the backing storage wholesale, so a
-      concurrent insert is preserved.
+  taken under the lock, not a live view. For `FilterInPlace` that opens a
+  window between snapshot and apply in which another goroutine — or the
+  predicate itself — may write. The contract is:
+    - **No write in the window → exact.** The result is precisely what the
+      non-concurrent sibling's `FilterInPlace` produces: the predicate is called
+      once per element in the sibling's order, and exactly the rejected
+      keys/positions/bindings are removed. No equality test is involved, so
+      values that are not `reflect.DeepEqual` to themselves (NaN, structs or
+      arrays holding NaN, non-nil funcs), distinct-but-deeply-equal values (two
+      pointers to equal structs) and order-dependent predicates all behave as
+      on the sibling.
+    - **A write in the window → conservative reconciliation** that preserves the
+      write instead of clobbering it:
+        - **Maps** (key→value): compare-before-delete — delete a rejected key
+          only if its current value still `reflect.DeepEqual`s the snapshot
+          value, so a concurrent *update* to that key survives.
+        - **List-backed multimaps** and **lists** (ordered, duplicates, unstable
+          positions): remove one deeply-equal occurrence (the first) per
+          rejected element / `(key, value)` entry from the *current* contents,
+          rather than overwriting the storage, so a concurrent insert survives.
 
-  A concurrent write in the evaluation window is thus preserved, not silently
-  discarded. State the contract in the method's doc comment (see issue #153).
+      This fallback is best-effort by design: it may keep a rejected value that
+      is not DeepEqual to itself, and with deeply-equal duplicates it removes the
+      first rather than the one rejected. State both halves of the contract in
+      the method's doc comment (see issue #153).
+- **Detecting the write — the `version` counter.** Each type whose exact
+  apply differs from its reconciliation (maps, list-backed multimaps, lists)
+  carries a `version uint64` field. **Every** mutating method increments it
+  under the write lock — including no-op calls and `FilterInPlace`'s own apply
+  phase, so overlapping filters see each other. `FilterInPlace` reads it with
+  the snapshot and compares at apply time. A mutator that forgets the bump is
+  a silent lost write, so each concurrent type has a table test that performs
+  every mutating method from inside the predicate and asserts the write
+  survives (`...FilterInPlacePreservesConcurrentWrite`).
+- **Sets and set-backed multimaps need no counter.** The element / `(key,
+  value)` binding *is* its own identity, so removing each rejected element
+  from the current contents is already exactly the sibling's result, and a
+  concurrent insert is never in the removal set.
 - **Not in scope:** `Sort`/`SortInPlace`. The comparator is not an iteration
   callback and sorting genuinely needs the lock held throughout; these keep the
   whole-method lock from [[lock-discipline]].

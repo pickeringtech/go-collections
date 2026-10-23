@@ -55,8 +55,8 @@
 //
 //	// List-backed
 //	multimaps.NewListMultimap[K, V]()              // not thread-safe
-//	multimaps.NewConcurrentListMultimap[K, V]()    // *sync.Mutex (balanced)
-//	multimaps.NewConcurrentRWListMultimap[K, V]()  // *sync.RWMutex (read-heavy)
+//	multimaps.NewConcurrentListMultimap[K, V]()    // sync.Mutex (balanced)
+//	multimaps.NewConcurrentRWListMultimap[K, V]()  // sync.RWMutex (read-heavy)
 //
 //	// Set-backed
 //	multimaps.NewSetMultimap[K, V]()
@@ -67,10 +67,36 @@
 // operations return a new multimap of the same concurrent type.
 //
 // Callbacks passed to the traversal and predicate methods — ForEach, ForEachKey,
-// Filter, AllMatch, AnyMatch, Find and the iterator methods (All, Keys, Values)
-// — run after the lock is released, against a point-in-time snapshot taken under
-// the lock. They may therefore safely re-enter the same multimap (read it, or
-// mutate it) without deadlocking.
+// Filter, FilterInPlace, AllMatch, AnyMatch, NoneMatch, Find — and the bodies of
+// range loops over the iterator methods (All and KeysSeq; Keys and Values return
+// slices) run after the lock is released, against a point-in-time snapshot
+// taken under the lock. They may therefore safely re-enter the same multimap
+// (read it, or mutate it) without deadlocking.
+//
+// FilterInPlace applies its result under the lock once the predicate has seen
+// every entry. If nothing wrote to the multimap in the meantime the result is
+// exactly that of ListMultimap or SetMultimap; if a write did land in that
+// window, only the rejected entries are removed from the current contents, so
+// the concurrent write is preserved.
+//
+// # Iterators (range-over-func)
+//
+// All yields every entry and KeysSeq every distinct key. Every iterator reads
+// the multimap when a range over it begins, never when All or KeysSeq is
+// called, so a stored iterator is never stale:
+//
+//	seq := m.KeysSeq()
+//	m.PutInPlace("new", 1)
+//	for k := range seq { ... }   // includes "new"
+//
+// The concurrent multimaps take a snapshot of the entries at that moment, under
+// their lock, and yield from it, so the loop body may call back into the
+// multimap and is handed every entry that was present exactly once. ListMultimap
+// and SetMultimap range over their live Go maps, so in-loop mutation follows
+// Go's map iteration rules for keys (a key removed before it is reached is not
+// produced; one added during the loop may or may not be). Within a key,
+// ListMultimap keeps yielding the values the key held when the loop reached it,
+// and SetMultimap follows the map rules for values too.
 //
 // # Immutable vs Mutable Operations
 //

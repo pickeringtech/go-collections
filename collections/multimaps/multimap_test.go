@@ -669,3 +669,122 @@ func TestSetMultimap_Dedupes(t *testing.T) {
 		t.Errorf("Get(a) = %v, want %v (deduped)", got, want)
 	}
 }
+
+// TestListMultimap_MutationDuringIterationKeepsIterationConsistent verifies
+// that removing a binding while ForEach or All is ranging over a key's values
+// does not corrupt the in-flight iteration. RemoveInPlace used to compact the
+// key's values in place, shifting the shared backing array under the live range
+// so it visited [1 3 3] instead of [1 2 3]; a following PutInPlace then wrote
+// into that same array.
+func TestListMultimap_MutationDuringIterationKeepsIterationConsistent(t *testing.T) {
+	type args struct {
+		mutate func(m multimaps.MutableMultimap[string, int])
+	}
+	tests := []struct {
+		name        string
+		args        args
+		wantVisited []int
+		wantValues  []int
+	}{
+		{
+			name:        "removing a visited value",
+			args:        args{mutate: func(m multimaps.MutableMultimap[string, int]) { m.RemoveInPlace("k", 1) }},
+			wantVisited: []int{1, 2, 3},
+			wantValues:  []int{2, 3},
+		},
+		{
+			name: "removing a visited value then adding one",
+			args: args{mutate: func(m multimaps.MutableMultimap[string, int]) {
+				m.RemoveInPlace("k", 1)
+				m.PutInPlace("k", 9)
+			}},
+			wantVisited: []int{1, 2, 3},
+			wantValues:  []int{2, 3, 9},
+		},
+	}
+	iterators := []struct {
+		name    string
+		iterate func(m multimaps.MutableMultimap[string, int], visit func(key string, value int))
+	}{
+		{"ForEach", func(m multimaps.MutableMultimap[string, int], visit func(string, int)) { m.ForEach(visit) }},
+		{"All", func(m multimaps.MutableMultimap[string, int], visit func(string, int)) {
+			for key, value := range m.All() {
+				visit(key, value)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		for _, it := range iterators {
+			for _, f := range factories() {
+				if f.dedupe {
+					continue // set-backed values follow Go map iteration rules
+				}
+				t.Run(tt.name+"/"+it.name+"/"+f.name, func(t *testing.T) {
+					m := f.make()
+					m.PutAllInPlace("k", 1, 2, 3)
+
+					var visited []int
+					it.iterate(m, func(_ string, value int) {
+						visited = append(visited, value)
+						if value == 1 {
+							tt.args.mutate(m)
+						}
+					})
+
+					if !reflect.DeepEqual(visited, tt.wantVisited) {
+						t.Errorf("%s() visited %v, want %v", it.name, visited, tt.wantVisited)
+					}
+					got := m.Get("k")
+					if !reflect.DeepEqual(got, tt.wantValues) {
+						t.Errorf("Get() after iteration = %v, want %v", got, tt.wantValues)
+					}
+				})
+			}
+		}
+	}
+}
+
+// TestMultimap_IteratorSnapshotsWhenRangingBegins verifies that every iterator
+// reads the multimap when a range over it begins, not when the iterator is
+// created: a binding added between creating the iterator and ranging it is
+// seen. The concurrent multimaps used to copy their entries when All/KeysSeq
+// was called, so a stored iterator was stale.
+func TestMultimap_IteratorSnapshotsWhenRangingBegins(t *testing.T) {
+	iterators := []struct {
+		name   string
+		create func(m multimaps.MutableMultimap[string, int]) func(visit func(key string))
+	}{
+		{"All", func(m multimaps.MutableMultimap[string, int]) func(func(string)) {
+			seq := m.All()
+			return func(visit func(string)) {
+				for key := range seq {
+					visit(key)
+				}
+			}
+		}},
+		{"KeysSeq", func(m multimaps.MutableMultimap[string, int]) func(func(string)) {
+			seq := m.KeysSeq()
+			return func(visit func(string)) {
+				for key := range seq {
+					visit(key)
+				}
+			}
+		}},
+	}
+	for _, it := range iterators {
+		for _, f := range factories() {
+			t.Run(it.name+"/"+f.name, func(t *testing.T) {
+				m := f.make(multimaps.Entry[string, int]{Key: "a", Value: 1})
+				rangeOver := it.create(m)
+				m.PutInPlace("b", 2) // added after the iterator was created
+
+				var visited []string
+				rangeOver(func(key string) { visited = append(visited, key) })
+
+				if got, want := sortedStrings(visited), []string{"a", "b"}; !reflect.DeepEqual(got, want) {
+					t.Errorf("%s() created before PutInPlace then ranged = %v, want %v", it.name, got, want)
+				}
+			})
+		}
+	}
+}

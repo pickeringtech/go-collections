@@ -22,6 +22,12 @@ var present = struct{}{}
 // Backed by dicts.Tree, TreeSet inherits its float key contract: all NaN
 // elements collapse to a single element that sorts as the minimum (ahead of
 // -Inf), and -0.0 and +0.0 are the same element. See dicts.Tree for details.
+//
+// It also inherits dicts.Tree's iteration contract: ForEach, Filter,
+// FilterInPlace, AllMatch, AnyMatch, NoneMatch and Find work on a snapshot
+// taken when they begin, and All, Backward and RangeAll on a snapshot taken when
+// a range over them begins, so the callback or loop body may add or remove
+// elements and still sees every element present at that moment exactly once.
 type TreeSet[T constraints.Ordered] struct {
 	tree *dicts.Tree[T, struct{}]
 }
