@@ -38,10 +38,12 @@ func main() {
 
 `Fit` returns the estimator so calls can be chained. `Transform` returns a
 result and an `ok` flag; for a learned estimator that has not been fitted, it
-returns `nil, false` instead of panicking. An empty or invalid fit may leave an
-estimator unfitted. `ConstantImputer` and an `OrdinalEncoder` constructed with
-an explicit category order are ready to transform without learning from data.
-Transforms return fresh slices and leave their inputs unchanged.
+returns `nil, false` instead of panicking. An empty or invalid fit leaves the
+estimator unfitted — discarding anything an earlier successful fit learned, so
+it never keeps transforming with stale parameters. `ConstantImputer` and an
+`OrdinalEncoder` constructed with an explicit category order are ready to
+transform without learning from data. Transforms return fresh slices and leave
+their inputs unchanged.
 
 `FitTransform` is shorthand for fitting and transforming the same data. Use it
 for training data only; use `Transform` for validation and test data.
