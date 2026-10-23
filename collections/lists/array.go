@@ -235,13 +235,17 @@ func (a *Array[T]) PushInPlace(element T) {
 }
 
 // Sort returns a new List sorted according to the less-than function fn,
-// without modifying the receiver.
+// without modifying the receiver. The sort is stable: elements that compare
+// equal keep their original relative order.
 func (a *Array[T]) Sort(fn func(T, T) bool) List[T] {
-	return NewArray(slices.Sort(a.elements, fn)...)
+	sorted := slices.Copy(a.elements)
+	sortStable(sorted, fn)
+	return NewArray(sorted...)
 }
 
 // SortInPlace sorts the receiver's elements according to the less-than function
-// fn.
+// fn. The sort is stable: elements that compare equal keep their original
+// relative order.
 func (a *Array[T]) SortInPlace(fn func(T, T) bool) {
-	slices.SortInPlace(a.elements, fn)
+	sortStable(a.elements, fn)
 }

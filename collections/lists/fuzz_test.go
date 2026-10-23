@@ -365,6 +365,34 @@ var listOps = []func(l lists.MutableList[uint8], arg byte) listOutcome{
 		v, ok := l.PeekEnd()
 		return listOutcome{Element: v, OK: ok}
 	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		return listOutcome{List: l.Sort(listByResidue(arg)).AsSlice()}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		l.SortInPlace(listByResidue(arg))
+		return listOutcome{}
+	},
+}
+
+// listByResidue orders elements by their value mod 4 — ascending for an even
+// arg, descending for an odd one. Distinct elements share each residue, so an
+// implementation whose sort is not stable diverges from the oracle on ties.
+func listByResidue(arg byte) func(a, b uint8) bool {
+	if arg%2 == 0 {
+		return func(a, b uint8) bool { return a%4 < b%4 }
+	}
+	return func(a, b uint8) bool { return a%4 > b%4 }
+}
+
+// sortTiesSeed pushes enough distinct values to pass the small-slice cutoff
+// below which an unstable sort can still preserve order, then sorts them in
+// place by residue, so a sort that reorders equal keys is caught.
+func sortTiesSeed() []byte {
+	var program []byte
+	for v := byte(0); v < 40; v++ {
+		program = append(program, 0, v)
+	}
+	return append(program, 20, 0)
 }
 
 var differentialSeeds = [][]byte{
@@ -390,6 +418,7 @@ func FuzzListDifferential(f *testing.F) {
 	for _, seed := range differentialSeeds {
 		f.Add(seed)
 	}
+	f.Add(sortTiesSeed())
 	f.Fuzz(func(t *testing.T, program []byte) {
 		for _, factory := range differentialFactories() {
 			oracle := lists.NewArray[uint8]()

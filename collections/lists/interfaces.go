@@ -149,12 +149,15 @@ type Searchable[T any] interface {
 }
 
 // Sortable is implemented by collections that can be sorted into a new List,
-// without modifying the receiver, using a less-than comparison.
+// without modifying the receiver, using a less-than comparison. The sort is
+// stable: elements that compare equal keep their original relative order, so
+// every implementation orders the same input identically.
 type Sortable[T any] interface {
 	Sort(fn func(T, T) bool) List[T]
 }
 
-// MutableSortable is implemented by collections that can be sorted in place.
+// MutableSortable is implemented by collections that can be sorted in place
+// using a less-than comparison. As with Sortable, the sort is stable.
 type MutableSortable[T any] interface {
 	SortInPlace(fn func(T, T) bool)
 }

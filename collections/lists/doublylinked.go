@@ -393,21 +393,18 @@ func (dl *DoublyLinked[T]) insertAt(index int, element T) {
 	dl.size++
 }
 
-// Sort returns a new sorted List.
+// Sort returns a new List sorted according to the less-than function
+// lessThan, without modifying the receiver. The sort is stable: elements that
+// compare equal keep their original relative order.
 func (dl *DoublyLinked[T]) Sort(lessThan func(T, T) bool) List[T] {
 	slice := dl.AsSlice()
-	// Simple bubble sort for demonstration
-	for i := 0; i < len(slice); i++ {
-		for j := 0; j < len(slice)-1-i; j++ {
-			if lessThan(slice[j+1], slice[j]) {
-				slice[j], slice[j+1] = slice[j+1], slice[j]
-			}
-		}
-	}
+	sortStable(slice, lessThan)
 	return NewArray(slice...)
 }
 
-// SortInPlace sorts the list in place.
+// SortInPlace sorts the list in place according to the less-than function
+// lessThan. The sort is stable: elements that compare equal keep their original
+// relative order.
 func (dl *DoublyLinked[T]) SortInPlace(lessThan func(T, T) bool) {
 	if dl.size <= 1 {
 		return
