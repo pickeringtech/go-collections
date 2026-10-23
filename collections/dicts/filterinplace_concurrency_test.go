@@ -228,6 +228,105 @@ func TestConcurrentDictFilterInPlacePreservesConcurrentWrite(t *testing.T) {
 	}
 }
 
+// TestConcurrentDictFilterInPlacePreservesWritesThroughTwoMethods extends the
+// issue #153 contract to two writes through different methods in the same
+// predicate window. FilterInPlace detects a concurrent write by comparing a
+// write counter before and after the predicate runs, so every mutating method
+// must move that counter the same way: a method that moved it backwards would
+// cancel a companion method's write (an ABA on the counter), the dictionary
+// would look untouched, and the apply phase would delete the rejected key "a"
+// unconditionally — losing the companion's update to it. Each case pairs the
+// method under test with a PutInPlace("a", 10) companion (UpdateInPlace when
+// PutInPlace is the method under test); a nested FilterInPlace covers the
+// counter bump FilterInPlace makes itself.
+func TestConcurrentDictFilterInPlacePreservesWritesThroughTwoMethods(t *testing.T) {
+	putA := func(d dicts.MutableDict[string, int]) { d.PutInPlace("a", 10) }
+	type args struct {
+		write     func(d dicts.MutableDict[string, int])
+		companion func(d dicts.MutableDict[string, int])
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]int
+	}{
+		{
+			name: "PutInPlace then UpdateInPlace of the rejected key keeps both writes",
+			args: args{
+				write: func(d dicts.MutableDict[string, int]) { d.PutInPlace("d", 4) },
+				companion: func(d dicts.MutableDict[string, int]) {
+					d.UpdateInPlace("a", func(old int, _ bool) int { return old + 10 })
+				},
+			},
+			want: map[string]int{"a": 11, "b": 2, "c": 3, "d": 4},
+		},
+		{
+			name: "PutManyInPlace then PutInPlace of the rejected key keeps both writes",
+			args: args{
+				write:     func(d dicts.MutableDict[string, int]) { d.PutManyInPlace(dicts.Pair[string, int]{Key: "d", Value: 4}) },
+				companion: putA,
+			},
+			want: map[string]int{"a": 10, "b": 2, "c": 3, "d": 4},
+		},
+		{
+			name: "UpdateInPlace then PutInPlace of the rejected key keeps both writes",
+			args: args{
+				write: func(d dicts.MutableDict[string, int]) {
+					d.UpdateInPlace("b", func(old int, _ bool) int { return old + 10 })
+				},
+				companion: putA,
+			},
+			want: map[string]int{"a": 10, "b": 12, "c": 3},
+		},
+		{
+			name: "RemoveInPlace then PutInPlace of the rejected key keeps both writes",
+			args: args{write: func(d dicts.MutableDict[string, int]) { d.RemoveInPlace("b") }, companion: putA},
+			want: map[string]int{"a": 10, "c": 3},
+		},
+		{
+			name: "RemoveManyInPlace then PutInPlace of the rejected key keeps both writes",
+			args: args{write: func(d dicts.MutableDict[string, int]) { d.RemoveManyInPlace("b", "c") }, companion: putA},
+			want: map[string]int{"a": 10},
+		},
+		{
+			name: "Clear then PutInPlace of the rejected key keeps only the new value",
+			args: args{write: func(d dicts.MutableDict[string, int]) { d.Clear() }, companion: putA},
+			want: map[string]int{"a": 10},
+		},
+		{
+			name: "a nested FilterInPlace then PutInPlace of the rejected key keeps both writes",
+			args: args{
+				write: func(d dicts.MutableDict[string, int]) {
+					d.FilterInPlace(func(key string, _ int) bool { return key != "c" })
+				},
+				companion: putA,
+			},
+			want: map[string]int{"a": 10, "b": 2},
+		},
+	}
+	for _, tt := range tests {
+		for _, f := range concurrentWriteFactories() {
+			t.Run(tt.name+"/"+f.name, func(t *testing.T) {
+				d := f.make()
+				wrote := false
+				d.FilterInPlace(func(key string, _ int) bool {
+					if !wrote {
+						wrote = true
+						tt.args.write(d) // both racing writes land in the evaluation window
+						tt.args.companion(d)
+					}
+					return key != "a"
+				})
+
+				got := d.AsMap()
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("FilterInPlace() with two concurrent writes = %v, want %v", got, tt.want)
+				}
+			})
+		}
+	}
+}
+
 // concurrentWriteFactories builds each concurrent dictionary seeded with
 // {"a": 1, "b": 2, "c": 3}.
 func concurrentWriteFactories() []struct {
