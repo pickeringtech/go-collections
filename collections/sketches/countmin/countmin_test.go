@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/sketches/countmin"
@@ -23,21 +24,33 @@ func TestNew_InvalidConfig(t *testing.T) {
 	tests := []struct {
 		name       string
 		eps, delta float64
+		// wantMsg is a fragment the error must carry, so the caller is told
+		// which bound is wrong rather than only that something is.
+		wantMsg string
 	}{
-		{"zero epsilon", 0, 0.01},
-		{"epsilon one", 1, 0.01},
-		{"negative epsilon", -0.1, 0.01},
-		{"zero delta", 0.01, 0},
-		{"delta one", 0.01, 1},
+		// A zero bound would also be caught by the counter cap (it needs
+		// infinitely many counters), but it must be reported as out of range.
+		{"zero epsilon is reported as out of range", 0, 0.01, "epsilon must be in (0,1)"},
+		{"epsilon one is reported as out of range", 1, 0.01, "epsilon must be in (0,1)"},
+		{"negative epsilon is reported as out of range", -0.1, 0.01, "epsilon must be in (0,1)"},
+		{"zero delta is reported as out of range", 0.01, 0, "delta must be in (0,1)"},
+		{"delta one is reported as out of range", 0.01, 1, "delta must be in (0,1)"},
 		// Absurd bounds: w*d exceeds the allocation cap, so New rejects it
 		// instead of overflowing or panicking on allocation.
-		{"epsilon astronomically tight", 1e-18, 0.01},
+		{"astronomically tight epsilon exceeds the counter cap", 1e-18, 0.01, "counter limit"},
+		// w = ceil(e/1e-12) = 2718281828460 and d = ceil(ln 100) = 5, so the
+		// table needs w·d = 13591409142300 counters — over the 2^40 cap even
+		// though w alone is under it — and the error reports that product.
+		{"bounds whose product exceeds the counter cap report the product", 1e-12, 0.01, "need 13591409142300 counters"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := countmin.New[string](tc.eps, tc.delta)
 			if !errors.Is(err, countmin.ErrInvalidConfig) {
-				t.Errorf("error = %v, want ErrInvalidConfig", err)
+				t.Fatalf("error = %v, want ErrInvalidConfig", err)
+			}
+			if !strings.Contains(err.Error(), tc.wantMsg) {
+				t.Errorf("error = %q, want it to contain %q", err, tc.wantMsg)
 			}
 		})
 	}
@@ -122,6 +135,48 @@ func TestSketch_Merge(t *testing.T) {
 	}
 	if got := a.Total(); got != 22 {
 		t.Errorf("merged Total() = %d, want 22", got)
+	}
+}
+
+// TestSketch_MergeAddsCountsExactly checks that Merge adds counters exactly
+// when neither side is near saturation, whichever side holds the larger count.
+// Each sketch holds only "x", so every counter is either 0 or x's count and the
+// estimate is exact. The saturation guard must only fire when the sum would
+// actually overflow, never merely because the receiver's count is the larger.
+func TestSketch_MergeAddsCountsExactly(t *testing.T) {
+	type args struct {
+		receiver, other uint64
+	}
+	tests := []struct {
+		name string
+		args args
+		want uint64
+	}{
+		{name: "a larger receiver count adds the smaller one", args: args{receiver: 10, other: 5}, want: 15},
+		{name: "a smaller receiver count adds the larger one", args: args{receiver: 5, other: 10}, want: 15},
+		{name: "equal counts double", args: args{receiver: 7, other: 7}, want: 14},
+		{name: "an empty receiver takes the other count", args: args{receiver: 0, other: 7}, want: 7},
+		{name: "an empty other leaves the receiver count", args: args{receiver: 7, other: 0}, want: 7},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := mustNew[string](t, 0.01, 0.01)
+			b := mustNew[string](t, 0.01, 0.01)
+			a.AddCount("x", tt.args.receiver)
+			b.AddCount("x", tt.args.other)
+			err := a.Merge(b)
+			if err != nil {
+				t.Fatalf("Merge: %v", err)
+			}
+			got := a.Estimate("x")
+			if got != tt.want {
+				t.Errorf("merged Estimate(x) = %d, want %d", got, tt.want)
+			}
+			total := a.Total()
+			if total != tt.want {
+				t.Errorf("merged Total() = %d, want %d", total, tt.want)
+			}
+		})
 	}
 }
 
