@@ -120,3 +120,65 @@ func TestCircularList_SingleElementRemovalPaths(t *testing.T) {
 		}
 	}
 }
+
+// TestList_FilterInPlace_MatchesAcrossImplementations filters every plain list
+// implementation with the same predicate and asserts identical results, and that
+// the predicate runs exactly once per element in order. The tail-only and
+// head-dropping cases pin the circular Linked walk, which once skipped the tail
+// and re-tested the dropped head.
+func TestList_FilterInPlace_MatchesAcrossImplementations(t *testing.T) {
+	type args struct {
+		initial []int
+		keep    func(int) bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{name: "keeping only the tail leaves the tail", args: args{initial: []int{1, 2, 3}, keep: func(n int) bool { return n == 3 }}, want: []int{3}},
+		{name: "keeping only the head leaves the head", args: args{initial: []int{1, 2, 3}, keep: func(n int) bool { return n == 1 }}, want: []int{1}},
+		{name: "dropping only the head keeps the rest", args: args{initial: []int{1, 2, 3}, keep: func(n int) bool { return n != 1 }}, want: []int{2, 3}},
+		{name: "dropping only the tail keeps the rest", args: args{initial: []int{1, 2, 3}, keep: func(n int) bool { return n != 3 }}, want: []int{1, 2}},
+		{name: "dropping head and tail keeps the middle", args: args{initial: []int{1, 2, 3, 4, 5}, keep: func(n int) bool { return n != 1 && n != 5 }}, want: []int{2, 3, 4}},
+		{name: "alternating elements are kept", args: args{initial: []int{1, 2, 3, 4, 5, 6}, keep: func(n int) bool { return n%2 == 0 }}, want: []int{2, 4, 6}},
+		{name: "keeping everything leaves the list unchanged", args: args{initial: []int{1, 2, 3}, keep: func(int) bool { return true }}, want: []int{1, 2, 3}},
+		{name: "keeping nothing empties the list", args: args{initial: []int{1, 2, 3}, keep: func(int) bool { return false }}, want: []int{}},
+		{name: "a kept single element survives", args: args{initial: []int{7}, keep: func(int) bool { return true }}, want: []int{7}},
+		{name: "a dropped single element is removed", args: args{initial: []int{7}, keep: func(int) bool { return false }}, want: []int{}},
+		{name: "an empty list stays empty", args: args{initial: nil, keep: func(int) bool { return true }}, want: []int{}},
+	}
+	for _, ctor := range plainListConstructors() {
+		for _, tt := range tests {
+			t.Run(ctor.name+"/"+tt.name, func(t *testing.T) {
+				l := ctor.make(tt.args.initial...)
+				seen := []int{}
+				l.FilterInPlace(func(n int) bool {
+					seen = append(seen, n)
+					return tt.args.keep(n)
+				})
+
+				got := l.AsSlice()
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("FilterInPlace() = %v, want %v", got, tt.want)
+				}
+				if l.Length() != len(tt.want) {
+					t.Errorf("Length() = %d, want %d", l.Length(), len(tt.want))
+				}
+				wantSeen := append([]int{}, tt.args.initial...)
+				if !reflect.DeepEqual(seen, wantSeen) {
+					t.Errorf("predicate saw %v, want each element once in order %v", seen, wantSeen)
+				}
+
+				// The surviving structure must still link correctly at both ends.
+				l.PushInPlace(99)
+				l.InsertInPlace(0, -1)
+				wantAfter := append(append([]int{-1}, tt.want...), 99)
+				gotAfter := l.AsSlice()
+				if !reflect.DeepEqual(gotAfter, wantAfter) {
+					t.Errorf("after push/insert = %v, want %v", gotAfter, wantAfter)
+				}
+			})
+		}
+	}
+}

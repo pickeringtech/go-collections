@@ -79,19 +79,22 @@ func NewLinkedCircular[T any](values ...T) *Linked[T] {
 }
 
 func (l *Linked[T]) insertAtEnd(value T) {
-	newNode := &node[T]{
+	l.appendNode(&node[T]{
 		value:  value,
 		linked: l,
-		next:   nil,
-	}
+	})
+}
 
+// appendNode links n in as the new tail, maintaining the circular invariant
+// when the list is circular. Any existing next pointer on n is overwritten.
+func (l *Linked[T]) appendNode(n *node[T]) {
+	n.next = nil
 	if l.head == nil {
-		l.head = newNode
-		l.tail = newNode
+		l.head = n
 	} else {
-		l.tail.next = newNode
-		l.tail = newNode
+		l.tail.next = n
 	}
+	l.tail = n
 
 	if l.isCircular {
 		l.tail.next = l.head
@@ -188,42 +191,27 @@ func (l *Linked[T]) Filter(fn func(T) bool) List[T] {
 	return NewArray(result...)
 }
 
-// FilterInPlace removes elements that don't satisfy the predicate.
+// FilterInPlace retains only the elements for which fn returns true, modifying
+// the receiver. fn is called exactly once per element, front to back, and the
+// survivors keep their relative order.
 func (l *Linked[T]) FilterInPlace(fn func(T) bool) {
 	if l.head == nil {
 		return
 	}
 
-	// Handle head nodes that don't match
-	for l.head != nil && !fn(l.head.value) {
-		l.head = l.head.next
-		if l.isCircular && l.head == l.tail {
-			l.head = nil
-			l.tail = nil
-			return
-		}
-	}
-
-	if l.head == nil {
-		l.tail = nil
-		return
-	}
-
-	// Handle remaining nodes
+	// Break the cycle (a no-op for a non-circular list) so the walk below visits
+	// each original node exactly once, then relink the survivors from an empty
+	// list; appendNode re-closes the cycle as it goes.
+	l.tail.next = nil
 	current := l.head
-	for current.next != nil && (!l.isCircular || current.next != l.head) {
-		if !fn(current.next.value) {
-			if current.next == l.tail {
-				l.tail = current
-			}
-			current.next = current.next.next
-		} else {
-			current = current.next
+	l.head = nil
+	l.tail = nil
+	for current != nil {
+		next := current.next
+		if fn(current.value) {
+			l.appendNode(current)
 		}
-	}
-
-	if l.isCircular && l.tail != nil {
-		l.tail.next = l.head
+		current = next
 	}
 }
 

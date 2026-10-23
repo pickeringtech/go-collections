@@ -30,6 +30,18 @@ func allMutableListConstructors() []mutableListConstructor {
 	}
 }
 
+// plainListConstructors covers the five non-concurrent list implementations,
+// circular and not.
+func plainListConstructors() []mutableListConstructor {
+	return []mutableListConstructor{
+		{"Array", func(e ...int) lists.MutableList[int] { return lists.NewArray(e...) }},
+		{"Linked", func(e ...int) lists.MutableList[int] { return lists.NewLinked(e...) }},
+		{"LinkedCircular", func(e ...int) lists.MutableList[int] { return lists.NewLinkedCircular(e...) }},
+		{"DoublyLinked", func(e ...int) lists.MutableList[int] { return lists.NewDoublyLinked(e...) }},
+		{"DoublyLinkedCircular", func(e ...int) lists.MutableList[int] { return lists.NewDoublyLinkedCircular(e...) }},
+	}
+}
+
 // everyMutableListConstructor returns the linear and the circular constructors
 // together, so a contract every list shares runs against all of them.
 func everyMutableListConstructor() []mutableListConstructor {
