@@ -31,7 +31,8 @@ func TestOneHotEncoderUnseenIsAllZero(t *testing.T) {
 }
 
 func TestOneHotEncoderUnfitted(t *testing.T) {
-	if _, ok := preprocessing.NewOneHotEncoder[int]().Transform([]int{1}); ok {
+	_, ok := preprocessing.NewOneHotEncoder[int]().Transform([]int{1})
+	if ok {
 		t.Fatalf("unfitted Transform reported ok")
 	}
 }
@@ -65,11 +66,21 @@ func TestLabelEncoderInverseRoundTrip(t *testing.T) {
 
 func TestLabelEncoderInverseRejectsOutOfRange(t *testing.T) {
 	enc := preprocessing.NewLabelEncoder[string]().Fit([]string{"a", "b"})
-	if _, ok := enc.InverseTransform([]int{0, 5}); ok {
-		t.Fatalf("InverseTransform accepted out-of-range code")
+	tests := []struct {
+		name  string
+		codes []int
+	}{
+		{name: "a code one past the last category", codes: []int{2}},
+		{name: "a code far beyond the categories", codes: []int{0, 5}},
+		{name: "a negative code", codes: []int{-1}},
 	}
-	if _, ok := enc.InverseTransform([]int{-1}); ok {
-		t.Fatalf("InverseTransform accepted -1")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := enc.InverseTransform(tt.codes)
+			if ok {
+				t.Errorf("InverseTransform(%v) = (%v, true), want ok == false", tt.codes, got)
+			}
+		})
 	}
 }
 
@@ -124,7 +135,8 @@ func TestTargetEncoder(t *testing.T) {
 
 func TestTargetEncoderMismatchedLengthsLeavesUnfitted(t *testing.T) {
 	enc := preprocessing.NewTargetEncoder[string]().Fit([]string{"a", "b"}, []float64{1})
-	if _, ok := enc.Transform([]string{"a"}); ok {
+	_, ok := enc.Transform([]string{"a"})
+	if ok {
 		t.Fatalf("Fit with mismatched lengths reported fitted")
 	}
 }

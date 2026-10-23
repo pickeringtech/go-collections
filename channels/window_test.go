@@ -287,6 +287,59 @@ func TestTumblingWindowCancellation(t *testing.T) {
 	assertChannelCloses(t, out, "TumblingWindow")
 }
 
+// TestWindowsWithMeaninglessParametersReturnAClosedChannel pins the documented
+// "already closed and empty" result for a size or step <= 0: the channel is
+// closed on return — not merely once the input closes, which is all draining
+// a closed input can show — so it holds even for an input nobody ever closes.
+func TestWindowsWithMeaninglessParametersReturnAClosedChannel(t *testing.T) {
+	tests := []struct {
+		name     string
+		windower func(ctx context.Context, in <-chan int) <-chan []int
+	}{
+		{
+			name: "TumblingWindow with size zero",
+			windower: func(ctx context.Context, in <-chan int) <-chan []int {
+				return channels.TumblingWindow(ctx, in, 0)
+			},
+		},
+		{
+			name: "TumblingWindow with a negative size",
+			windower: func(ctx context.Context, in <-chan int) <-chan []int {
+				return channels.TumblingWindow(ctx, in, -1)
+			},
+		},
+		{
+			name: "SlidingWindow with size zero",
+			windower: func(ctx context.Context, in <-chan int) <-chan []int {
+				return channels.SlidingWindow(ctx, in, 0, 1)
+			},
+		},
+		{
+			name: "SlidingWindow with step zero",
+			windower: func(ctx context.Context, in <-chan int) <-chan []int {
+				return channels.SlidingWindow(ctx, in, 2, 0)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			// cancel stops any goroutine a regression would have started.
+			defer cancel()
+			input := make(chan int) // never written, never closed
+			out := tt.windower(ctx, input)
+			select {
+			case w, ok := <-out:
+				if ok {
+					t.Errorf("received window %v, want an already-closed channel", w)
+				}
+			default:
+				t.Errorf("output channel is open, want it already closed")
+			}
+		})
+	}
+}
+
 // TestSlidingWindowCancellation mirrors the tumbling case for the sliding verb.
 func TestSlidingWindowCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())

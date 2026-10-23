@@ -2,6 +2,7 @@ package classification_test
 
 import (
 	"math"
+	"reflect"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/ml/metrics/classification"
@@ -38,6 +39,17 @@ func TestAUC(t *testing.T) {
 			scores: []float64{0.5, 0.5, 0.6, 0.4},
 			pos:    1,
 			want:   0.875,
+			wantOK: true,
+		},
+		{
+			// One positive outranking two of the three negatives: U = 2 of the
+			// 1·3 positive/negative pairs. Unequal class sizes catch a swapped
+			// positive/negative count, which balanced data cannot.
+			name:   "imbalanced classes",
+			yTrue:  []int{0, 1, 0, 0},
+			scores: []float64{0.2, 0.6, 0.7, 0.1},
+			pos:    1,
+			want:   2.0 / 3.0,
 			wantOK: true,
 		},
 		{
@@ -100,14 +112,63 @@ func TestROCCurve(t *testing.T) {
 		}
 	}
 
-	if _, ok := classification.ROCCurve([]int{1, 1}, []float64{0.2, 0.5}, 1); ok {
+	_, ok = classification.ROCCurve([]int{1, 1}, []float64{0.2, 0.5}, 1)
+	if ok {
 		t.Error("single class: ok = true, want false")
 	}
-	if _, ok := classification.ROCCurve([]int{0, 1}, []float64{0.2}, 1); ok {
+	_, ok = classification.ROCCurve([]int{0, 1}, []float64{0.2}, 1)
+	if ok {
 		t.Error("length mismatch: ok = true, want false")
 	}
-	if _, ok := classification.ROCCurve([]int{0, 1}, []float64{0.2, math.NaN()}, 1); ok {
+	_, ok = classification.ROCCurve([]int{0, 1}, []float64{0.2, math.NaN()}, 1)
+	if ok {
 		t.Error("non-finite score: ok = true, want false")
+	}
+}
+
+// TestROCCurvePoints pins every operating point, not just the corners and
+// monotonicity: sweeping the thresholds in the wrong direction, swapping the
+// true- and false-positive tallies, or swapping the class sizes all still yield
+// a monotonic curve from (0,0) to (1,1).
+func TestROCCurvePoints(t *testing.T) {
+	inf := math.Inf(1)
+	tests := []struct {
+		name   string
+		yTrue  []int
+		scores []float64
+		want   []classification.Point
+	}{
+		{
+			name:   "balanced textbook example",
+			yTrue:  []int{0, 0, 1, 1},
+			scores: []float64{0.1, 0.4, 0.35, 0.8},
+			want: []classification.Point{
+				{FPR: 0, TPR: 0, Threshold: inf},
+				{FPR: 0, TPR: 0.5, Threshold: 0.8},
+				{FPR: 0.5, TPR: 0.5, Threshold: 0.4},
+				{FPR: 0.5, TPR: 1, Threshold: 0.35},
+				{FPR: 1, TPR: 1, Threshold: 0.1},
+			},
+		},
+		{
+			name:   "imbalanced classes",
+			yTrue:  []int{1, 0, 0},
+			scores: []float64{0.9, 0.5, 0.1},
+			want: []classification.Point{
+				{FPR: 0, TPR: 0, Threshold: inf},
+				{FPR: 0, TPR: 1, Threshold: 0.9},
+				{FPR: 0.5, TPR: 1, Threshold: 0.5},
+				{FPR: 1, TPR: 1, Threshold: 0.1},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			curve, ok := classification.ROCCurve(tt.yTrue, tt.scores, 1)
+			if !ok || !reflect.DeepEqual(curve.Points, tt.want) {
+				t.Errorf("ROCCurve() = %+v, %v; want %+v, true", curve.Points, ok, tt.want)
+			}
+		})
 	}
 }
 
@@ -179,16 +240,28 @@ func TestLogLoss(t *testing.T) {
 }
 
 func TestLogLossClampsCertainMistake(t *testing.T) {
-	// A confident, wrong prediction (p=0 for a positive) must yield a large but
-	// finite loss rather than +Inf.
-	got, ok := classification.LogLoss([]int{1}, []float64{0}, 1)
-	if !ok {
-		t.Fatal("ok = false, want true")
+	// A confident, wrong prediction must yield a large but finite loss rather
+	// than +Inf, at either end of [0, 1] — both ends are valid probabilities.
+	tests := []struct {
+		name  string
+		yTrue []int
+		probs []float64
+	}{
+		{name: "probability zero for a positive", yTrue: []int{1}, probs: []float64{0}},
+		{name: "probability one for a negative", yTrue: []int{0}, probs: []float64{1}},
 	}
-	if math.IsInf(got, 0) || math.IsNaN(got) {
-		t.Fatalf("loss = %v, want a large finite value", got)
-	}
-	if got < 30 {
-		t.Errorf("loss = %v, want a large penalty (>30)", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := classification.LogLoss(tt.yTrue, tt.probs, 1)
+			if !ok {
+				t.Fatal("ok = false, want true")
+			}
+			if math.IsInf(got, 0) || math.IsNaN(got) {
+				t.Fatalf("loss = %v, want a large finite value", got)
+			}
+			if got < 30 {
+				t.Errorf("loss = %v, want a large penalty (>30)", got)
+			}
+		})
 	}
 }

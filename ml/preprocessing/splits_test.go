@@ -273,7 +273,9 @@ func TestStratifiedSplitTotalMatchesTrainTestSplit(t *testing.T) {
 
 // TestStratifiedSplitApportionment checks the per-label test counts: a
 // proportional largest-remainder share, adjusted so every label with two or
-// more rows reaches both sides when the totals allow.
+// more rows reaches both sides when the totals allow. No case hinges on a tie,
+// so the counts must not depend on the seed: each case runs under several, which
+// exercises the adjustments under different label priority orders.
 func TestStratifiedSplitApportionment(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -289,20 +291,39 @@ func TestStratifiedSplitApportionment(t *testing.T) {
 		{name: "the most over-allocated label donates the test row", labels: labelsOf("A", 60, "B", 40, "C", 2), frac: 0.1, want: map[string]int{"A": 5, "B": 4, "C": 1}},
 		{name: "the most under-allocated label receives the test row", labels: labelsOf("A", 2, "B", 10, "C", 9), frac: 0.8, want: map[string]int{"A": 1, "B": 8, "C": 8}},
 		{name: "too few test rows to cover every label", labels: labelsOf("A", 2, "B", 2, "C", 2), frac: 0.3, want: nil},
+		// Three test rows for three multi-row labels: exactly enough to give
+		// each one. The largest remainder hands all three to A (share 2.4), so
+		// B and C must each take one of them.
+		{name: "exactly enough test rows to cover every label", labels: labelsOf("A", 16, "B", 2, "C", 2), frac: 0.15, want: map[string]int{"A": 1, "B": 1, "C": 1}},
+		// D needs a test row. A holds 3 against a share of 3.2 and B holds 2
+		// against exactly 2: B is further above its share, so B donates even
+		// though A is the larger label.
+		{name: "the donor is the label furthest above its share, not the largest", labels: labelsOf("A", 16, "B", 10, "C", 2, "D", 2), frac: 0.2, want: map[string]int{"A": 3, "B": 1, "C": 1, "D": 1}},
+		// D needs a test row. A holds 3 against exactly 3 and B holds 2 against
+		// a share of 2.2: A is further above its share, so A donates even
+		// though it is the first-seen label.
+		{name: "the first-seen label donates when it is furthest above its share", labels: labelsOf("A", 15, "B", 11, "C", 2, "D", 2), frac: 0.2, want: map[string]int{"A": 2, "B": 2, "C": 1, "D": 1}},
+		// C needs a test row. D holds 0 against a share of 0.15, closer to its
+		// share than A's 2 against 2.25, but a singleton with no test row has
+		// none to give, so A donates.
+		{name: "a singleton label with no test row cannot donate one", labels: labelsOf("A", 15, "B", 2, "C", 2, "D", 1), frac: 0.15, want: map[string]int{"A": 1, "B": 1, "C": 1, "D": 0}},
+		// The largest remainder puts both of B's rows (or C's) in test, so it
+		// must hand one back. The other two-row label is further below its
+		// share than A but has only one train row left, so A takes the row.
+		{name: "a label never gives up its last train row to take a test row", labels: labelsOf("A", 6, "B", 2, "C", 2), frac: 0.7, want: map[string]int{"A": 5, "B": 1, "C": 1}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, test, ok := preprocessing.StratifiedSplit(benchInts(len(tt.labels)), tt.labels, tt.frac, preprocessing.NewRand(3))
-			if !ok {
-				t.Fatalf("ok = false, want true")
-			}
-			got := testCountsByLabel(tt.labels, test)
-			if tt.want == nil {
-				return
-			}
-			for label, want := range tt.want {
-				if got[label] != want {
-					t.Errorf("label %s has %d test rows, want %d (all: %v)", label, got[label], want, got)
+			for seed := int64(0); seed < 8; seed++ {
+				_, test, ok := preprocessing.StratifiedSplit(benchInts(len(tt.labels)), tt.labels, tt.frac, preprocessing.NewRand(seed))
+				if !ok {
+					t.Fatalf("seed %d: ok = false, want true", seed)
+				}
+				got := testCountsByLabel(tt.labels, test)
+				for label, want := range tt.want {
+					if got[label] != want {
+						t.Errorf("seed %d: label %s has %d test rows, want %d (all: %v)", seed, label, got[label], want, got)
+					}
 				}
 			}
 		})
