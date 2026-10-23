@@ -124,7 +124,31 @@ func BenchmarkHamming(b *testing.B) {
 	}
 }
 
+// The Levenshtein ladders stop at 10_000 elements: the distance is
+// O(len(a)·len(b)), so the 100_000 and 1_000_000 rungs would be 10¹⁰–10¹²
+// operations per iteration.
+
 func BenchmarkLevenshtein(b *testing.B) {
+	benchmarks := []struct {
+		name string
+		a, v []int
+	}{
+		{name: "3 elements", a: benchInts(3, 0), v: benchInts(3, 1)},
+		{name: "10 elements", a: benchInts(10, 0), v: benchInts(10, 1)},
+		{name: "100 elements", a: benchInts(100, 0), v: benchInts(100, 1)},
+		{name: "1_000 elements", a: benchInts(1_000, 0), v: benchInts(1_000, 1)},
+		{name: "10_000 elements", a: benchInts(10_000, 0), v: benchInts(10_000, 1)},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = distance.Levenshtein(bm.a, bm.v)
+			}
+		})
+	}
+}
+
+func BenchmarkStringLevenshtein(b *testing.B) {
 	benchmarks := []struct {
 		name string
 		a, v string
@@ -138,10 +162,21 @@ func BenchmarkLevenshtein(b *testing.B) {
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_ = distance.Levenshtein(bm.a, bm.v)
+				_ = distance.StringLevenshtein(bm.a, bm.v)
 			}
 		})
 	}
+}
+
+// benchInts returns n small integers offset by shift, so two calls with
+// different shifts give sequences that agree at some positions and differ at
+// others.
+func benchInts(n, shift int) []int {
+	out := make([]int, n)
+	for i := range out {
+		out[i] = (i + shift) % 7
+	}
+	return out
 }
 
 func repeatStr(s string, n int) string {

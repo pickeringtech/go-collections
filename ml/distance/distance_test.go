@@ -472,7 +472,7 @@ func TestHammingWithInts(t *testing.T) {
 	}
 }
 
-func TestLevenshtein(t *testing.T) {
+func TestStringLevenshtein(t *testing.T) {
 	type args struct {
 		a, b string
 	}
@@ -534,29 +534,81 @@ func TestLevenshtein(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := distance.Levenshtein(tc.args.a, tc.args.b)
+			got := distance.StringLevenshtein(tc.args.a, tc.args.b)
 			if got != tc.want {
-				t.Fatalf("Levenshtein(%q, %q) = %v, want %v", tc.args.a, tc.args.b, got, tc.want)
+				t.Fatalf("StringLevenshtein(%q, %q) = %v, want %v", tc.args.a, tc.args.b, got, tc.want)
 			}
 		})
 	}
 }
 
-func TestLevenshteinIsSymmetric(t *testing.T) {
+func TestStringLevenshteinIsSymmetric(t *testing.T) {
 	a := "saturday"
 	b := "sunday"
-	ab := distance.Levenshtein(a, b)
-	ba := distance.Levenshtein(b, a)
+	ab := distance.StringLevenshtein(a, b)
+	ba := distance.StringLevenshtein(b, a)
 	if ab != ba {
-		t.Fatalf("Levenshtein(%q, %q) = %d, Levenshtein(%q, %q) = %d; want equal", a, b, ab, b, a, ba)
+		t.Fatalf("StringLevenshtein(%q, %q) = %d, StringLevenshtein(%q, %q) = %d; want equal", a, b, ab, b, a, ba)
 	}
 }
 
-func TestLevenshteinAllThreeTransitions(t *testing.T) {
+func TestStringLevenshteinAllThreeTransitions(t *testing.T) {
 	// "ab" → "ba" exercises all three DP transitions (delete, insert, substitute)
 	// in the edit-distance computation. Expected distance is 2.
-	got := distance.Levenshtein("ab", "ba")
+	got := distance.StringLevenshtein("ab", "ba")
 	if got != 2 {
-		t.Fatalf("Levenshtein(\"ab\", \"ba\") = %d, want 2", got)
+		t.Fatalf("StringLevenshtein(\"ab\", \"ba\") = %d, want 2", got)
+	}
+}
+
+func TestLevenshtein(t *testing.T) {
+	type args struct {
+		a, b []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+	}{
+		{name: "token sequences", args: args{a: []string{"the", "quick", "brown", "fox"}, b: []string{"the", "slow", "brown", "dog", "!"}}, want: 3},
+		{name: "identical sequences", args: args{a: []string{"a", "b"}, b: []string{"a", "b"}}, want: 0},
+		{name: "insertion only", args: args{a: []string{"a", "c"}, b: []string{"a", "b", "c"}}, want: 1},
+		{name: "deletion only", args: args{a: []string{"x", "a", "b"}, b: []string{"a", "b"}}, want: 1},
+		{name: "empty to non-empty", args: args{a: []string{}, b: []string{"a", "b"}}, want: 2},
+		{name: "non-empty to nil", args: args{a: []string{"a", "b", "c"}, b: nil}, want: 3},
+		{name: "nil input results in zero distance", args: args{a: nil, b: nil}, want: 0},
+		{name: "empty input results in zero distance", args: args{a: []string{}, b: []string{}}, want: 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := distance.Levenshtein(tc.args.a, tc.args.b)
+			if got != tc.want {
+				t.Fatalf("Levenshtein(%v, %v) = %v, want %v", tc.args.a, tc.args.b, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestLevenshteinOverOtherElementTypes checks the generic distance on element
+// types a string API cannot express: integers, raw bytes (which differ from
+// runes for multi-byte UTF-8) and structs.
+func TestLevenshteinOverOtherElementTypes(t *testing.T) {
+	type base struct{ symbol byte }
+	tests := []struct {
+		name string
+		got  int
+		want int
+	}{
+		{name: "ints", got: distance.Levenshtein([]int{1, 2, 3, 4}, []int{2, 3, 4, 5}), want: 2},
+		{name: "bytes count each UTF-8 byte", got: distance.Levenshtein([]byte("café"), []byte("cafe")), want: 2},
+		{name: "runes count each character", got: distance.Levenshtein([]rune("café"), []rune("cafe")), want: 1},
+		{name: "structs", got: distance.Levenshtein([]base{{'A'}, {'C'}, {'G'}}, []base{{'A'}, {'G'}}), want: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.want {
+				t.Errorf("Levenshtein() = %d, want %d", tt.got, tt.want)
+			}
+		})
 	}
 }

@@ -75,20 +75,36 @@ func ExampleHamming_mismatch() {
 }
 
 func ExampleLevenshtein() {
-	d := distance.Levenshtein("kitten", "sitting")
+	// Edit distance over word tokens: substitute "quick" → "slow" and
+	// "fox" → "dog", then insert "!".
+	a := []string{"the", "quick", "brown", "fox"}
+	b := []string{"the", "slow", "brown", "dog", "!"}
+	fmt.Println(distance.Levenshtein(a, b))
+	// Output: 3
+}
+
+func ExampleLevenshtein_bytes() {
+	// Over raw bytes, the two-byte UTF-8 "é" costs two edits; StringLevenshtein
+	// counts it as one character.
+	fmt.Println(distance.Levenshtein([]byte("café"), []byte("cafe")), distance.StringLevenshtein("café", "cafe"))
+	// Output: 2 1
+}
+
+func ExampleStringLevenshtein() {
+	d := distance.StringLevenshtein("kitten", "sitting")
 	fmt.Println(d)
 	// Output: 3
 }
 
-func ExampleLevenshtein_identical() {
-	d := distance.Levenshtein("hello", "hello")
+func ExampleStringLevenshtein_identical() {
+	d := distance.StringLevenshtein("hello", "hello")
 	fmt.Println(d)
 	// Output: 0
 }
 
-func ExampleLevenshtein_empty() {
+func ExampleStringLevenshtein_empty() {
 	// Distance from empty string to "abc" is 3 (3 insertions).
-	d := distance.Levenshtein("", "abc")
+	d := distance.StringLevenshtein("", "abc")
 	fmt.Println(d)
 	// Output: 3
 }

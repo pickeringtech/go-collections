@@ -31,10 +31,12 @@ m, _ := distance.Manhattan(a, b)  // 7.0
 | Function | Returns | Notes |
 |----------|---------|-------|
 | `Hamming[T](a, b []T)` | `(int, bool)` | Positional differences; any `comparable` T; `ok=false` on length mismatch |
-| `Levenshtein(a, b string)` | `int` | Min edit operations (insert/delete/substitute); operates over runes |
+| `Levenshtein[T](a, b []T)` | `int` | Min edit operations (insert/delete/substitute); any `comparable` T |
+| `StringLevenshtein(a, b string)` | `int` | `Levenshtein` over runes, so multi-byte Unicode counts as one character |
 
 ```go
 h, _ := distance.Hamming([]string{"a","b","c"}, []string{"a","x","c"}) // 1
 
-lev := distance.Levenshtein("kitten", "sitting") // 3
+lev := distance.StringLevenshtein("kitten", "sitting")                // 3
+tok := distance.Levenshtein([]string{"a", "b"}, []string{"a", "c"}) // 1
 ```
