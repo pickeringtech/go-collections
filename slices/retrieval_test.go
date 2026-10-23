@@ -2100,49 +2100,49 @@ func TestSubSlice(t *testing.T) {
 			want: []int{1, 2},
 		},
 		{
-			name: "if range is entirely before input, result is nil",
+			name: "if range is entirely before input, result is a non-nil empty slice",
 			args: args[int]{
 				input:     []int{1, 2, 3, 4, 5},
 				fromIndex: -2,
 				toIndex:   -1,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "if range is entirely after input, result is nil",
+			name: "if range is entirely after input, result is a non-nil empty slice",
 			args: args[int]{
 				input:     []int{1, 2, 3, 4, 5},
 				fromIndex: 6,
 				toIndex:   7,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "if fromIndex > toIndex, result is nil",
+			name: "if fromIndex > toIndex, result is a non-nil empty slice",
 			args: args[int]{
 				input:     []int{1, 2, 3, 4, 5},
 				fromIndex: 3,
 				toIndex:   2,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "nil input produces nil output",
+			name: "nil input produces non-nil empty output",
 			args: args[int]{
 				input:     nil,
 				fromIndex: 0,
 				toIndex:   1,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "empty input produces nil output",
+			name: "empty input produces non-nil empty output",
 			args: args[int]{
 				input:     []int{},
 				fromIndex: 0,
 				toIndex:   1,
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {

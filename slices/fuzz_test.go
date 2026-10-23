@@ -167,11 +167,12 @@ func FuzzPaginate(f *testing.F) {
 		input := bytesToInts(data)
 
 		// A non-positive page size has no meaningful page: every page index
-		// must return nil without panicking.
+		// must return a non-nil empty slice without panicking.
 		if pageSize <= 0 {
 			for _, pageIndex := range []int{-1, 0, 1, 2} {
-				if page := slices.Paginate(input, pageIndex, pageSize); page != nil {
-					t.Fatalf("Paginate(_, %d, %d) = %v, want nil for non-positive pageSize", pageIndex, pageSize, page)
+				page := slices.Paginate(input, pageIndex, pageSize)
+				if page == nil || len(page) != 0 {
+					t.Fatalf("Paginate(_, %d, %d) = %#v, want non-nil empty for non-positive pageSize", pageIndex, pageSize, page)
 				}
 			}
 			return
@@ -187,8 +188,8 @@ func FuzzPaginate(f *testing.F) {
 		var rebuilt []int
 		for pageIndex := 0; pageIndex < pageCount; pageIndex++ {
 			page := slices.Paginate(input, pageIndex, pageSize)
-			if page == nil {
-				t.Fatalf("page %d unexpectedly nil (pageCount %d, pageSize %d)", pageIndex, pageCount, pageSize)
+			if len(page) == 0 {
+				t.Fatalf("page %d unexpectedly empty (pageCount %d, pageSize %d)", pageIndex, pageCount, pageSize)
 			}
 			isLast := pageIndex == pageCount-1
 			if !isLast && len(page) != pageSize {
@@ -200,9 +201,10 @@ func FuzzPaginate(f *testing.F) {
 			rebuilt = append(rebuilt, page...)
 		}
 
-		// The first out-of-range page must be nil.
-		if page := slices.Paginate(input, pageCount, pageSize); page != nil {
-			t.Fatalf("page %d (out of range) = %v, want nil", pageCount, page)
+		// The first out-of-range page must be non-nil and empty.
+		page := slices.Paginate(input, pageCount, pageSize)
+		if page == nil || len(page) != 0 {
+			t.Fatalf("page %d (out of range) = %#v, want non-nil empty", pageCount, page)
 		}
 
 		if len(rebuilt) != len(input) {

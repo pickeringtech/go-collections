@@ -102,35 +102,30 @@ func JoinToString[T any](input []T, separator string) string {
 
 // Pop removes the last element from the input slice, returning it, whether there was one, and a new, smaller slice
 // holding the remaining elements. The input is not modified, and the returned slice never shares its backing array, so
-// writing to or appending to it cannot affect the input.
+// writing to or appending to it cannot affect the input. The returned slice is always non-nil: popping a one-element
+// slice leaves an initialised empty slice, and an empty or nil input yields the zero value, false and an initialised
+// empty slice.
 func Pop[T any](input []T) (T, bool, []T) {
 	var lastElement T
 	if len(input) == 0 {
-		return lastElement, false, nil
+		return lastElement, false, []T{}
 	}
 
 	lastElement = input[len(input)-1]
-
-	// If there's only one element, return a nil slice.
-	if len(input) == 1 {
-		return lastElement, true, nil
-	}
-
 	return lastElement, true, Copy(input[:len(input)-1])
 }
 
 // PopFront removes the first element from the input slice, returning it, whether there was one, and a new, smaller
 // slice holding the remaining elements. The input is not modified, and the returned slice never shares its backing
-// array, so writing to or appending to it cannot affect the input.
+// array, so writing to or appending to it cannot affect the input. The returned slice is always non-nil: popping a
+// one-element slice leaves an initialised empty slice, and an empty or nil input yields the zero value, false and an
+// initialised empty slice.
 func PopFront[T any](input []T) (T, bool, []T) {
 	var firstElement T
 	if len(input) == 0 {
-		return firstElement, false, nil
+		return firstElement, false, []T{}
 	}
 	firstElement = input[0]
-	if len(input) == 1 {
-		return firstElement, true, nil
-	}
 	return firstElement, true, Copy(input[1:])
 }
 

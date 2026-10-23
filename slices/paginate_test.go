@@ -69,40 +69,40 @@ func TestPaginate(t *testing.T) {
 			want: []int{11, 12, 13},
 		},
 		{
-			name: "provides nil results when page index is less than 0",
+			name: "provides non-nil empty results when page index is less than 0",
 			args: args[int]{
 				slice:     []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13},
 				pageIndex: -1,
 				pageSize:  10,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "provides nil results when page size is zero",
+			name: "provides non-nil empty results when page size is zero",
 			args: args[int]{
 				slice:     []int{1, 2, 3, 4, 5},
 				pageIndex: 0,
 				pageSize:  0,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "provides nil results when page size is negative",
+			name: "provides non-nil empty results when page size is negative",
 			args: args[int]{
 				slice:     []int{1, 2, 3, 4, 5},
 				pageIndex: 1,
 				pageSize:  -2,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "provides nil results when page is entirely beyond slice length",
+			name: "provides non-nil empty results when page is entirely beyond slice length",
 			args: args[int]{
 				slice:     []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 				pageIndex: 1,
 				pageSize:  10,
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -129,10 +129,10 @@ func TestPaginate_LargeArgumentsDoNotOverflow(t *testing.T) {
 		pageSize  int
 		want      []int
 	}{
-		{name: "huge page index is beyond the slice", pageIndex: math.MaxInt, pageSize: 2, want: nil},
-		{name: "huge page size on a later page is beyond the slice", pageIndex: 2, pageSize: math.MaxInt, want: nil},
-		{name: "offset that wraps negative is beyond the slice", pageIndex: math.MaxInt/2 + 1, pageSize: 2, want: nil},
-		{name: "offset that wraps to zero is beyond the slice, not the first page", pageIndex: half, pageSize: half, want: nil},
+		{name: "huge page index is beyond the slice", pageIndex: math.MaxInt, pageSize: 2, want: []int{}},
+		{name: "huge page size on a later page is beyond the slice", pageIndex: 2, pageSize: math.MaxInt, want: []int{}},
+		{name: "offset that wraps negative is beyond the slice", pageIndex: math.MaxInt/2 + 1, pageSize: 2, want: []int{}},
+		{name: "offset that wraps to zero is beyond the slice, not the first page", pageIndex: half, pageSize: half, want: []int{}},
 		{name: "huge page size on the first page returns everything", pageIndex: 0, pageSize: math.MaxInt, want: []int{1, 2, 3, 4, 5}},
 		{name: "last partial page is still found", pageIndex: 2, pageSize: 2, want: []int{5}},
 	}
