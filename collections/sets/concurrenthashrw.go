@@ -356,24 +356,15 @@ func (ch *ConcurrentHashRW[T]) RemoveMany(elements ...T) Set[T] {
 
 // Difference creates a new set containing elements in this set but not in the other set.
 // Returns a new thread-safe ConcurrentHashRW without modifying the original.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.Difference(b) racing b.Difference(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentHashRW[T]) Difference(other Set[T]) Set[T] {
-	result := NewConcurrentHashRW[T]()
-	// Self-difference is empty; otherwise snapshot other before locking ch so the
-	// snapshot can't invert lock order and deadlock against b.Difference(a).
-	if other == Set[T](ch) {
-		return result
-	}
-	otherElements := other.AsMap()
-
-	ch.lock.RLock()
-	defer ch.lock.RUnlock()
-	for element := range ch.data {
-		_, inOther := otherElements[element]
-		if !inOther {
-			result.data[element] = struct{}{}
-		}
-	}
-	return result
+	return ch.Filter(func(element T) bool { return !other.Contains(element) })
 }
 
 // RemoveInPlace removes the given element from the set.
@@ -431,50 +422,27 @@ func (ch *ConcurrentHashRW[T]) Clear() {
 
 // Intersection creates a new set containing elements present in both sets.
 // Returns a new thread-safe ConcurrentHashRW without modifying the original.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.Intersection(b) racing b.Intersection(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentHashRW[T]) Intersection(other Set[T]) Set[T] {
-	result := NewConcurrentHashRW[T]()
-	// Self-intersection is just a copy; otherwise snapshot other before locking ch
-	// so the snapshot can't invert lock order and deadlock against b.Intersection(a).
-	if other == Set[T](ch) {
-		ch.lock.RLock()
-		defer ch.lock.RUnlock()
-		for element := range ch.data {
-			result.data[element] = struct{}{}
-		}
-		return result
-	}
-	otherElements := other.AsMap()
-
-	ch.lock.RLock()
-	defer ch.lock.RUnlock()
-	for element := range ch.data {
-		_, inOther := otherElements[element]
-		if inOther {
-			result.data[element] = struct{}{}
-		}
-	}
-	return result
+	return ch.Filter(other.Contains)
 }
 
 // IsSubsetOf returns true if this set is a subset of the other set.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.IsSubsetOf(b) racing b.IsSubsetOf(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentHashRW[T]) IsSubsetOf(other Set[T]) bool {
-	// A set is always a subset of itself; otherwise snapshot other before locking
-	// ch so the snapshot can't invert lock order and deadlock against
-	// b.IsSubsetOf(a) (or the AB/BA superset race, since IsSupersetOf delegates here).
-	if other == Set[T](ch) {
-		return true
-	}
-	otherElements := other.AsMap()
-
-	ch.lock.RLock()
-	defer ch.lock.RUnlock()
-	for element := range ch.data {
-		_, inOther := otherElements[element]
-		if !inOther {
-			return false
-		}
-	}
-	return true
+	return ch.AllMatch(other.Contains)
 }
 
 // IsSupersetOf returns true if this set is a superset of the other set.
@@ -483,67 +451,39 @@ func (ch *ConcurrentHashRW[T]) IsSupersetOf(other Set[T]) bool {
 }
 
 // IsDisjoint returns true if this set has no elements in common with the other set.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.IsDisjoint(b) racing b.IsDisjoint(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentHashRW[T]) IsDisjoint(other Set[T]) bool {
-	// A set is disjoint with itself only when empty; otherwise snapshot other
-	// before locking ch so the snapshot can't invert lock order and deadlock
-	// against b.IsDisjoint(a).
-	if other == Set[T](ch) {
-		ch.lock.RLock()
-		defer ch.lock.RUnlock()
-		return len(ch.data) == 0
-	}
-	otherElements := other.AsMap()
-
-	ch.lock.RLock()
-	defer ch.lock.RUnlock()
-	for element := range ch.data {
-		_, inOther := otherElements[element]
-		if inOther {
-			return false
-		}
-	}
-	return true
+	return ch.NoneMatch(other.Contains)
 }
 
 // Equals returns true if both sets contain exactly the same elements.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.Equals(b) racing b.Equals(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentHashRW[T]) Equals(other Set[T]) bool {
-	// A set always equals itself; otherwise snapshot other before locking ch so
-	// the snapshot can't invert lock order and deadlock against b.Equals(a).
-	if other == Set[T](ch) {
-		return true
-	}
-	otherElements := other.AsMap()
-
-	ch.lock.RLock()
-	defer ch.lock.RUnlock()
-	if len(ch.data) != len(otherElements) {
-		return false
-	}
-	for element := range ch.data {
-		_, inOther := otherElements[element]
-		if !inOther {
-			return false
-		}
-	}
-	return true
+	return sameMembers(ch.AsSlice(), other)
 }
 
-// IntersectionInPlace keeps only elements that are present in both sets.
+// IntersectionInPlace keeps only elements that are present in both sets. It is
+// FilterInPlace with other.Contains as the predicate, so other is consulted
+// outside the receiver's lock.
+//
+// Membership in other is decided by other.Contains, exactly as the
+// non-concurrent sets do, so an operand whose equality is not == (such as a
+// TreeSet holding NaN) is honoured. The receiver's elements are snapshotted
+// under its lock, which is released before other is consulted, so the two
+// sets' locks are never held together: a.IntersectionInPlace(b) racing b.IntersectionInPlace(a) cannot
+// deadlock, and the result is not an atomic view of both sets.
 func (ch *ConcurrentHashRW[T]) IntersectionInPlace(other Set[T]) {
-	// Intersecting a set with itself is a no-op; otherwise snapshot other before
-	// locking ch so the snapshot can't invert lock order and deadlock against
-	// b.IntersectionInPlace(a).
-	if other == Set[T](ch) {
-		return
-	}
-	otherElements := other.AsMap()
-
-	ch.lock.Lock()
-	defer ch.lock.Unlock()
-	for element := range ch.data {
-		_, inOther := otherElements[element]
-		if !inOther {
-			delete(ch.data, element)
-		}
-	}
+	ch.FilterInPlace(other.Contains)
 }
