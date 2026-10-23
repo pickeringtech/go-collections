@@ -24,10 +24,12 @@ func TestDCG(t *testing.T) {
 	}
 
 	// Empty and non-finite inputs are undefined.
-	if _, ok := ranking.DCG(nil, 0); ok {
+	_, ok = ranking.DCG(nil, 0)
+	if ok {
 		t.Error("empty: ok = true, want false")
 	}
-	if _, ok := ranking.DCG([]float64{1, math.NaN()}, 0); ok {
+	_, ok = ranking.DCG([]float64{1, math.NaN()}, 0)
+	if ok {
 		t.Error("NaN: ok = true, want false")
 	}
 }
@@ -66,21 +68,26 @@ func TestNDCGPerfectRankingIsOne(t *testing.T) {
 }
 
 func TestNDCGRejectsBadInput(t *testing.T) {
-	if _, ok := ranking.NDCG([]float64{}, []float64{}, 0); ok {
+	_, ok := ranking.NDCG([]float64{}, []float64{}, 0)
+	if ok {
 		t.Error("empty: ok = true, want false")
 	}
-	if _, ok := ranking.NDCG([]float64{1, 2}, []float64{1}, 0); ok {
+	_, ok = ranking.NDCG([]float64{1, 2}, []float64{1}, 0)
+	if ok {
 		t.Error("length mismatch: ok = true, want false")
 	}
 	// All-zero relevance has zero ideal DCG: NDCG is undefined.
-	if _, ok := ranking.NDCG([]float64{0, 0, 0}, []float64{3, 2, 1}, 0); ok {
+	_, ok = ranking.NDCG([]float64{0, 0, 0}, []float64{3, 2, 1}, 0)
+	if ok {
 		t.Error("zero relevance: ok = true, want false")
 	}
 	// Non-finite relevance and non-finite score are both rejected.
-	if _, ok := ranking.NDCG([]float64{1, math.Inf(1)}, []float64{2, 1}, 0); ok {
+	_, ok = ranking.NDCG([]float64{1, math.Inf(1)}, []float64{2, 1}, 0)
+	if ok {
 		t.Error("non-finite relevance: ok = true, want false")
 	}
-	if _, ok := ranking.NDCG([]float64{1, 2}, []float64{2, math.NaN()}, 0); ok {
+	_, ok = ranking.NDCG([]float64{1, 2}, []float64{2, math.NaN()}, 0)
+	if ok {
 		t.Error("non-finite score: ok = true, want false")
 	}
 }
@@ -101,10 +108,12 @@ func TestAveragePrecision(t *testing.T) {
 	}
 
 	// No relevant items is undefined.
-	if _, ok := ranking.AveragePrecision([]bool{false, false}); ok {
+	_, ok = ranking.AveragePrecision([]bool{false, false})
+	if ok {
 		t.Error("no relevant: ok = true, want false")
 	}
-	if _, ok := ranking.AveragePrecision(nil); ok {
+	_, ok = ranking.AveragePrecision(nil)
+	if ok {
 		t.Error("empty: ok = true, want false")
 	}
 }
@@ -123,10 +132,12 @@ func TestMeanAveragePrecision(t *testing.T) {
 	}
 
 	// A degenerate query (no relevant items) makes the whole mean undefined.
-	if _, ok := ranking.MeanAveragePrecision([][]bool{{true}, {false}}); ok {
+	_, ok = ranking.MeanAveragePrecision([][]bool{{true}, {false}})
+	if ok {
 		t.Error("degenerate query: ok = true, want false")
 	}
-	if _, ok := ranking.MeanAveragePrecision(nil); ok {
+	_, ok = ranking.MeanAveragePrecision(nil)
+	if ok {
 		t.Error("empty: ok = true, want false")
 	}
 }

@@ -74,7 +74,8 @@ func TestStandardScalerConstantTrainMapsToZero(t *testing.T) {
 }
 
 func TestStandardScalerEmptyFitLeavesUnfitted(t *testing.T) {
-	if _, ok := preprocessing.NewStandardScaler().Fit(nil).Transform([]float64{1}); ok {
+	_, ok := preprocessing.NewStandardScaler().Fit(nil).Transform([]float64{1})
+	if ok {
 		t.Fatalf("Transform after empty Fit reported ok")
 	}
 }
@@ -154,7 +155,8 @@ func TestMinMaxScalerDegenerateRangeMapsToZero(t *testing.T) {
 }
 
 func TestMinMaxScalerUnfitted(t *testing.T) {
-	if _, ok := preprocessing.NewMinMaxScaler().Transform([]float64{1}); ok {
+	_, ok := preprocessing.NewMinMaxScaler().Transform([]float64{1})
+	if ok {
 		t.Fatalf("unfitted Transform reported ok")
 	}
 }
@@ -181,7 +183,8 @@ func TestRobustScaler(t *testing.T) {
 
 func TestRobustScalerRejectsNonFiniteTrain(t *testing.T) {
 	for _, bad := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
-		if _, ok := preprocessing.NewRobustScaler().Fit([]float64{1, 2, bad}).Transform([]float64{1}); ok {
+		_, ok := preprocessing.NewRobustScaler().Fit([]float64{1, 2, bad}).Transform([]float64{1})
+		if ok {
 			t.Fatalf("Fit accepted non-finite %v", bad)
 		}
 	}

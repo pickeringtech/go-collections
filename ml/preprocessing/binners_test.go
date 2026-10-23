@@ -40,13 +40,15 @@ func TestFixedWidthBinnerDegenerateRange(t *testing.T) {
 }
 
 func TestFixedWidthBinnerInvalidBinCount(t *testing.T) {
-	if _, ok := preprocessing.NewFixedWidthBinner(0).Fit([]float64{1, 2}).Transform([]float64{1}); ok {
+	_, ok := preprocessing.NewFixedWidthBinner(0).Fit([]float64{1, 2}).Transform([]float64{1})
+	if ok {
 		t.Fatalf("nBins=0 reported fitted")
 	}
 }
 
 func TestFixedWidthBinnerUnfitted(t *testing.T) {
-	if _, ok := preprocessing.NewFixedWidthBinner(3).Transform([]float64{1}); ok {
+	_, ok := preprocessing.NewFixedWidthBinner(3).Transform([]float64{1})
+	if ok {
 		t.Fatalf("unfitted Transform reported ok")
 	}
 }
@@ -75,14 +77,16 @@ func TestQuantileBinnerSingleBin(t *testing.T) {
 
 func TestQuantileBinnerRejectsNonFinite(t *testing.T) {
 	for _, bad := range []float64{math.NaN(), math.Inf(1)} {
-		if _, ok := preprocessing.NewQuantileBinner(2).Fit([]float64{1, 2, bad}).Transform([]float64{1}); ok {
+		_, ok := preprocessing.NewQuantileBinner(2).Fit([]float64{1, 2, bad}).Transform([]float64{1})
+		if ok {
 			t.Fatalf("Fit accepted non-finite %v", bad)
 		}
 	}
 }
 
 func TestQuantileBinnerEmptyLeavesUnfitted(t *testing.T) {
-	if _, ok := preprocessing.NewQuantileBinner(2).Fit(nil).Transform([]float64{1}); ok {
+	_, ok := preprocessing.NewQuantileBinner(2).Fit(nil).Transform([]float64{1})
+	if ok {
 		t.Fatalf("empty Fit reported fitted")
 	}
 }

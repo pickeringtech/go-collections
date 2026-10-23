@@ -55,13 +55,16 @@ func TestTrainTestSplitFractions(t *testing.T) {
 }
 
 func TestTrainTestSplitInvalid(t *testing.T) {
-	if _, _, ok := preprocessing.TrainTestSplit([]int{}, 0.5, nil); ok {
+	_, _, ok := preprocessing.TrainTestSplit([]int{}, 0.5, nil)
+	if ok {
 		t.Fatalf("empty input reported ok")
 	}
-	if _, _, ok := preprocessing.TrainTestSplit([]int{1, 2}, -0.1, nil); ok {
+	_, _, ok = preprocessing.TrainTestSplit([]int{1, 2}, -0.1, nil)
+	if ok {
 		t.Fatalf("negative frac reported ok")
 	}
-	if _, _, ok := preprocessing.TrainTestSplit([]int{1, 2}, 1.1, nil); ok {
+	_, _, ok = preprocessing.TrainTestSplit([]int{1, 2}, 1.1, nil)
+	if ok {
 		t.Fatalf("frac > 1 reported ok")
 	}
 }
@@ -88,13 +91,16 @@ func TestKFold(t *testing.T) {
 }
 
 func TestKFoldInvalid(t *testing.T) {
-	if _, ok := preprocessing.KFold([]int{}, 2, nil); ok {
+	_, ok := preprocessing.KFold([]int{}, 2, nil)
+	if ok {
 		t.Fatalf("empty input reported ok")
 	}
-	if _, ok := preprocessing.KFold([]int{1, 2}, 0, nil); ok {
+	_, ok = preprocessing.KFold([]int{1, 2}, 0, nil)
+	if ok {
 		t.Fatalf("k=0 reported ok")
 	}
-	if _, ok := preprocessing.KFold([]int{1, 2}, 3, nil); ok {
+	_, ok = preprocessing.KFold([]int{1, 2}, 3, nil)
+	if ok {
 		t.Fatalf("k>n reported ok")
 	}
 }
@@ -133,10 +139,12 @@ func TestStratifiedSplitPreservesProportions(t *testing.T) {
 }
 
 func TestStratifiedSplitInvalid(t *testing.T) {
-	if _, _, ok := preprocessing.StratifiedSplit([]int{1, 2}, []string{"A"}, 0.5, nil); ok {
+	_, _, ok := preprocessing.StratifiedSplit([]int{1, 2}, []string{"A"}, 0.5, nil)
+	if ok {
 		t.Fatalf("mismatched lengths reported ok")
 	}
-	if _, _, ok := preprocessing.StratifiedSplit([]int{}, []string{}, 0.5, nil); ok {
+	_, _, ok = preprocessing.StratifiedSplit([]int{}, []string{}, 0.5, nil)
+	if ok {
 		t.Fatalf("empty input reported ok")
 	}
 }
