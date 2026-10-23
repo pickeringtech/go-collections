@@ -11,9 +11,10 @@ import (
 // moments of input — m2 = (1/n)Σ(x−mean)², m3 = (1/n)Σ(x−mean)³ and
 // m4 = (1/n)Σ(x−mean)⁴ — the building blocks of skewness and kurtosis.
 //
-// They are computed in two passes: a Kahan-compensated pass for the mean, then
-// a second pass accumulating the powered deviations (also with Kahan). The mean
-// is clamped to the data's [min, max], the interval it must lie in; for
+// They are computed in two passes: the package's compensated mean (see
+// compensatedMean), then a second pass accumulating the powered deviations
+// with Kahan. The mean is clamped to the data's [min, max], the interval it
+// must lie in; for
 // constant data that makes it exactly the common value, so every deviation is
 // exactly 0 and m2 == 0 even when the value is not exactly representable (a
 // sum/n mean of {0.1, 0.1, 0.1} drifts an ulp and would leave m2 ≈ 1e-35).
@@ -29,16 +30,7 @@ func centralMoments[T constraints.Numeric](input []T) (n int, m2, m3, m4 float64
 		return 0, 0, 0, 0
 	}
 
-	var meanSum kahan.Sum
-	lo, hi := math.Inf(1), math.Inf(-1)
-	for _, v := range input {
-		f := float64(v)
-		meanSum.Add(f)
-		lo = min(lo, f)
-		hi = max(hi, f)
-	}
-	// min/max propagate NaN, so a NaN element still poisons the mean.
-	mean := min(max(meanSum.Total()/float64(count), lo), hi)
+	mean := compensatedMean(input)
 
 	var s2, s3, s4 kahan.Sum
 	for _, v := range input {

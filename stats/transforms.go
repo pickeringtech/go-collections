@@ -83,8 +83,10 @@ func nonNaNRange[T constraints.Numeric](input []T) (lo, hi float64) {
 // returns a new []float64 the same length as input, together with an ok flag;
 // input is not modified.
 //
-// The mean and standard deviation are computed in a single numerically-stable
-// Welford pass (see accumulate). It returns ok == false only for empty input.
+// The mean is the package's compensated mean (the one Mean returns for finite
+// data, accurate to within an ulp even over millions of large values) and the
+// standard deviation comes from a numerically-stable Welford pass. It returns
+// ok == false only for empty input.
 // When finite data has zero spread (a single element, or all elements identical)
 // every value sits exactly at the mean — zero standard deviations away — so
 // Standardize returns all zeros with ok == true rather than dividing by zero.
@@ -97,9 +99,9 @@ func Standardize[T constraints.Numeric](input []T) ([]float64, bool) {
 		return nil, false
 	}
 
-	m := accumulate(input, input)
-	mean := m.meanX
-	stdDev := math.Sqrt(m.m2X / float64(m.n)) // population standard deviation
+	mean := compensatedMean(input)
+	n, m2 := welford(input)
+	stdDev := math.Sqrt(m2 / float64(n)) // population standard deviation
 
 	out := make([]float64, len(input))
 	if stdDev == 0 {

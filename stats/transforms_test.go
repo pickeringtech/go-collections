@@ -2,6 +2,7 @@ package stats_test
 
 import (
 	"math"
+	"math/big"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/stats"
@@ -80,6 +81,32 @@ func TestStandardize(t *testing.T) {
 
 // Standardized data has, by construction, a population mean of 0 and a
 // population standard deviation of 1.
+// TestStandardizeCentresOnAnAccurateMean guards the centring: Welford's running
+// mean drifts by dozens of ulps over a million large values (here ≈5e-6, or
+// 6e-6σ), shifting every z-score, where the compensated mean is within an ulp.
+func TestStandardizeCentresOnAnAccurateMean(t *testing.T) {
+	data := make([]float64, 1_000_000)
+	exactSum := new(big.Float).SetPrec(256)
+	for i := range data {
+		data[i] = 1e9 + float64(i%3) + 0.1
+		exactSum.Add(exactSum, new(big.Float).SetFloat64(data[i]))
+	}
+	exactMean, _ := new(big.Float).Quo(exactSum, big.NewFloat(float64(len(data)))).Float64()
+	stdDev, _ := stats.PopulationStdDev(data)
+
+	got, ok := stats.Standardize(data)
+	if !ok {
+		t.Fatalf("ok = false, want true")
+	}
+	worst := 0.0
+	for i, x := range data {
+		worst = math.Max(worst, math.Abs(got[i]-(x-exactMean)/stdDev))
+	}
+	if !(worst <= 1e-6) {
+		t.Errorf("max z-score error = %v, want <= 1e-6", worst)
+	}
+}
+
 func TestStandardizeYieldsUnitVariance(t *testing.T) {
 	z, ok := stats.Standardize([]float64{3, 1, 4, 1, 5, 9, 2, 6})
 	if !ok {

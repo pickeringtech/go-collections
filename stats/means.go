@@ -30,24 +30,38 @@ func Mean[T constraints.Numeric](input []T) (float64, bool) {
 	if len(input) == 0 {
 		return 0, false
 	}
+	// The mean of finite values is always finite, and a non-finite value always
+	// makes it NaN or ±Inf, so a non-finite mean is exactly the rejection case.
+	m := compensatedMean(input)
+	if nonFinite(m) {
+		return 0, false
+	}
+	return m, true
+}
 
+// compensatedMean is the package's single arithmetic-mean computation, shared
+// by Mean, the central moments behind Skewness/Kurtosis, and Standardize: a
+// compensated sum divided by the count, recomputed by overflowSafeMean when
+// the sum overflows, and clamped to [min(input), max(input)]. input must be
+// non-empty. Non-finite values propagate (a NaN gives NaN, a lone ±Inf gives
+// ±Inf), which lets the propagating callers use it unchanged and Mean reject
+// them.
+func compensatedMean[T constraints.Numeric](input []T) float64 {
 	var total kahan.Sum
 	lo, hi := math.Inf(1), math.Inf(-1)
 	for _, v := range input {
 		x := float64(v)
-		if nonFinite(x) {
-			return 0, false
-		}
 		total.Add(x)
-		lo = min(lo, x)
+		lo = min(lo, x) // min/max propagate NaN into the clamp below
 		hi = max(hi, x)
 	}
-	mean := total.Total() / float64(len(input))
+	m := total.Total() / float64(len(input))
 	if math.IsInf(total.Total(), 0) {
-		// The values are finite, so an infinite total is overflow, not data.
-		mean = overflowSafeMean(input)
+		// For finite values an infinite total is overflow, not data; for an
+		// infinite value the rescaled sum is the same ±Inf.
+		m = overflowSafeMean(input)
 	}
-	return min(max(mean, lo), hi), true
+	return min(max(m, lo), hi)
 }
 
 // overflowSafeMean recomputes the mean of finite input whose plain sum
