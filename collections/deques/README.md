@@ -42,6 +42,10 @@ ok := buf.PushBackInPlace(4) // unchanged [1 2 3], ok == false
 `Capacity()` returns the bound (or `deques.Unbounded` / `-1` for unbounded
 deques) and `IsFull()` reports whether a bounded deque is at capacity.
 
+A bounded deque of capacity `0` (a negative capacity is treated as `0`) can hold
+nothing: it is always both empty and full, and every push is rejected whatever
+the policy — even `OverwriteOldest` has no slot to overwrite.
+
 ## Immutable vs mutable
 
 | Form | Method | Returns |

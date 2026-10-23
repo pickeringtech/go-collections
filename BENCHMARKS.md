@@ -20,11 +20,11 @@ This report is the full companion to the headline preview in the [README](README
 ### CI — GitHub-hosted runner (ubuntu-latest) (secondary)
 
 - **Machine:** shared ubuntu-latest runner (noisy)
-- **Commit:** `d0023ae`
-- **Generated (UTC):** 2026-10-23T20:41:33Z
+- **Commit:** `9812ded`
+- **Generated (UTC):** 2026-10-23T20:54:27Z
 - **Go:** go1.24.13
 - **Runner:** linux/amd64
-- **CPU:** AMD EPYC 7763 64-Core Processor
+- **CPU:** AMD EPYC 9V45 96-Core Processor
 - **Flags:** `-benchtime=50ms -count=8 -benchmem`
 - **Packages:** github.com/pickeringtech/go-collections/collections/deques, github.com/pickeringtech/go-collections/collections/dicts, github.com/pickeringtech/go-collections/collections/heaps, github.com/pickeringtech/go-collections/collections/lists, github.com/pickeringtech/go-collections/collections/lru, github.com/pickeringtech/go-collections/collections/multimaps, github.com/pickeringtech/go-collections/collections/sets, github.com/pickeringtech/go-collections/collections/sketches, github.com/pickeringtech/go-collections/collections/sketches/bloom, github.com/pickeringtech/go-collections/collections/sketches/countmin, github.com/pickeringtech/go-collections/collections/sketches/hll, github.com/pickeringtech/go-collections/collections/sketches/tdigest, github.com/pickeringtech/go-collections/collections/streaming
 
@@ -247,77 +247,77 @@ This report is the full companion to the headline preview in the [README](README
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Hash | 10 | 210 | 0 | 0 |
-| Hash | 100 | 4,200 | 3,208 | 7 |
-| Hash | 1,000 | 57,236 | 54,152 | 15 |
+| Hash | 10 | 126 | 0 | 0 |
+| Hash | 100 | 2,220 | 3,208 | 7 |
+| Hash | 1,000 | 30,252 | 54,152 | 15 |
 
 #### ForEach
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Hash | 10 | 143 | 0 | 0 |
-| Hash | 100 | 862 | 0 | 0 |
-| Hash | 1,000 | 10,372 | 0 | 0 |
-| Hash | 10,000 | 95,490 | 0 | 0 |
+| Hash | 10 | 77.2 | 0 | 0 |
+| Hash | 100 | 486 | 0 | 0 |
+| Hash | 1,000 | 6,480 | 0 | 0 |
+| Hash | 10,000 | 59,580 | 0 | 0 |
 
 #### Get
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| ConcurrentHash | 10 | 16.1 | 0 | 0 |
-| ConcurrentHash | 100 | 16.7 | 0 | 0 |
-| ConcurrentHash | 1,000 | 18.6 | 0 | 0 |
-| ConcurrentHash | 10,000 | 21.4 | 0 | 0 |
-| ConcurrentHashRW | 10 | 15.8 | 0 | 0 |
-| ConcurrentHashRW | 100 | 16.6 | 0 | 0 |
-| ConcurrentHashRW | 1,000 | 18.4 | 0 | 0 |
-| ConcurrentHashRW | 10,000 | 21.4 | 0 | 0 |
-| Hash | 10 | 8.10 | 0 | 0 |
-| Hash | 100 | 8.61 | 0 | 0 |
-| Hash | 1,000 | 10.2 | 0 | 0 |
-| Hash | 10,000 | 11.4 | 0 | 0 |
-| Tree | 10 | 6.37 | 0 | 0 |
-| Tree | 100 | 11.8 | 0 | 0 |
-| Tree | 1,000 | 16.5 | 0 | 0 |
-| Tree | 10,000 | 40.8 | 0 | 0 |
+| ConcurrentHash | 10 | 15.5 | 0 | 0 |
+| ConcurrentHash | 100 | 15.5 | 0 | 0 |
+| ConcurrentHash | 1,000 | 15.9 | 0 | 0 |
+| ConcurrentHash | 10,000 | 16.2 | 0 | 0 |
+| ConcurrentHashRW | 10 | 15.5 | 0 | 0 |
+| ConcurrentHashRW | 100 | 15.6 | 0 | 0 |
+| ConcurrentHashRW | 1,000 | 15.4 | 0 | 0 |
+| ConcurrentHashRW | 10,000 | 15.7 | 0 | 0 |
+| Hash | 10 | 4.36 | 0 | 0 |
+| Hash | 100 | 5.06 | 0 | 0 |
+| Hash | 1,000 | 5.31 | 0 | 0 |
+| Hash | 10,000 | 6.18 | 0 | 0 |
+| Tree | 10 | 3.15 | 0 | 0 |
+| Tree | 100 | 4.90 | 0 | 0 |
+| Tree | 1,000 | 6.84 | 0 | 0 |
+| Tree | 10,000 | 31.5 | 0 | 0 |
 
 #### Put
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Hash | 10 | 1,237 | 936 | 7 |
-| Hash | 100 | 10,862 | 10,217 | 13 |
-| Hash | 1,000 | 136,286 | 163,416 | 26 |
+| Hash | 10 | 617 | 936 | 7 |
+| Hash | 100 | 5,306 | 10,217 | 13 |
+| Hash | 1,000 | 65,183 | 163,422 | 26 |
 
 #### PutInPlace
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Hash | 10 | 42.7 | 0 | 0 |
-| Hash | 100 | 44.9 | 0 | 0 |
-| Hash | 1,000 | 48.2 | 0 | 0 |
-| Hash | 10,000 | 48.1 | 0 | 0 |
-| Tree | 10 | 82.0 | 48 | 1 |
-| Tree | 100 | 124 | 48 | 1 |
-| Tree | 1,000 | 176 | 48 | 1 |
-| Tree | 10,000 | 237 | 48 | 1 |
+| Hash | 10 | 24.7 | 0 | 0 |
+| Hash | 100 | 30.4 | 0 | 0 |
+| Hash | 1,000 | 25.5 | 0 | 0 |
+| Hash | 10,000 | 25.0 | 0 | 0 |
+| Tree | 10 | 44.0 | 48 | 1 |
+| Tree | 100 | 68.5 | 48 | 1 |
+| Tree | 1,000 | 96.5 | 48 | 1 |
+| Tree | 10,000 | 139 | 48 | 1 |
 
 #### Remove
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Hash | 10 | 1,062 | 912 | 6 |
-| Hash | 100 | 10,324 | 10,192 | 12 |
-| Hash | 1,000 | 135,426 | 163,368 | 25 |
+| Hash | 10 | 551 | 912 | 6 |
+| Hash | 100 | 5,108 | 10,192 | 12 |
+| Hash | 1,000 | 65,426 | 163,368 | 25 |
 
 #### RemoveInPlace
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Hash | 10 | 45.3 | 0 | 0 |
-| Hash | 100 | 45.5 | 0 | 0 |
-| Hash | 1,000 | 51.8 | 0 | 0 |
-| Hash | 10,000 | 51.6 | 0 | 0 |
+| Hash | 10 | 24.9 | 0 | 0 |
+| Hash | 100 | 24.8 | 0 | 0 |
+| Hash | 1,000 | 26.6 | 0 | 0 |
+| Hash | 10,000 | 25.6 | 0 | 0 |
 
 ### lists
 
@@ -325,69 +325,69 @@ This report is the full companion to the headline preview in the [README](README
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Array | 10 | 199 | 192 | 6 |
-| Array | 100 | 710 | 1,456 | 9 |
-| Array | 1,000 | 5,169 | 12,304 | 12 |
-| Array | 10,000 | 56,540 | 169,233 | 18 |
-| DoublyLinked | 10 | 199 | 192 | 6 |
-| DoublyLinked | 100 | 697 | 1,456 | 9 |
-| DoublyLinked | 1,000 | 5,137 | 12,304 | 12 |
-| DoublyLinked | 10,000 | 68,954 | 169,233 | 18 |
-| Linked | 10 | 201 | 192 | 6 |
-| Linked | 100 | 733 | 1,456 | 9 |
-| Linked | 1,000 | 5,237 | 12,304 | 12 |
-| Linked | 10,000 | 69,238 | 169,233 | 18 |
+| Array | 10 | 113 | 192 | 6 |
+| Array | 100 | 404 | 1,456 | 9 |
+| Array | 1,000 | 2,763 | 12,304 | 12 |
+| Array | 10,000 | 29,216 | 169,234 | 18 |
+| DoublyLinked | 10 | 113 | 192 | 6 |
+| DoublyLinked | 100 | 428 | 1,456 | 9 |
+| DoublyLinked | 1,000 | 3,094 | 12,304 | 12 |
+| DoublyLinked | 10,000 | 42,527 | 169,233 | 18 |
+| Linked | 10 | 116 | 192 | 6 |
+| Linked | 100 | 429 | 1,456 | 9 |
+| Linked | 1,000 | 3,082 | 12,304 | 12 |
+| Linked | 10,000 | 39,550 | 169,233 | 18 |
 
 #### ForEach
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Array | 10 | 61.1 | 24 | 2 |
-| Array | 100 | 238 | 24 | 2 |
-| Array | 1,000 | 1,958 | 24 | 2 |
-| Array | 10,000 | 18,878 | 24 | 2 |
-| DoublyLinked | 10 | 65.6 | 24 | 2 |
-| DoublyLinked | 100 | 331 | 24 | 2 |
-| DoublyLinked | 1,000 | 2,538 | 24 | 2 |
-| DoublyLinked | 10,000 | 19,069 | 24 | 2 |
-| Linked | 10 | 57.2 | 24 | 2 |
-| Linked | 100 | 245 | 24 | 2 |
-| Linked | 1,000 | 1,948 | 24 | 2 |
-| Linked | 10,000 | 18,976 | 24 | 2 |
+| Array | 10 | 37.5 | 24 | 2 |
+| Array | 100 | 204 | 24 | 2 |
+| Array | 1,000 | 1,269 | 24 | 2 |
+| Array | 10,000 | 12,151 | 24 | 2 |
+| DoublyLinked | 10 | 37.5 | 24 | 2 |
+| DoublyLinked | 100 | 199 | 24 | 2 |
+| DoublyLinked | 1,000 | 1,271 | 24 | 2 |
+| DoublyLinked | 10,000 | 14,299 | 24 | 2 |
+| Linked | 10 | 36.1 | 24 | 2 |
+| Linked | 100 | 214 | 24 | 2 |
+| Linked | 1,000 | 1,257 | 24 | 2 |
+| Linked | 10,000 | 12,102 | 24 | 2 |
 
 #### Get
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Array | 10 | 2.83 | 0 | 0 |
-| Array | 100 | 2.81 | 0 | 0 |
-| Array | 1,000 | 2.82 | 0 | 0 |
-| Array | 10,000 | 2.82 | 0 | 0 |
-| DoublyLinked | 10 | 4.38 | 0 | 0 |
-| DoublyLinked | 100 | 20.0 | 0 | 0 |
-| DoublyLinked | 1,000 | 283 | 0 | 0 |
-| DoublyLinked | 10,000 | 3,292 | 0 | 0 |
-| Linked | 10 | 5.29 | 0 | 0 |
-| Linked | 100 | 46.6 | 0 | 0 |
-| Linked | 1,000 | 602 | 0 | 0 |
-| Linked | 10,000 | 6,384 | 0 | 0 |
+| Array | 10 | 1.68 | 0 | 0 |
+| Array | 100 | 1.68 | 0 | 0 |
+| Array | 1,000 | 1.68 | 0 | 0 |
+| Array | 10,000 | 1.69 | 0 | 0 |
+| DoublyLinked | 10 | 2.45 | 0 | 0 |
+| DoublyLinked | 100 | 10.6 | 0 | 0 |
+| DoublyLinked | 1,000 | 206 | 0 | 0 |
+| DoublyLinked | 10,000 | 2,388 | 0 | 0 |
+| Linked | 10 | 3.18 | 0 | 0 |
+| Linked | 100 | 33.5 | 0 | 0 |
+| Linked | 1,000 | 472 | 0 | 0 |
+| Linked | 10,000 | 4,196 | 0 | 0 |
 
 #### Push
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Array | 10 | 5.37 | 0 | 0 |
-| Array | 100 | 5.31 | 0 | 0 |
-| Array | 1,000 | 5.31 | 0 | 0 |
-| Array | 10,000 | 5.31 | 0 | 0 |
-| DoublyLinked | 10 | 35.7 | 24 | 1 |
-| DoublyLinked | 100 | 36.3 | 24 | 1 |
-| DoublyLinked | 1,000 | 35.8 | 24 | 1 |
-| DoublyLinked | 10,000 | 37.5 | 24 | 1 |
-| Linked | 10 | 35.3 | 24 | 1 |
-| Linked | 100 | 161 | 24 | 1 |
-| Linked | 1,000 | 1,304 | 24 | 1 |
-| Linked | 10,000 | 12,738 | 24 | 1 |
+| Array | 10 | 2.87 | 0 | 0 |
+| Array | 100 | 2.85 | 0 | 0 |
+| Array | 1,000 | 2.86 | 0 | 0 |
+| Array | 10,000 | 2.87 | 0 | 0 |
+| DoublyLinked | 10 | 19.9 | 24 | 1 |
+| DoublyLinked | 100 | 20.2 | 24 | 1 |
+| DoublyLinked | 1,000 | 20.0 | 24 | 1 |
+| DoublyLinked | 10,000 | 21.3 | 24 | 1 |
+| Linked | 10 | 19.8 | 24 | 1 |
+| Linked | 100 | 95.2 | 24 | 1 |
+| Linked | 1,000 | 1,004 | 24 | 1 |
+| Linked | 10,000 | 9,772 | 24 | 1 |
 
 ### sets
 
@@ -395,52 +395,52 @@ This report is the full companion to the headline preview in the [README](README
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| ConcurrentHash | 10 | 53.8 | 0 | 0 |
-| ConcurrentHash | 100 | 57.1 | 0 | 0 |
-| ConcurrentHash | 1,000 | 60.8 | 0 | 0 |
-| ConcurrentHash | 10,000 | 60.9 | 0 | 0 |
-| ConcurrentHashRW | 10 | 62.2 | 0 | 0 |
-| ConcurrentHashRW | 100 | 69.8 | 0 | 0 |
-| ConcurrentHashRW | 1,000 | 68.2 | 0 | 0 |
-| ConcurrentHashRW | 10,000 | 68.0 | 0 | 0 |
-| Hash | 10 | 45.1 | 0 | 0 |
-| Hash | 100 | 50.0 | 0 | 0 |
-| Hash | 1,000 | 52.2 | 0 | 0 |
-| Hash | 10,000 | 51.7 | 0 | 0 |
+| ConcurrentHash | 10 | 37.1 | 0 | 0 |
+| ConcurrentHash | 100 | 38.8 | 0 | 0 |
+| ConcurrentHash | 1,000 | 37.9 | 0 | 0 |
+| ConcurrentHash | 10,000 | 38.4 | 0 | 0 |
+| ConcurrentHashRW | 10 | 57.9 | 0 | 0 |
+| ConcurrentHashRW | 100 | 61.5 | 0 | 0 |
+| ConcurrentHashRW | 1,000 | 62.0 | 0 | 0 |
+| ConcurrentHashRW | 10,000 | 60.8 | 0 | 0 |
+| Hash | 10 | 24.2 | 0 | 0 |
+| Hash | 100 | 24.3 | 0 | 0 |
+| Hash | 1,000 | 24.5 | 0 | 0 |
+| Hash | 10,000 | 24.7 | 0 | 0 |
 
 #### Contains
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| ConcurrentHash | 10 | 15.5 | 0 | 0 |
-| ConcurrentHash | 100 | 16.0 | 0 | 0 |
-| ConcurrentHash | 1,000 | 18.4 | 0 | 0 |
-| ConcurrentHash | 10,000 | 20.8 | 0 | 0 |
-| ConcurrentHashRW | 10 | 15.6 | 0 | 0 |
-| ConcurrentHashRW | 100 | 16.3 | 0 | 0 |
-| ConcurrentHashRW | 1,000 | 18.6 | 0 | 0 |
-| ConcurrentHashRW | 10,000 | 21.1 | 0 | 0 |
-| Hash | 10 | 9.93 | 0 | 0 |
-| Hash | 100 | 10.3 | 0 | 0 |
-| Hash | 1,000 | 11.7 | 0 | 0 |
-| Hash | 10,000 | 13.2 | 0 | 0 |
+| ConcurrentHash | 10 | 14.5 | 0 | 0 |
+| ConcurrentHash | 100 | 14.6 | 0 | 0 |
+| ConcurrentHash | 1,000 | 14.8 | 0 | 0 |
+| ConcurrentHash | 10,000 | 15.2 | 0 | 0 |
+| ConcurrentHashRW | 10 | 14.4 | 0 | 0 |
+| ConcurrentHashRW | 100 | 14.5 | 0 | 0 |
+| ConcurrentHashRW | 1,000 | 15.1 | 0 | 0 |
+| ConcurrentHashRW | 10,000 | 15.3 | 0 | 0 |
+| Hash | 10 | 5.40 | 0 | 0 |
+| Hash | 100 | 5.96 | 0 | 0 |
+| Hash | 1,000 | 6.31 | 0 | 0 |
+| Hash | 10,000 | 7.39 | 0 | 0 |
 
 #### ForEach
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| ConcurrentHash | 10 | 248 | 104 | 3 |
-| ConcurrentHash | 100 | 1,354 | 920 | 3 |
-| ConcurrentHash | 1,000 | 14,433 | 8,216 | 3 |
-| ConcurrentHash | 10,000 | 134,362 | 81,944 | 3 |
-| ConcurrentHashRW | 10 | 244 | 104 | 3 |
-| ConcurrentHashRW | 100 | 1,314 | 920 | 3 |
-| ConcurrentHashRW | 1,000 | 14,436 | 8,216 | 3 |
-| ConcurrentHashRW | 10,000 | 132,858 | 81,944 | 3 |
-| Hash | 10 | 195 | 24 | 2 |
-| Hash | 100 | 998 | 24 | 2 |
-| Hash | 1,000 | 11,288 | 24 | 2 |
-| Hash | 10,000 | 103,839 | 24 | 2 |
+| ConcurrentHash | 10 | 139 | 104 | 3 |
+| ConcurrentHash | 100 | 820 | 920 | 3 |
+| ConcurrentHash | 1,000 | 8,891 | 8,216 | 3 |
+| ConcurrentHash | 10,000 | 78,994 | 81,944.5 | 3 |
+| ConcurrentHashRW | 10 | 140 | 104 | 3 |
+| ConcurrentHashRW | 100 | 791 | 920 | 3 |
+| ConcurrentHashRW | 1,000 | 8,390 | 8,216 | 3 |
+| ConcurrentHashRW | 10,000 | 77,359 | 81,944 | 3 |
+| Hash | 10 | 112 | 24 | 2 |
+| Hash | 100 | 600 | 24 | 2 |
+| Hash | 1,000 | 6,902 | 24 | 2 |
+| Hash | 10,000 | 63,028 | 24 | 2 |
 
 ### bloom
 
@@ -448,27 +448,27 @@ This report is the full companion to the headline preview in the [README](README
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| ConcurrentFilter | 10 | 60.7 | 0 | 0 |
-| ConcurrentFilter | 100 | 57.8 | 0 | 0 |
-| ConcurrentFilter | 1,000 | 57.6 | 0 | 0 |
-| ConcurrentFilter | 10,000 | 57.4 | 0 | 0 |
-| Filter | 10 | 50.4 | 0 | 0 |
-| Filter | 100 | 48.2 | 0 | 0 |
-| Filter | 1,000 | 47.7 | 0 | 0 |
-| Filter | 10,000 | 47.8 | 0 | 0 |
+| ConcurrentFilter | 10 | 60.5 | 0 | 0 |
+| ConcurrentFilter | 100 | 61.0 | 0 | 0 |
+| ConcurrentFilter | 1,000 | 60.6 | 0 | 0 |
+| ConcurrentFilter | 10,000 | 58.9 | 0 | 0 |
+| Filter | 10 | 42.0 | 0 | 0 |
+| Filter | 100 | 42.5 | 0 | 0 |
+| Filter | 1,000 | 39.7 | 0 | 0 |
+| Filter | 10,000 | 39.0 | 0 | 0 |
 
 #### Contains
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| ConcurrentFilter | 10 | 56.1 | 0 | 0 |
-| ConcurrentFilter | 100 | 52.7 | 0 | 0 |
-| ConcurrentFilter | 1,000 | 52.2 | 0 | 0 |
-| ConcurrentFilter | 10,000 | 51.6 | 0 | 0 |
-| Filter | 10 | 49.0 | 0 | 0 |
-| Filter | 100 | 47.1 | 0 | 0 |
-| Filter | 1,000 | 46.9 | 0 | 0 |
-| Filter | 10,000 | 47.6 | 0 | 0 |
+| ConcurrentFilter | 10 | 46.6 | 0 | 0 |
+| ConcurrentFilter | 100 | 47.1 | 0 | 0 |
+| ConcurrentFilter | 1,000 | 46.8 | 0 | 0 |
+| ConcurrentFilter | 10,000 | 46.9 | 0 | 0 |
+| Filter | 10 | 37.5 | 0 | 0 |
+| Filter | 100 | 37.7 | 0 | 0 |
+| Filter | 1,000 | 38.1 | 0 | 0 |
+| Filter | 10,000 | 37.5 | 0 | 0 |
 
 ### countmin
 
@@ -476,23 +476,23 @@ This report is the full companion to the headline preview in the [README](README
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| ConcurrentSketch | 10 | 59.3 | 0 | 0 |
-| ConcurrentSketch | 100 | 60.7 | 0 | 0 |
-| ConcurrentSketch | 1,000 | 61.4 | 0 | 0 |
-| ConcurrentSketch | 10,000 | 62.0 | 0 | 0 |
-| Sketch | 10 | 49.2 | 0 | 0 |
-| Sketch | 100 | 50.9 | 0 | 0 |
-| Sketch | 1,000 | 51.5 | 0 | 0 |
-| Sketch | 10,000 | 51.6 | 0 | 0 |
+| ConcurrentSketch | 10 | 58.0 | 0 | 0 |
+| ConcurrentSketch | 100 | 58.6 | 0 | 0 |
+| ConcurrentSketch | 1,000 | 60.7 | 0 | 0 |
+| ConcurrentSketch | 10,000 | 60.6 | 0 | 0 |
+| Sketch | 10 | 40.0 | 0 | 0 |
+| Sketch | 100 | 40.2 | 0 | 0 |
+| Sketch | 1,000 | 41.6 | 0 | 0 |
+| Sketch | 10,000 | 41.3 | 0 | 0 |
 
 #### Estimate
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Sketch | 10 | 47.5 | 0 | 0 |
-| Sketch | 100 | 49.9 | 0 | 0 |
-| Sketch | 1,000 | 49.2 | 0 | 0 |
-| Sketch | 10,000 | 49.3 | 0 | 0 |
+| Sketch | 10 | 37.5 | 0 | 0 |
+| Sketch | 100 | 38.2 | 0 | 0 |
+| Sketch | 1,000 | 39.8 | 0 | 0 |
+| Sketch | 10,000 | 39.9 | 0 | 0 |
 
 ### hll
 
@@ -500,23 +500,23 @@ This report is the full companion to the headline preview in the [README](README
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| ConcurrentSketch | 10 | 26.1 | 0 | 0 |
-| ConcurrentSketch | 100 | 26.1 | 0 | 0 |
-| ConcurrentSketch | 1,000 | 26.1 | 0 | 0 |
-| ConcurrentSketch | 10,000 | 26.1 | 0 | 0 |
-| Sketch | 10 | 16.9 | 0 | 0 |
-| Sketch | 100 | 16.9 | 0 | 0 |
-| Sketch | 1,000 | 16.9 | 0 | 0 |
-| Sketch | 10,000 | 16.9 | 0 | 0 |
+| ConcurrentSketch | 10 | 29.0 | 0 | 0 |
+| ConcurrentSketch | 100 | 28.9 | 0 | 0 |
+| ConcurrentSketch | 1,000 | 28.9 | 0 | 0 |
+| ConcurrentSketch | 10,000 | 29.6 | 0 | 0 |
+| Sketch | 10 | 10.2 | 0 | 0 |
+| Sketch | 100 | 10.0 | 0 | 0 |
+| Sketch | 1,000 | 10.0 | 0 | 0 |
+| Sketch | 10,000 | 10.1 | 0 | 0 |
 
 #### Count
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Sketch | 10 | 71,751 | 0 | 0 |
-| Sketch | 100 | 71,778 | 0 | 0 |
-| Sketch | 1,000 | 71,680 | 0 | 0 |
-| Sketch | 10,000 | 71,770 | 0 | 0 |
+| Sketch | 10 | 47,082 | 0 | 0 |
+| Sketch | 100 | 46,976 | 0 | 0 |
+| Sketch | 1,000 | 46,860 | 0 | 0 |
+| Sketch | 10,000 | 47,388 | 0 | 0 |
 
 ### tdigest
 
@@ -524,49 +524,49 @@ This report is the full companion to the headline preview in the [README](README
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| ConcurrentDigest | 10 | 103 | 53 | 0 |
-| ConcurrentDigest | 100 | 192 | 60 | 0 |
-| ConcurrentDigest | 1,000 | 247 | 67 | 0 |
-| ConcurrentDigest | 10,000 | 221 | 74 | 0 |
-| Digest | 10 | 92.4 | 53 | 0 |
-| Digest | 100 | 182 | 60 | 0 |
-| Digest | 1,000 | 237 | 67 | 0 |
-| Digest | 10,000 | 209 | 74 | 0 |
+| ConcurrentDigest | 10 | 82.5 | 53 | 0 |
+| ConcurrentDigest | 100 | 142 | 60 | 0 |
+| ConcurrentDigest | 1,000 | 167 | 67 | 0 |
+| ConcurrentDigest | 10,000 | 152 | 74 | 0 |
+| Digest | 10 | 60.8 | 53 | 0 |
+| Digest | 100 | 119 | 60 | 0 |
+| Digest | 1,000 | 143 | 67 | 0 |
+| Digest | 10,000 | 129 | 74 | 0 |
 
 #### Merge
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Digest | 10 | 348 | 648 | 7 |
-| Digest | 100 | 1,590 | 5,544 | 7 |
-| Digest | 1,000 | 10,605 | 41,128 | 8 |
-| Digest | 10,000 | 15,117 | 61,608 | 8 |
+| Digest | 10 | 185 | 648 | 7 |
+| Digest | 100 | 923 | 5,544 | 7 |
+| Digest | 1,000 | 6,270 | 41,128 | 8 |
+| Digest | 10,000 | 9,580 | 61,608 | 8 |
 
 #### Quantile
 
 | Implementation | Size | ns/op | B/op | allocs/op |
 |---|--:|--:|--:|--:|
-| Digest | 10 | 64.4 | 192 | 1 |
-| Digest | 100 | 436 | 1,792 | 1 |
-| Digest | 1,000 | 1,118 | 4,864 | 1 |
-| Digest | 10,000 | 2,088 | 8,192 | 1 |
+| Digest | 10 | 37.8 | 192 | 1 |
+| Digest | 100 | 228 | 1,792 | 1 |
+| Digest | 1,000 | 596 | 4,864 | 1 |
+| Digest | 10,000 | 1,172 | 8,192 | 1 |
 
 ## Trend (recent `main` commits)
 
 <!-- Generated by tools/benchreport — do not edit by hand. Regenerate with `make bench-report`. -->
 
-Median **ns/op** for the headline operations across the last 12 of 33 retained `main` commit(s), measured on the **CI** runner and newest first. CI runners are shared and noisy, so read these for *drift* rather than precise values — the regression check below uses statistical significance, not raw deltas.
+Median **ns/op** for the headline operations across the last 12 of 34 retained `main` commit(s), measured on the **CI** runner and newest first. CI runners are shared and noisy, so read these for *drift* rather than precise values — the regression check below uses statistical significance, not raw deltas.
 
-| Operation | d0023ae | 8e29c59 | a480dd4 | f77c079 | f874cc8 | d4fe3bf | df36487 | 37f0776 | ec7b61c | 6dc6a32 | d3d4b6d | 5e6ab1a |
+| Operation | 9812ded | d0023ae | 8e29c59 | a480dd4 | f77c079 | f874cc8 | d4fe3bf | df36487 | 37f0776 | ec7b61c | 6dc6a32 | d3d4b6d |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| Dict — Hash.Get | 10.2 | 8.82 | 10.2 | 6.83 | 8.39 | 10.2 | 8.83 | 10.2 | 10.1 | 10.2 | 8.46 | 8.81 |
-| Dict — ConcurrentHash.Get | 18.6 | 17.0 | 18.8 | 13.2 | 21.9 | 18.6 | 17.0 | 18.7 | 18.6 | 18.6 | 21.9 | 17.0 |
-| Dict — ConcurrentHashRW.Get | 18.4 | 16.9 | 18.4 | 13.1 | 21.5 | 18.5 | 16.8 | 18.5 | 18.3 | 18.4 | 21.5 | 16.8 |
-| Dict — Tree.Get | 16.5 | 15.1 | 16.8 | 11.8 | 24.9 | 16.6 | 15.1 | 16.9 | 16.7 | 16.8 | 24.6 | 15.3 |
-| List — Array.Get | 2.82 | 2.82 | 2.81 | 2.19 | 2.89 | 2.81 | 2.82 | 2.81 | 2.81 | 2.81 | 2.88 | 2.82 |
-| Set — Hash.Contains | 11.7 | 10.1 | 11.8 | 7.84 | 9.21 | 11.8 | 10.1 | 11.8 | 11.8 | 11.8 | 9.24 | 10.1 |
+| Dict — Hash.Get | 5.31 | 10.2 | 8.82 | 10.2 | 6.83 | 8.39 | 10.2 | 8.83 | 10.2 | 10.1 | 10.2 | 8.46 |
+| Dict — ConcurrentHash.Get | 15.9 | 18.6 | 17.0 | 18.8 | 13.2 | 21.9 | 18.6 | 17.0 | 18.7 | 18.6 | 18.6 | 21.9 |
+| Dict — ConcurrentHashRW.Get | 15.4 | 18.4 | 16.9 | 18.4 | 13.1 | 21.5 | 18.5 | 16.8 | 18.5 | 18.3 | 18.4 | 21.5 |
+| Dict — Tree.Get | 6.84 | 16.5 | 15.1 | 16.8 | 11.8 | 24.9 | 16.6 | 15.1 | 16.9 | 16.7 | 16.8 | 24.6 |
+| List — Array.Get | 1.68 | 2.82 | 2.82 | 2.81 | 2.19 | 2.89 | 2.81 | 2.82 | 2.81 | 2.81 | 2.81 | 2.88 |
+| Set — Hash.Contains | 6.31 | 11.7 | 10.1 | 11.8 | 7.84 | 9.21 | 11.8 | 10.1 | 11.8 | 11.8 | 11.8 | 9.24 |
 
-Commits, newest first: `d0023ae` (2026-10-23) · `8e29c59` (2026-10-23) · `a480dd4` (2026-06-26) · `f77c079` (2026-06-23) · `f874cc8` (2026-06-23) · `d4fe3bf` (2026-06-23) · `df36487` (2026-06-23) · `37f0776` (2026-06-23) · `ec7b61c` (2026-06-23) · `6dc6a32` (2026-06-22) · `d3d4b6d` (2026-06-19) · `5e6ab1a` (2026-06-19)
+Commits, newest first: `9812ded` (2026-10-23) · `d0023ae` (2026-10-23) · `8e29c59` (2026-10-23) · `a480dd4` (2026-06-26) · `f77c079` (2026-06-23) · `f874cc8` (2026-06-23) · `d4fe3bf` (2026-06-23) · `df36487` (2026-06-23) · `37f0776` (2026-06-23) · `ec7b61c` (2026-06-23) · `6dc6a32` (2026-06-22) · `d3d4b6d` (2026-06-19)
 
 ### Regression check (report-only)
 

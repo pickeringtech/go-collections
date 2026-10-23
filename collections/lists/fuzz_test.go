@@ -1,6 +1,7 @@
 package lists_test
 
 import (
+	"reflect"
 	"sync"
 	"testing"
 
@@ -203,7 +204,8 @@ func FuzzConcurrentListRace(f *testing.F) {
 		// the read-only PeekEnd, so it must not inflate the bound.
 		var adds int
 		for i := 0; i+1 < len(program); i += 2 {
-			if m := program[i] % 5; m == 0 || m == 1 {
+			opcode := program[i] % 5
+			if opcode == 0 || opcode == 1 {
 				adds++
 			}
 		}
@@ -237,9 +239,206 @@ func FuzzConcurrentListRace(f *testing.F) {
 			}
 			wg.Wait()
 
-			if got := l.Length(); got < 0 || got > adds*workers {
+			got := l.Length()
+			if got < 0 || got > adds*workers {
 				t.Fatalf("%s: final Length %d outside [0, %d]", factory.name, got, adds*workers)
 			}
+		}
+	})
+}
+
+// differentialFactories lists the plain implementations FuzzListDifferential
+// checks against the Array oracle, circular variants included: a removal bug
+// that only bites when a circular list wraps or shrinks to one node shows up as
+// a divergence from Array.
+func differentialFactories() []listFactory {
+	return []listFactory{
+		{"Linked", func() lists.MutableList[uint8] { return lists.NewLinked[uint8]() }},
+		{"LinkedCircular", func() lists.MutableList[uint8] { return lists.NewLinkedCircular[uint8]() }},
+		{"DoublyLinked", func() lists.MutableList[uint8] { return lists.NewDoublyLinked[uint8]() }},
+		{"DoublyLinkedCircular", func() lists.MutableList[uint8] { return lists.NewDoublyLinkedCircular[uint8]() }},
+	}
+}
+
+// listOutcome is everything an operation reports — the element and found flag
+// it returns, the contents of any List it returns, and the elements its
+// callback was invoked with, in order — so two implementations can be compared
+// on the whole observable result rather than on the final contents alone.
+type listOutcome struct {
+	Element uint8
+	OK      bool
+	List    []uint8
+	Seen    []uint8
+}
+
+// listOpIndex maps an argument byte onto -1..14, spanning a negative index,
+// in-range indices, Length() itself and indices beyond it for small lists.
+func listOpIndex(arg byte) int {
+	return int(arg%16) - 1
+}
+
+// listKeep is the FilterInPlace/Filter predicate seeded by arg. It records each
+// element it is called with so the call sequence can be compared too.
+func listKeep(arg byte, seen *[]uint8) func(uint8) bool {
+	return func(v uint8) bool {
+		*seen = append(*seen, v)
+		return (v+arg)%3 == 0
+	}
+}
+
+// listOps is the operation alphabet FuzzListDifferential draws from: every
+// mutating method of MutableList and every immutable List method that derives a
+// new list, each reporting its observable outcome.
+var listOps = []func(l lists.MutableList[uint8], arg byte) listOutcome{
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		l.PushInPlace(arg)
+		return listOutcome{}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		l.EnqueueInPlace(arg)
+		return listOutcome{}
+	},
+	func(l lists.MutableList[uint8], _ byte) listOutcome {
+		v, ok := l.PopInPlace()
+		return listOutcome{Element: v, OK: ok}
+	},
+	func(l lists.MutableList[uint8], _ byte) listOutcome {
+		v, ok := l.DequeueInPlace()
+		return listOutcome{Element: v, OK: ok}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		l.InsertInPlace(listOpIndex(arg), arg, arg+1)
+		return listOutcome{}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		v, ok := l.RemoveAtInPlace(listOpIndex(arg))
+		return listOutcome{Element: v, OK: ok}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		return listOutcome{OK: l.RemoveInPlace(arg % 8)}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		seen := []uint8{}
+		l.FilterInPlace(listKeep(arg, &seen))
+		return listOutcome{Seen: seen}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		// Clear only occasionally, so programs build up long enough lists to
+		// exercise the other operations.
+		if arg%8 == 0 {
+			l.Clear()
+		}
+		return listOutcome{}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		return listOutcome{List: l.Push(arg).AsSlice()}
+	},
+	func(l lists.MutableList[uint8], _ byte) listOutcome {
+		v, ok, rest := l.Pop()
+		return listOutcome{Element: v, OK: ok, List: rest.AsSlice()}
+	},
+	func(l lists.MutableList[uint8], _ byte) listOutcome {
+		v, ok, rest := l.Dequeue()
+		return listOutcome{Element: v, OK: ok, List: rest.AsSlice()}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		seen := []uint8{}
+		filtered := l.Filter(listKeep(arg, &seen))
+		return listOutcome{List: filtered.AsSlice(), Seen: seen}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		return listOutcome{List: l.Insert(listOpIndex(arg), arg).AsSlice()}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		return listOutcome{List: l.RemoveAt(listOpIndex(arg)).AsSlice()}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		return listOutcome{List: l.Remove(arg % 8).AsSlice()}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		v, ok := l.Get(listOpIndex(arg), 0)
+		return listOutcome{Element: v, OK: ok}
+	},
+	func(l lists.MutableList[uint8], _ byte) listOutcome {
+		v, ok := l.PeekFront()
+		return listOutcome{Element: v, OK: ok}
+	},
+	func(l lists.MutableList[uint8], _ byte) listOutcome {
+		v, ok := l.PeekEnd()
+		return listOutcome{Element: v, OK: ok}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		return listOutcome{List: l.Sort(listByResidue(arg)).AsSlice()}
+	},
+	func(l lists.MutableList[uint8], arg byte) listOutcome {
+		l.SortInPlace(listByResidue(arg))
+		return listOutcome{}
+	},
+}
+
+// listByResidue orders elements by their value mod 4 — ascending for an even
+// arg, descending for an odd one. Distinct elements share each residue, so an
+// implementation whose sort is not stable diverges from the oracle on ties.
+func listByResidue(arg byte) func(a, b uint8) bool {
+	if arg%2 == 0 {
+		return func(a, b uint8) bool { return a%4 < b%4 }
+	}
+	return func(a, b uint8) bool { return a%4 > b%4 }
+}
+
+// sortTiesSeed pushes enough distinct values to pass the small-slice cutoff
+// below which an unstable sort can still preserve order, then sorts them in
+// place by residue, so a sort that reorders equal keys is caught.
+func sortTiesSeed() []byte {
+	var program []byte
+	for v := byte(0); v < 40; v++ {
+		program = append(program, 0, v)
+	}
+	return append(program, 20, 0)
+}
+
+var differentialSeeds = [][]byte{
+	nil,
+	{0, 42, 3, 0, 3, 0},             // single element dequeued, then dequeue from empty
+	{0, 42, 2, 0, 2, 0},             // single element popped, then pop from empty
+	{0, 1, 0, 2, 0, 3, 7, 0},        // filter keeps only the tail
+	{0, 1, 0, 2, 0, 3, 7, 2},        // filter keeps only the head
+	{0, 1, 0, 2, 0, 3, 7, 1},        // filter keeps only the middle
+	{0, 1, 0, 2, 7, 0},              // filter keeps nothing
+	{0, 1, 0, 2, 0, 3, 5, 1, 5, 2},  // remove the head, then the new tail
+	{0, 1, 4, 2, 4, 3, 13, 9, 3, 0}, // inserts at the end and beyond
+	{0, 5, 6, 5, 8, 0, 0, 6, 11, 0}, // remove by value, clear, then reuse
+}
+
+// FuzzListDifferential replays one operation program against every plain list
+// implementation and against an Array oracle in lockstep. After each operation
+// it asserts the implementation reported the same outcome as the oracle (values,
+// found flags, returned lists, callback invocations) and holds the same
+// elements, so any implementation-specific divergence — however it is reached —
+// fails immediately at the operation that caused it.
+func FuzzListDifferential(f *testing.F) {
+	for _, seed := range differentialSeeds {
+		f.Add(seed)
+	}
+	f.Add(sortTiesSeed())
+	f.Fuzz(func(t *testing.T, program []byte) {
+		for _, factory := range differentialFactories() {
+			oracle := lists.NewArray[uint8]()
+			l := factory.make()
+			for i := 0; i+1 < len(program); i += 2 {
+				op := listOps[int(program[i])%len(listOps)]
+				arg := program[i+1]
+				want := op(oracle, arg)
+				got := op(l, arg)
+				if !reflect.DeepEqual(got, want) {
+					t.Fatalf("%s: op %d (opcode %d, arg %d) = %+v, want %+v", factory.name, i/2, program[i], arg, got, want)
+				}
+				gotElements, wantElements := l.AsSlice(), oracle.AsSlice()
+				if !reflect.DeepEqual(gotElements, wantElements) {
+					t.Fatalf("%s: after op %d (opcode %d, arg %d) elements = %v, want %v", factory.name, i/2, program[i], arg, gotElements, wantElements)
+				}
+			}
+			assertListMatches(t, factory.name, l, oracle.AsSlice())
 		}
 	})
 }

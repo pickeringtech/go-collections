@@ -8,12 +8,16 @@ type node[T any] struct {
 	linked *Linked[T]
 }
 
-// Linked is a singly linked list implementation that provides O(1) operations
-// at both ends and rich data manipulation capabilities. It's perfect for implementing
-// stacks, queues, and ordered sequences where you primarily access elements from the ends.
+// Linked is a singly linked list with rich data manipulation capabilities. It
+// keeps head and tail pointers, so PushInPlace/EnqueueInPlace (append at the
+// end), DequeueInPlace (remove from the front), PeekFront, PeekEnd and IsEmpty
+// are O(1). Everything that must reach a node by walking from the head is O(n):
+// PopInPlace (it has to find the node before the tail), Length, Get,
+// InsertInPlace and RemoveAtInPlace. That makes it a natural FIFO queue; when
+// you also need O(1) removal from the end or an O(1) Length, use DoublyLinked.
 //
-// Linked supports both immutable operations (returning slices) and mutable operations
-// (modifying the list in place) to fit different programming styles.
+// Linked supports both immutable operations (returning a new List) and mutable
+// operations (modifying the list in place) to fit different programming styles.
 //
 // Example usage:
 //
@@ -79,19 +83,22 @@ func NewLinkedCircular[T any](values ...T) *Linked[T] {
 }
 
 func (l *Linked[T]) insertAtEnd(value T) {
-	newNode := &node[T]{
+	l.appendNode(&node[T]{
 		value:  value,
 		linked: l,
-		next:   nil,
-	}
+	})
+}
 
+// appendNode links n in as the new tail, maintaining the circular invariant
+// when the list is circular. Any existing next pointer on n is overwritten.
+func (l *Linked[T]) appendNode(n *node[T]) {
+	n.next = nil
 	if l.head == nil {
-		l.head = newNode
-		l.tail = newNode
+		l.head = n
 	} else {
-		l.tail.next = newNode
-		l.tail = newNode
+		l.tail.next = n
 	}
+	l.tail = n
 
 	if l.isCircular {
 		l.tail.next = l.head
@@ -188,42 +195,27 @@ func (l *Linked[T]) Filter(fn func(T) bool) List[T] {
 	return NewArray(result...)
 }
 
-// FilterInPlace removes elements that don't satisfy the predicate.
+// FilterInPlace retains only the elements for which fn returns true, modifying
+// the receiver. fn is called exactly once per element, front to back, and the
+// survivors keep their relative order.
 func (l *Linked[T]) FilterInPlace(fn func(T) bool) {
 	if l.head == nil {
 		return
 	}
 
-	// Handle head nodes that don't match
-	for l.head != nil && !fn(l.head.value) {
-		l.head = l.head.next
-		if l.isCircular && l.head == l.tail {
-			l.head = nil
-			l.tail = nil
-			return
-		}
-	}
-
-	if l.head == nil {
-		l.tail = nil
-		return
-	}
-
-	// Handle remaining nodes
+	// Break the cycle (a no-op for a non-circular list) so the walk below visits
+	// each original node exactly once, then relink the survivors from an empty
+	// list; appendNode re-closes the cycle as it goes.
+	l.tail.next = nil
 	current := l.head
-	for current.next != nil && (!l.isCircular || current.next != l.head) {
-		if !fn(current.next.value) {
-			if current.next == l.tail {
-				l.tail = current
-			}
-			current.next = current.next.next
-		} else {
-			current = current.next
+	l.head = nil
+	l.tail = nil
+	for current != nil {
+		next := current.next
+		if fn(current.value) {
+			l.appendNode(current)
 		}
-	}
-
-	if l.isCircular && l.tail != nil {
-		l.tail.next = l.head
+		current = next
 	}
 }
 
@@ -249,7 +241,8 @@ func (l *Linked[T]) Get(index int, defaultValue T) (T, bool) {
 	return defaultValue, false
 }
 
-// Length returns the number of elements in the list.
+// Length returns the number of elements in the list. It runs in O(n): the list
+// keeps no count, so it walks every node.
 func (l *Linked[T]) Length() int {
 	if l.head == nil {
 		return 0
@@ -313,17 +306,7 @@ func (l *Linked[T]) removeFirst(match func(index int, value T) bool) (T, bool) {
 	}
 
 	if match(0, l.head.value) {
-		value := l.head.value
-		if l.head == l.tail {
-			l.head = nil
-			l.tail = nil
-		} else {
-			l.head = l.head.next
-			if l.isCircular {
-				l.tail.next = l.head
-			}
-		}
-		return value, true
+		return l.removeHead(), true
 	}
 
 	prev := l.head
@@ -346,6 +329,26 @@ func (l *Linked[T]) removeFirst(match func(index int, value T) bool) (T, bool) {
 		index++
 	}
 	return zero, false
+}
+
+// removeHead unlinks the head node and returns its value, maintaining the
+// circular invariant when the list is circular. The caller must ensure the list
+// is non-empty. The lone-node case is detected by identity (head == tail)
+// rather than by a nil next pointer, because in a circular list the only node's
+// next points back at itself.
+func (l *Linked[T]) removeHead() T {
+	value := l.head.value
+	if l.head == l.tail {
+		l.head = nil
+		l.tail = nil
+		return value
+	}
+
+	l.head = l.head.next
+	if l.isCircular {
+		l.tail.next = l.head
+	}
+	return value
 }
 
 // Clear removes all elements from the list.
@@ -380,9 +383,10 @@ func (l *Linked[T]) ForEachWithIndex(fn IndexedEachFunc[T]) {
 	}
 }
 
-// AsSlice returns the list as a slice.
+// AsSlice returns the elements, front to back, as a new slice independent of
+// the list. The result is non-nil even when the list is empty.
 func (l *Linked[T]) AsSlice() []T {
-	var result []T
+	result := []T{}
 	current := l.head
 	for current != nil {
 		result = append(result, current.value)
@@ -491,21 +495,18 @@ func (l *Linked[T]) insertAfter(current *node[T], elements []T) {
 	}
 }
 
-// Sort returns a new sorted List.
+// Sort returns a new List sorted according to the less-than function
+// lessThan, without modifying the receiver. The sort is stable: elements that
+// compare equal keep their original relative order.
 func (l *Linked[T]) Sort(lessThan func(T, T) bool) List[T] {
 	slice := l.AsSlice()
-	// Simple bubble sort for demonstration
-	for i := 0; i < len(slice); i++ {
-		for j := 0; j < len(slice)-1-i; j++ {
-			if lessThan(slice[j+1], slice[j]) {
-				slice[j], slice[j+1] = slice[j+1], slice[j]
-			}
-		}
-	}
+	sortStable(slice, lessThan)
 	return NewArray(slice...)
 }
 
-// SortInPlace sorts the list in place.
+// SortInPlace sorts the list in place according to the less-than function
+// lessThan. The sort is stable: elements that compare equal keep their original
+// relative order.
 func (l *Linked[T]) SortInPlace(lessThan func(T, T) bool) {
 	if l.head == nil || l.head.next == nil {
 		return
@@ -562,7 +563,8 @@ func (l *Linked[T]) Pop() (T, bool, List[T]) {
 
 // PopInPlace removes and returns the last element (stack operation).
 // This is a mutable operation that modifies the list in place.
-// Returns the removed element and whether it was found.
+// Returns the removed element and whether it was found. It runs in O(n): a
+// singly linked list must walk from the head to find the node before the tail.
 //
 // Example:
 //
@@ -577,11 +579,8 @@ func (l *Linked[T]) PopInPlace() (T, bool) {
 	}
 
 	if l.head == l.tail {
-		// Only one element
-		value := l.head.value
-		l.head = nil
-		l.tail = nil
-		return value, true
+		// The only element is also the head.
+		return l.removeHead(), true
 	}
 
 	// Find second to last node
@@ -628,21 +627,14 @@ func (l *Linked[T]) Dequeue() (T, bool, List[T]) {
 	return slice[0], true, NewArray(slice[1:]...)
 }
 
-// DequeueInPlace removes and returns the first element.
+// DequeueInPlace removes and returns the first element, reporting whether one
+// was present, modifying the receiver. It runs in O(1).
 func (l *Linked[T]) DequeueInPlace() (T, bool) {
 	if l.head == nil {
 		var zero T
 		return zero, false
 	}
-
-	value := l.head.value
-	l.head = l.head.next
-	if l.head == nil {
-		l.tail = nil
-	} else if l.isCircular {
-		l.tail.next = l.head
-	}
-	return value, true
+	return l.removeHead(), true
 }
 
 // PeekFront returns the first element without removing it.

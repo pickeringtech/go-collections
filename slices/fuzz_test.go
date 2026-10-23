@@ -1,6 +1,7 @@
 package slices_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/slices"
@@ -376,6 +377,56 @@ func FuzzPushPop(f *testing.F) {
 		}
 		if len(restF) != len(input) {
 			t.Fatalf("PopFront remainder length = %d, want %d", len(restF), len(input))
+		}
+	})
+}
+
+// FuzzConcatenate preserves both input backing arrays and returns their values in order.
+func FuzzConcatenate(f *testing.F) {
+	f.Add([]byte(nil), []byte(nil))
+	f.Add([]byte{}, []byte{})
+	f.Add([]byte{1, 2, 3}, []byte{4, 5})
+
+	f.Fuzz(func(t *testing.T, a, b []byte) {
+		inputA := make([]int, len(a), len(a)+len(b)+1)
+		for i, value := range a {
+			inputA[i] = int(value)
+		}
+		inputABacking := inputA[:cap(inputA)]
+		inputABackingBefore := append([]int{}, inputABacking...)
+
+		inputB := make([]int, len(b), len(a)+len(b)+1)
+		for i, value := range b {
+			inputB[i] = int(value)
+		}
+		inputBBacking := inputB[:cap(inputB)]
+		inputBBackingBefore := append([]int{}, inputBBacking...)
+
+		got := slices.Concatenate(inputA, inputB)
+		want := make([]int, 0, len(inputA)+len(inputB))
+		want = append(want, inputA...)
+		want = append(want, inputB...)
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("Concatenate() = %v, want %v", got, want)
+		}
+		if !reflect.DeepEqual(inputABacking, inputABackingBefore) {
+			t.Fatalf("Concatenate modified inputA backing array: got %v, want %v", inputABacking, inputABackingBefore)
+		}
+		if !reflect.DeepEqual(inputBBacking, inputBBackingBefore) {
+			t.Fatalf("Concatenate modified inputB backing array: got %v, want %v", inputBBacking, inputBBackingBefore)
+		}
+
+		if len(got) > 0 {
+			got[0] = -1
+		}
+		if len(inputA) > 0 && !reflect.DeepEqual(inputABacking, inputABackingBefore) {
+			t.Fatalf("Concatenate result aliases inputA: got %v, want %v", inputABacking, inputABackingBefore)
+		}
+		if len(inputB) > 0 {
+			got[len(inputA)] = -2
+			if !reflect.DeepEqual(inputBBacking, inputBBackingBefore) {
+				t.Fatalf("Concatenate result aliases inputB: got %v, want %v", inputBBacking, inputBBackingBefore)
+			}
 		}
 	})
 }

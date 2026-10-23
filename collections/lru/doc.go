@@ -114,9 +114,12 @@
 //	Operation       | Cost
 //	----------------|------
 //	Get / Peek      | O(1)
-//	Put / PutInPlace| O(1)
+//	Put             | O(1) in place, O(n) for the immutable copy
 //	Remove          | O(1) in place, O(n) for the immutable copy
 //	Keys/Values/... | O(n)
+//
+// The immutable Put and Remove clone the whole cache before changing the copy;
+// prefer PutInPlace and RemoveInPlace on hot paths.
 //
 // Start with NewLRU and upgrade to a concurrent variant only when you actually
 // share the cache across goroutines.

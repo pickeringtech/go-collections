@@ -108,6 +108,7 @@ func main() {
 | **[ml/distance](./ml/distance/)** | Distance metrics (lower = closer) | Euclidean, Manhattan, Minkowski, Cosine, Hamming, Levenshtein |
 | **[ml/similarity](./ml/similarity/)** | Similarity metrics (higher = more alike) | Cosine similarity, Jaccard, Dice, Overlap |
 | **[ml/metrics](./ml/metrics/)** | Model-evaluation metrics by problem type | Regression (MSE/RMSE/R²), classification (precision/recall/F1, ROC/AUC), clustering (silhouette), ranking (DCG/NDCG, MAP) |
+| **[ml/preprocessing](./ml/preprocessing/README.md)** | Fit/transform feature engineering | Scaling, encoding, imputation, binning, train/test splitting |
 
 ## Choose Your Data Structure
 
@@ -158,23 +159,18 @@ task, found := queue.DequeueInPlace()
 
 ### When to Use Heaps (Priority Queues)
 ```go
-import (
-    "github.com/pickeringtech/go-collections/collections"
-    "github.com/pickeringtech/go-collections/collections/heaps" // for the in-place API
-)
+import "github.com/pickeringtech/go-collections/collections"
 
 // Smallest-first scheduling — reachable straight from the facade.
-// Pop is immutable: it returns the element, an ok flag, and the remaining heap.
 pq := collections.NewMinHeap(5, 1, 3)
-next, ok, rest := pq.Pop() // next == 1, ok == true; rest is pq without it
+pq.PushInPlace(0)
+top, ok := pq.PopInPlace() // top == 0, ok == true
+
+// The immutable Pop returns the element, an ok flag, and a new heap
+next, ok, rest := pq.Pop() // next == 1; pq is unchanged, rest is pq without it
 
 // Or order by any comparator (e.g. a struct field)
 tasks := collections.NewHeap(func(a, b Task) bool { return a.Priority > b.Priority })
-
-// The heaps subpackage adds the in-place, mutating API (PushInPlace / PopInPlace)
-mpq := heaps.NewMin(5, 1, 3)
-mpq.PushInPlace(0)
-top, _ := mpq.PopInPlace() // 0
 ```
 
 **Use when**: You always need the most- (or least-) extreme item next —
@@ -265,7 +261,7 @@ _Headline numbers are from the controlled **Reference — Framework Desktop** ba
 
 Reference — Framework Desktop: `31d657d` · 2026-06-16 · linux/amd64 · Go go1.25.5
 
-CI — GitHub-hosted runner (ubuntu-latest): `d0023ae` · 2026-10-23 · linux/amd64 · Go go1.24.13
+CI — GitHub-hosted runner (ubuntu-latest): `9812ded` · 2026-10-23 · linux/amd64 · Go go1.24.13
 
 Full report → [BENCHMARKS.md](BENCHMARKS.md)
 
@@ -316,6 +312,7 @@ downstream-consumer smoke test. See the [examples README](./examples/README.md).
 - **[ML Distance](./ml/distance/README.md)** - Distance metrics (Euclidean, Manhattan, Minkowski, Cosine, Hamming, Levenshtein)
 - **[ML Similarity](./ml/similarity/README.md)** - Similarity metrics (Cosine, Jaccard, Dice, Overlap)
 - **[ML Metrics](./ml/metrics/README.md)** - Model-evaluation metrics (regression, classification, clustering, ranking)
+- **[ML Preprocessing](./ml/preprocessing/README.md)** - Scaling, encoding, imputation, binning and reproducible dataset splits
 - **[Mutation Testing](./docs/mutation-testing.md)** - How we verify the tests catch regressions, not just run lines
 
 ## Contributing
