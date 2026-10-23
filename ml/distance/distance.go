@@ -1,4 +1,3 @@
-// Package distance is documented in doc.go.
 package distance
 
 import (

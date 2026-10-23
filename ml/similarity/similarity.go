@@ -1,4 +1,3 @@
-// Package similarity is documented in doc.go.
 package similarity
 
 import (
