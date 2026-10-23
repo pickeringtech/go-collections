@@ -31,6 +31,8 @@ Go Collections provides data structures and utilities for working with collectio
 go get github.com/pickeringtech/go-collections
 ```
 
+Requires **Go 1.24 or later**. The module has no dependencies.
+
 ```go
 package main
 
@@ -198,7 +200,7 @@ cache = collections.NewLRU[string, int](100,
 **Use when**: You need a fixed-memory cache with automatic eviction —
 hot-key caches, memoisation with a budget, or any bounded most-recently-seen store.
 
-## Iterator Bridge (Go 1.23+)
+## Iterator Bridge
 
 Build collections straight from any range-over-func iterator — the inbound
 counterpart to each collection's `Values`/`All` iterators:
@@ -314,6 +316,15 @@ downstream-consumer smoke test. See the [examples README](./examples/README.md).
 - **[ML Metrics](./ml/metrics/README.md)** - Model-evaluation metrics (regression, classification, clustering, ranking)
 - **[ML Preprocessing](./ml/preprocessing/README.md)** - Scaling, encoding, imputation, binning and reproducible dataset splits
 - **[Mutation Testing](./docs/mutation-testing.md)** - How we verify the tests catch regressions, not just run lines
+
+## Versioning & Stability
+
+The library follows [Semantic Versioning](https://semver.org/). It is
+**pre-1.0**: a minor release (`0.x.0`) may contain breaking changes, and each
+one is listed with its replacement under **Breaking changes** in the
+[CHANGELOG](./CHANGELOG.md). Patch releases (`0.x.y`) are always
+backwards-compatible. The API freezes at v1.0.0, after which breaking changes
+need a new major version.
 
 ## Contributing
 
