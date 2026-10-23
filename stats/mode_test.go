@@ -2,6 +2,7 @@ package stats_test
 
 import (
 	"math"
+	"reflect"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/stats"
@@ -68,5 +69,52 @@ func TestModeFiniteFloatsStillWork(t *testing.T) {
 	got, ok := stats.Mode([]float64{1.5, 2.5, 1.5})
 	if !ok || len(got) != 1 || got[0] != 1.5 {
 		t.Fatalf("Mode([1.5 2.5 1.5]) = (%v, %v), want ([1.5], true)", got, ok)
+	}
+}
+
+// Named float types share float64/float32's non-finite values, so the
+// categorical NaN/Inf rejection must not depend on the exact dynamic type.
+type namedFloat float64
+type namedFloat32 float32
+
+// TestCategoricalRejectsNonFiniteNamedFloats guards the non-finite check
+// against named float types (type F float64), which a type switch on
+// float64/float32 misses, and against NaN-carrying non-float comparables.
+func TestCategoricalRejectsNonFiniteNamedFloats(t *testing.T) {
+	nan, inf := math.NaN(), math.Inf(1)
+	tests := []struct {
+		name string
+		fn   func() bool
+	}{
+		{name: "Mode of named float NaNs", fn: func() bool { _, ok := stats.Mode([]namedFloat{namedFloat(nan), namedFloat(nan)}); return ok }},
+		{name: "Mode of a named float infinity", fn: func() bool { _, ok := stats.Mode([]namedFloat{1, namedFloat(inf)}); return ok }},
+		{name: "Mode of a named float32 negative infinity", fn: func() bool { _, ok := stats.Mode([]namedFloat32{namedFloat32(-inf)}); return ok }},
+		{name: "Entropy of named float NaNs", fn: func() bool { _, ok := stats.Entropy([]namedFloat{namedFloat(nan), namedFloat(nan)}); return ok }},
+		{name: "Gini of named float NaNs", fn: func() bool { _, ok := stats.Gini([]namedFloat{namedFloat(nan), namedFloat(nan)}); return ok }},
+		{name: "Gini of a named float32 infinity", fn: func() bool { _, ok := stats.Gini([]namedFloat32{2, namedFloat32(inf)}); return ok }},
+		{name: "Mode of a complex NaN", fn: func() bool { _, ok := stats.Mode([]complex128{complex(nan, 0), 1}); return ok }},
+		{name: "Mode of an interface-held infinity", fn: func() bool { _, ok := stats.Mode([]any{"a", inf}); return ok }},
+		{name: "Mode of an interface-held named float32 infinity", fn: func() bool { _, ok := stats.Mode([]any{namedFloat32(-inf)}); return ok }},
+		{name: "Mode of an interface-held NaN", fn: func() bool { _, ok := stats.Mode([]any{nan, 1}); return ok }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.fn() {
+				t.Errorf("ok = true, want false")
+			}
+		})
+	}
+}
+
+// Finite named floats, and finite values behind an interface, are ordinary
+// categories.
+func TestModeNamedFloatsStillWork(t *testing.T) {
+	got, ok := stats.Mode([]namedFloat{1, 2, 2, 3})
+	if !ok || !reflect.DeepEqual(got, []namedFloat{2}) {
+		t.Errorf("Mode() = %v, %v; want [2], true", got, ok)
+	}
+	mixed, ok := stats.Mode([]any{"a", 1.5, 1.5, 2})
+	if !ok || !reflect.DeepEqual(mixed, []any{1.5}) {
+		t.Errorf("Mode() = %v, %v; want [1.5], true", mixed, ok)
 	}
 }

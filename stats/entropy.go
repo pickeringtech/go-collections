@@ -16,8 +16,9 @@ func frequencies[T comparable](input []T) (counts map[T]int, total int, ok bool)
 		return nil, 0, false
 	}
 	counts = make(map[T]int, len(input))
+	isNonFinite := newNonFiniteDetector[T]()
 	for _, v := range input {
-		if nonFiniteComparable(v) {
+		if isNonFinite.test(v) {
 			return nil, 0, false
 		}
 		counts[v]++
@@ -36,9 +37,9 @@ func frequencies[T comparable](input []T) (counts map[T]int, total int, ok bool)
 // are summed with Kahan compensated summation.
 //
 // ok is false (and the result 0) when the distribution is undefined: when input
-// is empty, or, for floating-point element types, when input contains a
-// non-finite value (NaN or ±Inf), which cannot be counted coherently — the same
-// rejection policy as Mode.
+// is empty or contains a non-finite value (NaN or ±Inf, including in named
+// float types), which cannot be counted coherently — the same rejection policy
+// as Mode.
 func Entropy[T comparable](input []T) (float64, bool) {
 	counts, total, ok := frequencies(input)
 	if !ok {
@@ -67,8 +68,8 @@ func Entropy[T comparable](input []T) (float64, bool) {
 // are summed with Kahan compensated summation.
 //
 // ok is false (and the result 0) when the distribution is undefined: when input
-// is empty, or, for floating-point element types, when input contains a
-// non-finite value (NaN or ±Inf) — the same rejection policy as Mode.
+// is empty or contains a non-finite value (NaN or ±Inf, including in named
+// float types) — the same rejection policy as Mode.
 func Gini[T comparable](input []T) (float64, bool) {
 	counts, total, ok := frequencies(input)
 	if !ok {
