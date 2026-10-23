@@ -25,7 +25,9 @@ func NewCountOccurrencesReducer[I comparable, O constraints.Numeric](toCount []I
 }
 
 // Reduce iterates over each element of the input, applying the provided reduction function, producing a single value
-// which is the result of the reduction function.  If the input is empty or nil, the output will be nil.
+// which is the result of the reduction function. The accumulator starts at the zero value of O, so if the input is
+// empty or nil, fn is never called and the output is that zero value (0 for numbers, "" for strings, nil for maps,
+// slices and pointers).
 func Reduce[I, O any](input []I, fn ReductionFunc[I, O]) O {
 	var accumulator O
 	for _, el := range input {
