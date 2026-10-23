@@ -92,8 +92,8 @@
 //     buffering the whole stream (which would defeat bounded memory). Nothing in
 //     stats is exported or modified to share it.
 //   - EWMA maintains an exponentially weighted moving average; alpha is clamped
-//     into (0, 1] and the average is primed on the first Add so it is not biased
-//     toward zero.
+//     into (0, 1] (a non-positive or NaN alpha becomes 0.5) and the average is
+//     primed on the first Add so it is not biased toward zero.
 //   - RunningMinMax tracks the smallest and largest element of an ordered stream,
 //     mirroring stats.MinMax.
 //

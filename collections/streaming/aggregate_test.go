@@ -155,6 +155,9 @@ func TestEWMA_Result(t *testing.T) {
 		{name: "alpha 1 tracks latest", args: args{alpha: 1, values: []float64{10, 20, 30}}, wantVal: 30, wantOK: true},
 		{name: "alpha clamped from above", args: args{alpha: 5, values: []float64{10, 20}}, wantVal: 20, wantOK: true},
 		{name: "alpha clamped from zero primes only", args: args{alpha: 0, values: []float64{10}}, wantVal: 10, wantOK: true},
+		{name: "zero alpha defaults to 0.5", args: args{alpha: 0, values: []float64{10, 20}}, wantVal: 15, wantOK: true},
+		{name: "negative alpha defaults to 0.5", args: args{alpha: -3, values: []float64{10, 20}}, wantVal: 15, wantOK: true},
+		{name: "NaN alpha defaults to 0.5", args: args{alpha: math.NaN(), values: []float64{10, 20}}, wantVal: 15, wantOK: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

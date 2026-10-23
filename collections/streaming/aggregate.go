@@ -156,16 +156,16 @@ type EWMA struct {
 }
 
 // NewEWMA creates an EWMA with the given smoothing factor. alpha is clamped into
-// the half-open interval (0, 1]: a value <= 0 (or NaN) becomes a small positive
-// default and a value > 1 is capped at 1, so the average is always well-defined.
-// Before the first Add, Result reports ok == false.
+// the half-open interval (0, 1]: a value <= 0 (or NaN) becomes the default 0.5
+// and a value > 1 (including +Inf) is capped at 1, so the average is always
+// well-defined. Before the first Add, Result reports ok == false.
 func NewEWMA(alpha float64) *EWMA {
 	return &EWMA{alpha: clampAlpha(alpha)}
 }
 
 // clampAlpha forces alpha into (0, 1]. Non-positive or NaN values (NaN fails
-// every comparison, so it falls through to the default) become a small positive
-// default; values above 1 are capped at 1.
+// every comparison, so it falls through to the default) become 0.5; values
+// above 1 are capped at 1.
 func clampAlpha(alpha float64) float64 {
 	if alpha > 1 {
 		return 1
