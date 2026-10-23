@@ -51,13 +51,13 @@ func TestPipeline_CollectAsSlice(t *testing.T) {
 			want: []int{3, 3, 5, 4, 4},
 		},
 		{
-			name: "empty input produces nil output",
+			name: "empty input produces non-nil empty output",
 			p: channels.NewPipeline[string, int](ctx, channels.FromSlice(ctx, []string{}), func(ctx context.Context, input <-chan string) <-chan int {
 				return channels.Map[string, int](ctx, input, func(element string) int {
 					return len(element)
 				})
 			}),
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {

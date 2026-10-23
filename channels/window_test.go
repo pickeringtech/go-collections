@@ -182,7 +182,7 @@ func TestWindowedReduce(t *testing.T) {
 	}{
 		{name: "sum of tumbling windows", args: args{input: []int{1, 2, 3, 4, 5, 6}, size: 3}, want: []int{6, 15}},
 		{name: "partial dropped before reduce", args: args{input: []int{1, 2, 3, 4, 5, 6, 7}, size: 3}, want: []int{6, 15}},
-		{name: "no full window yields nothing", args: args{input: []int{1, 2}, size: 5}, want: nil},
+		{name: "no full window yields nothing", args: args{input: []int{1, 2}, size: 5}, want: []int{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

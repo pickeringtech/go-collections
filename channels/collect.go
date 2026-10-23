@@ -14,9 +14,10 @@ func BuildMapFromEntries[K comparable, V any](entries []maps.Entry[K, V]) map[K]
 }
 
 // CollectAsSlice reads all elements from the input channel and returns them as a slice. This function will block until
-// the input channel is closed.
+// the input channel is closed. If the channel closes without delivering any element, the output is an initialised,
+// non-nil empty slice.
 func CollectAsSlice[T any](input <-chan T) []T {
-	var results []T
+	results := []T{}
 	for el := range input {
 		results = append(results, el)
 	}
@@ -24,9 +25,9 @@ func CollectAsSlice[T any](input <-chan T) []T {
 }
 
 // CollectNAsSlice reads all elements from the input channel and returns them as a slice. This function will block until
-// the input channel is closed.
+// the input channel is closed. If no element is collected, the output is an initialised, non-nil empty slice.
 func CollectNAsSlice[T any](input <-chan T, howMany int) []T {
-	var results []T
+	results := []T{}
 
 	for i := 0; i < howMany; i++ {
 		el, ok := <-input

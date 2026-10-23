@@ -85,18 +85,18 @@ func TestCollectAsSlice(t *testing.T) {
 			want: []int{1, 19, 21, 3, -1, 100},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[int]{
 				input: channels.FromSlice(ctx, []int{}),
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "nil input provides nil output",
+			name: "nil input provides non-nil empty output",
 			args: args[int]{
 				input: channels.FromSlice[int](ctx, nil),
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -183,20 +183,20 @@ func TestCollectNAsSlice(t *testing.T) {
 			want: []int{1, 19, 21, 3, -1, 100},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[int]{
 				input:   channels.FromSlice(ctx, []int{}),
 				howMany: 0,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "nil input provides nil output",
+			name: "nil input provides non-nil empty output",
 			args: args[int]{
 				input:   channels.FromSlice[int](ctx, nil),
 				howMany: 0,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
 			name: "collects a subset of the input",
