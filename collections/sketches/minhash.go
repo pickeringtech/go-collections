@@ -40,6 +40,9 @@ type MinHash[T comparable] struct {
 	// equal perms and are compatible via EstimatedJaccard.
 	perms []permCoeffs
 	mins  []uint64
+	// added records whether Add has been called, so EstimatedJaccard can tell
+	// an empty set from a non-empty one whose minimums happen to be large.
+	added bool
 }
 
 // NewMinHash constructs a new MinHash[T] sketch with numHashes hash functions.
@@ -87,6 +90,7 @@ func NewMinHash[T comparable](numHashes int, rng *randv2.Rand) *MinHash[T] {
 // each permutation. Add never mutates element; it reads it only to compute
 // its hash.
 func (m *MinHash[T]) Add(element T) {
+	m.added = true
 	h := maphash.Comparable(globalSeed, element)
 	for i, p := range m.perms {
 		v := p.a*h + p.b
@@ -116,7 +120,12 @@ func (m *MinHash[T]) Signature() []uint64 {
 // zero-value sketch with no permutations (e.g. &MinHash[T]{}), is likewise
 // not comparable and yields ok == false.
 //
-// The estimate is in [0, 1].
+// It also returns ok == false (and 0) when both sketches are empty — nothing
+// has been added to either — because the Jaccard similarity of two empty sets
+// is 0/0, undefined; 0 matches the value ml/similarity.Jaccard returns for that
+// case. An empty sketch against a non-empty one estimates 0 with ok == true.
+//
+// Otherwise the estimate is in [0, 1].
 func EstimatedJaccard[T comparable](a, b *MinHash[T]) (float64, bool) {
 	if a == nil || b == nil {
 		return 0, false
@@ -131,6 +140,9 @@ func EstimatedJaccard[T comparable](a, b *MinHash[T]) (float64, bool) {
 		if a.perms[i] != b.perms[i] {
 			return 0, false
 		}
+	}
+	if !a.added && !b.added {
+		return 0, false
 	}
 	matches := 0
 	for i := range a.mins {

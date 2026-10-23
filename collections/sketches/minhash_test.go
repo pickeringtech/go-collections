@@ -274,3 +274,31 @@ func TestEstimatedJaccard_zeroValueSketch(t *testing.T) {
 		})
 	}
 }
+
+// TestEstimatedJaccard_emptySketches checks the empty-set cases. The Jaccard
+// similarity of two empty sets is 0/0 — undefined — so EstimatedJaccard reports
+// ok == false (and 0, the value ml/similarity.Jaccard uses for that case)
+// rather than the 1 that two all-MaxUint64 signatures used to "agree" on. An
+// empty set against a non-empty one has a defined similarity of 0.
+func TestEstimatedJaccard_emptySketches(t *testing.T) {
+	filled := sketches.NewMinHash[string](64, nil)
+	filled.Add("x")
+	tests := []struct {
+		name   string
+		a, b   *sketches.MinHash[string]
+		want   float64
+		wantOK bool
+	}{
+		{"both empty", sketches.NewMinHash[string](64, nil), sketches.NewMinHash[string](64, nil), 0, false},
+		{"first empty", sketches.NewMinHash[string](64, nil), filled, 0, true},
+		{"second empty", filled, sketches.NewMinHash[string](64, nil), 0, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := sketches.EstimatedJaccard(tt.a, tt.b)
+			if got != tt.want || ok != tt.wantOK {
+				t.Errorf("EstimatedJaccard() = (%v, %v), want (%v, %v)", got, ok, tt.want, tt.wantOK)
+			}
+		})
+	}
+}

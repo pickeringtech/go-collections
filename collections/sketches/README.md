@@ -61,6 +61,10 @@ est, ok := sketches.EstimatedJaccard(a, b)
 // ok == true; est ≈ Jaccard({the,quick,brown,fox}, {the,lazy,brown,dog}) = 2/6
 ```
 
+Two **empty** sketches yield `(0, false)`: the Jaccard similarity of two empty
+sets is 0/0, so it is reported as undefined (and as 0, matching
+`ml/similarity.Jaccard`) rather than as a perfect match.
+
 ### Accuracy
 
 Accuracy improves with `numHashes`:
