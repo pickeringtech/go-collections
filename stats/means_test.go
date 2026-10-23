@@ -311,6 +311,75 @@ func TestGeometricMeanNoOverflow(t *testing.T) {
 	}
 }
 
+// relClose reports whether got matches want to within a relative tolerance
+// suited to values whose magnitude makes an absolute epsilon meaningless.
+func relClose(got, want float64) bool {
+	return got == want || math.Abs(got-want) <= 1e-12*math.Abs(want)
+}
+
+// TestMeansAreOverflowSafe pins the means family's contract that finite input
+// always yields the correct finite mean: intermediate sums, products and
+// reciprocals that overflow or underflow float64 must not leak out as NaN, ±Inf
+// or a spurious zero.
+func TestMeansAreOverflowSafe(t *testing.T) {
+	maxF := math.MaxFloat64
+	tests := []struct {
+		name string
+		fn   func() (float64, bool)
+		want float64
+	}{
+		{name: "Mean whose sum overflows", fn: func() (float64, bool) { return stats.Mean([]float64{1e308, 1e308}) }, want: 1e308},
+		{name: "Mean of maximal values", fn: func() (float64, bool) { return stats.Mean([]float64{maxF, maxF, 1}) }, want: maxF / 3 * 2},
+		{name: "Mean whose sum overflows negatively", fn: func() (float64, bool) { return stats.Mean([]float64{-maxF, -maxF}) }, want: -maxF},
+		{name: "WeightedMean whose products overflow", fn: func() (float64, bool) { return stats.WeightedMean([]float64{1e200, 1}, []float64{1e200, 1}) }, want: 1e200},
+		{name: "WeightedMean whose weighted sum overflows", fn: func() (float64, bool) { return stats.WeightedMean([]float64{maxF, maxF}, []float64{1, 1}) }, want: maxF},
+		{name: "WeightedMean whose weight total overflows", fn: func() (float64, bool) { return stats.WeightedMean([]float64{1, 2}, []float64{maxF, maxF}) }, want: 1.5},
+		{name: "WeightedMean whose weight total alone overflows", fn: func() (float64, bool) { return stats.WeightedMean([]float64{1e-300, 3e-300}, []float64{maxF, maxF}) }, want: 2e-300},
+		{name: "WeightedMean with products of both signs overflowing", fn: func() (float64, bool) {
+			return stats.WeightedMean([]float64{1e300, -1e300, 4}, []float64{1e10, 1e10, 1})
+		}, want: 4.0 / (2e10 + 1)},
+		{name: "HarmonicMean whose reciprocals overflow", fn: func() (float64, bool) { return stats.HarmonicMean([]float64{1e-310, 1e-310}) }, want: 1e-310},
+		{name: "HarmonicMean whose reciprocals underflow", fn: func() (float64, bool) { return stats.HarmonicMean([]float64{maxF}) }, want: maxF},
+		{name: "HarmonicMean across the whole range", fn: func() (float64, bool) { return stats.HarmonicMean([]float64{1e-300, 1e300}) }, want: 2e-300},
+		{name: "GeometricMean of the largest float", fn: func() (float64, bool) { return stats.GeometricMean([]float64{maxF}) }, want: maxF},
+		{name: "GeometricMean of the largest floats", fn: func() (float64, bool) { return stats.GeometricMean([]float64{maxF, maxF, maxF}) }, want: maxF},
+		{name: "GeometricMean with a subnormal value", fn: func() (float64, bool) { return stats.GeometricMean([]float64{1e-300, 1e-310}) }, want: 1e-305},
+		{name: "GeometricMean of the smallest subnormal", fn: func() (float64, bool) { return stats.GeometricMean([]float64{5e-324}) }, want: 5e-324},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := tt.fn()
+			if !ok || !relClose(got, tt.want) {
+				t.Errorf("got %v, %v; want %v, true", got, ok, tt.want)
+			}
+		})
+	}
+}
+
+// TestMeansOfIdenticalValuesAreExact pins the clamp to [min, max]: the mean of
+// identical values is that value bit-for-bit, even when it is not exactly
+// representable and the sum/n round-trip would drift by an ulp.
+func TestMeansOfIdenticalValuesAreExact(t *testing.T) {
+	tests := []struct {
+		name string
+		fn   func() (float64, bool)
+		want float64
+	}{
+		{name: "Mean", fn: func() (float64, bool) { return stats.Mean([]float64{0.1, 0.1, 0.1}) }, want: 0.1},
+		{name: "WeightedMean ignoring a zero-weight value", fn: func() (float64, bool) { return stats.WeightedMean([]float64{0.1, 0.1, 0.1, 7}, []float64{1, 1, 1, 0}) }, want: 0.1},
+		{name: "GeometricMean", fn: func() (float64, bool) { return stats.GeometricMean([]float64{0.1, 0.1, 0.1}) }, want: 0.1},
+		{name: "HarmonicMean", fn: func() (float64, bool) { return stats.HarmonicMean([]float64{0.1, 0.1, 0.1}) }, want: 0.1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := tt.fn()
+			if !ok || got != tt.want {
+				t.Errorf("got %v, %v; want exactly %v, true", got, ok, tt.want)
+			}
+		})
+	}
+}
+
 func TestHarmonicMean(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -438,6 +507,41 @@ func FuzzWeightedMean(f *testing.F) {
 		if got < lo-epsilon || got > hi+epsilon {
 			t.Errorf("result = %v outside [%v, %v]", got, lo, hi)
 		}
+	})
+}
+
+// FuzzMeansBounded asserts that, for any finite input, Mean lies within
+// [min, max] and — for positive input — so do GeometricMean and HarmonicMean,
+// always finite with ok == true. Huge and tiny magnitudes exercise the
+// overflow-safe paths.
+func FuzzMeansBounded(f *testing.F) {
+	f.Add(1.0, 2.0, 3.0)
+	f.Add(math.MaxFloat64, math.MaxFloat64, 1.0)
+	f.Add(1e-310, 1e-310, 5e-324)
+	f.Add(-math.MaxFloat64, 1e308, 1e308)
+	f.Fuzz(func(t *testing.T, a, b, c float64) {
+		values := []float64{a, b, c}
+		for _, v := range values {
+			if nonFiniteHelper(v) {
+				return
+			}
+		}
+		lo := math.Min(a, math.Min(b, c))
+		hi := math.Max(a, math.Max(b, c))
+		inBounds := func(name string, got float64, ok bool) {
+			if !ok || nonFiniteHelper(got) || got < lo || got > hi {
+				t.Errorf("%s(%v) = %v, %v; want finite in [%v, %v], true", name, values, got, ok, lo, hi)
+			}
+		}
+		got, ok := stats.Mean(values)
+		inBounds("Mean", got, ok)
+		if lo <= 0 {
+			return
+		}
+		got, ok = stats.GeometricMean(values)
+		inBounds("GeometricMean", got, ok)
+		got, ok = stats.HarmonicMean(values)
+		inBounds("HarmonicMean", got, ok)
 	})
 }
 
