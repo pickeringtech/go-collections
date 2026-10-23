@@ -25,7 +25,7 @@ ap, _ := ranking.AveragePrecision([]bool{true, false, true, false, true}) // 0.7
 | Function                         | Returns           | Undefined (`ok == false`) when                         |
 | -------------------------------- | ----------------- | ------------------------------------------------------ |
 | `DCG(relevances, k)`             | `(float64, bool)` | empty, or any non-finite relevance                     |
-| `NDCG(trueRelevance, scores, k)` | `(float64, bool)` | empty, differing lengths, non-finite term, zero ideal DCG |
+| `NDCG(trueRelevance, scores, k)` | `(float64, bool)` | empty, differing lengths, non-finite term, negative relevance, zero ideal DCG |
 | `AveragePrecision(ranked)`       | `(float64, bool)` | empty, or no relevant items                            |
 | `MeanAveragePrecision(queries)`  | `(float64, bool)` | empty, or any query undefined                          |
 
@@ -33,7 +33,8 @@ ap, _ := ranking.AveragePrecision([]bool{true, false, true, false, true}) // 0.7
   discounted. A cutoff `k <= 0` (or larger than the list) scores the whole list.
 - **NDCG** normalises a score-ranked DCG by the ideal DCG, giving `[0, 1]` (1 is
   a perfect ranking). Items are ordered by `scores` (highest first), ties keeping
-  their input order.
+  their input order. Relevances must be non-negative (as in scikit-learn); a
+  negative gain could push the result below 0.
 - **AveragePrecision** averages precision-at-k over the relevant positions of a
   single ranked list. `ranked[i]` says whether rank `i+1` is relevant.
 - **MeanAveragePrecision** averages `AveragePrecision` across queries.

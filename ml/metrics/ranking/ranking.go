@@ -57,9 +57,16 @@ func DCG(relevances []float64, k int) (float64, bool) {
 // of the relevances sorted into their best possible order. The result lies in
 // [0, 1], with 1 for a perfect ranking. k <= 0 scores the whole list.
 //
+// Items with equal scores keep their input order (the ranking is a stable
+// sort), so a tie is broken in favour of the item that appears first — the
+// score alone never reorders tied items.
+//
 // ok is false (and the result is 0) when the inputs cannot be summarised:
 //   - trueRelevance is empty, or len(trueRelevance) != len(scores);
 //   - any relevance or score is non-finite (NaN/±Inf);
+//   - any relevance is negative — a negative gain lets the ranked DCG fall
+//     below zero, outside [0, 1], so (like scikit-learn's ndcg_score) it is
+//     rejected rather than normalised;
 //   - the ideal DCG is 0 (every relevance is 0), so NDCG is undefined.
 func NDCG(trueRelevance, scores []float64, k int) (float64, bool) {
 	n := len(trueRelevance)
@@ -67,7 +74,7 @@ func NDCG(trueRelevance, scores []float64, k int) (float64, bool) {
 		return 0, false
 	}
 	for i := 0; i < n; i++ {
-		if nonFinite(trueRelevance[i]) || nonFinite(scores[i]) {
+		if nonFinite(trueRelevance[i]) || trueRelevance[i] < 0 || nonFinite(scores[i]) {
 			return 0, false
 		}
 	}

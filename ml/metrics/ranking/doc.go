@@ -30,7 +30,8 @@
 //   - DCG — discounted cumulative gain, Σ relᵢ / log₂(i+2), the building block
 //     for NDCG. A cutoff k <= 0 scores the whole list.
 //   - NDCG — DCG of a score-ranked list divided by the ideal DCG, normalised to
-//     [0, 1] (1 is a perfect ranking).
+//     [0, 1] (1 is a perfect ranking). Relevances must be non-negative, and
+//     items with equal scores keep their input order.
 //   - AveragePrecision — the mean precision-at-k over the relevant positions of
 //     one ranked list.
 //   - MeanAveragePrecision — the mean of AveragePrecision across several queries.
@@ -40,7 +41,8 @@
 // Every function returns (result, ok) in the library's idiom rather than
 // panicking or returning an error. ok is false — and the result the zero value
 // — when the inputs cannot be summarised: empty input, mismatched lengths,
-// non-finite relevances or scores, an all-zero ideal DCG (NDCG undefined), or a
+// non-finite relevances or scores, a negative relevance for NDCG (which would
+// leave [0, 1]), an all-zero ideal DCG (NDCG undefined), or a
 // ranked list with no relevant items (average precision undefined). A degenerate
 // query makes MeanAveragePrecision as a whole undefined, so the mean is always
 // over a well-defined set. Inputs are never mutated, and the mean over queries
