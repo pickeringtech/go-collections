@@ -121,7 +121,7 @@ test-nested: ## Run the tests of every nested module (examples/, tools/benchrepo
 #   lint       → lint  (gofmt · go vet · golangci-lint @ pinned version)
 #   doc-compile→ doc-compile (godoc examples reference real symbols & compile)
 #   security   → security (govulncheck · gosec)
-#   cross-arch → cross-arch (386/arm64/s390x build+vet, 386 tests)
+#   cross-arch → cross-arch (386/arm64/s390x build+vet+test, arm64/s390x via qemu)
 #   fuzz       → fuzz  (count-based smoke run of every Fuzz target)
 # Report-only CI jobs (test-tip, benchmarks, api-compat) are deliberately NOT
 # mirrored — they never gate a merge. Ordered cheap-/common-failure-first so a
@@ -183,11 +183,12 @@ security: ## CI 'security' gate: govulncheck + gosec (pinned to CI's versions)
 	@echo ">> gosec ($(GOSEC_VERSION))"
 	go run github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION) ./...
 
-# Cross-compile every package for the non-amd64 arches CI gates on. 386 binaries
-# execute on the amd64 host (pure-Go, static), so we also run its tests; arm64
-# and s390x (big-endian) can't run here, so they are build+vet only — matching
-# the CI matrix in .github/workflows/ci.yml.
-cross-arch: ## CI 'cross-arch' gate: 386/arm64/s390x build+vet (+ run 386 tests)
+# Cross-compile every package for the non-amd64 arches CI gates on, and run
+# their tests: 386 binaries execute natively on the amd64 host; arm64 (FMA
+# contraction) and s390x (big-endian) run under qemu user-mode emulation via
+# `go test -exec`, exactly as CI does. Install qemu-user-static to run those
+# locally; without it they are build+vet only and the target says so.
+cross-arch: ## CI 'cross-arch' gate: 386/arm64/s390x build+vet+test (arm64/s390x under qemu)
 	@for arch in 386 arm64 s390x; do \
 		echo ">> GOARCH=$$arch build + vet"; \
 		GOARCH=$$arch go build ./... || exit 1; \
@@ -195,6 +196,15 @@ cross-arch: ## CI 'cross-arch' gate: 386/arm64/s390x build+vet (+ run 386 tests)
 	done
 	@echo ">> GOARCH=386 go test -shuffle=on (executes on the amd64 host)"
 	GOARCH=386 go test -shuffle=on ./...
+	@for pair in arm64:qemu-aarch64-static s390x:qemu-s390x-static; do \
+		arch=$${pair%%:*}; emu=$${pair#*:}; \
+		if command -v $$emu >/dev/null 2>&1; then \
+			echo ">> GOARCH=$$arch go test -shuffle=on (under $$emu)"; \
+			GOARCH=$$arch go test -shuffle=on -exec $$emu ./... || exit 1; \
+		else \
+			echo ">> skipping GOARCH=$$arch tests: $$emu not found (install qemu-user-static; CI runs them)"; \
+		fi; \
+	done
 
 # Count-based smoke run of every Fuzz target (mirrors CI's -fuzztime=2000x): a
 # fixed iteration count is sub-second per target and deterministic, so it just

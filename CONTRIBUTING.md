@@ -179,7 +179,7 @@ the merge queue**:
 | Security lint (gosec) | static security analysis (code-dependent) | every PR | `make security` |
 | Examples E2E | the separate `examples/` module builds and matches golden stdout | every PR | `make test-nested` |
 | Benchreport tests | the separate `tools/benchreport/` module's generator tests | every PR | `make test-nested` |
-| Cross-arch | 386/arm64/s390x build+vet (+ run 386 tests) | every PR | `make cross-arch` |
+| Cross-arch | 386/arm64/s390x build+vet+test (arm64/s390x under qemu: FMA contraction, big-endian) | every PR | `make cross-arch` |
 | Fuzz | count-based smoke run of every `FuzzXxx` target | every PR | `make fuzz` |
 | Benchmark regression | base-vs-head benchstat; gates a ≥10× catastrophic regression | **merge queue** | `make bench` |
 
