@@ -24,7 +24,10 @@ func Euclidean[T constraints.Numeric](a, b []T) (float64, bool) {
 
 // Manhattan computes the L1 (taxicab) distance between two numeric vectors:
 // Σ |aᵢ - bᵢ|. It measures the total variation across all dimensions, treating
-// each independently.
+// each independently. Every term is non-negative, so the plain running sum is
+// already well-conditioned (relative error at most about n·ε, with no
+// cancellation to amplify it) and is used as-is: compensated summation would
+// cost an order of magnitude in speed for no meaningful gain.
 //
 // It returns ok == false for empty input or vectors of differing lengths.
 // Non-finite inputs (NaN/Inf) propagate to a non-finite result with ok == true.
