@@ -36,7 +36,7 @@ make bench     # run the benchmarks once and print the numbers
 | `cover` | Root suite with `-race -shuffle`, then enforce the coverage floor | `test` |
 | `lint` | `gofmt` check, `go vet`, golangci-lint (pinned) | `lint` |
 | `security` | `govulncheck` + `gosec` (pinned) | `security` |
-| `cross-arch` | 386/arm64/s390x build+vet, plus run the 386 tests | `cross-arch` |
+| `cross-arch` | 386/arm64/s390x build+vet+test (arm64/s390x tests under qemu) | `cross-arch` |
 | `fuzz` | Count-based smoke run of every `FuzzXxx` target | `fuzz` |
 | `bench` | Run the collections benchmarks once (no report) | — (report-only `benchmarks`) |
 | `bench-report` | Benchmark this environment, capture its dataset, regenerate the report | `bench-report` (main-only) |
@@ -84,7 +84,7 @@ failing job.
 | `cover` | Root suite with `-race -shuffle` + coverage profile, then fails if total coverage is below the floor | `test` |
 | `lint` | Fails on non-`gofmt`-clean files; `go vet ./...`; golangci-lint at the pinned version | `lint` |
 | `security` | `govulncheck` (known-vuln scan) + `gosec` (security lint), both pinned | `security` |
-| `cross-arch` | Cross-compiles + vets for 386/arm64/s390x; runs the 386 tests on the amd64 host | `cross-arch` |
+| `cross-arch` | Cross-compiles + vets for 386/arm64/s390x and runs their tests: 386 natively on the amd64 host, arm64 and s390x under `qemu-*-static` via `go test -exec` (skipped with a note if qemu-user-static isn't installed) | `cross-arch` |
 | `fuzz` | Runs every `FuzzXxx` target for a fixed iteration count (`-fuzztime=2000x`) | `fuzz` |
 
 The report-only CI jobs (`test-tip`, `benchmarks`, `api-compat`) are
