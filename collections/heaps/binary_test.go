@@ -90,6 +90,37 @@ func TestBinary_DrainsInPriorityOrder(t *testing.T) {
 	}
 }
 
+// TestMinMax_AreStrictComparators pins the LessFunc contract for the ready-made
+// comparators: a reports true only when it has strictly higher priority than b,
+// so two equal elements never outrank each other.
+func TestMinMax_AreStrictComparators(t *testing.T) {
+	type args struct {
+		a, b int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantMin bool
+		wantMax bool
+	}{
+		{name: "a smaller element outranks in a min-heap only", args: args{a: 1, b: 2}, wantMin: true, wantMax: false},
+		{name: "a larger element outranks in a max-heap only", args: args{a: 2, b: 1}, wantMin: false, wantMax: true},
+		{name: "equal elements never outrank each other", args: args{a: 3, b: 3}, wantMin: false, wantMax: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotMin := heaps.Min(tt.args.a, tt.args.b)
+			if gotMin != tt.wantMin {
+				t.Errorf("Min(%d, %d) = %v, want %v", tt.args.a, tt.args.b, gotMin, tt.wantMin)
+			}
+			gotMax := heaps.Max(tt.args.a, tt.args.b)
+			if gotMax != tt.wantMax {
+				t.Errorf("Max(%d, %d) = %v, want %v", tt.args.a, tt.args.b, gotMax, tt.wantMax)
+			}
+		})
+	}
+}
+
 func TestBinary_PushInPlaceBuildsSameOrderAsHeapify(t *testing.T) {
 	type args struct {
 		values []int
