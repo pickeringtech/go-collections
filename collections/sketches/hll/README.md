@@ -39,7 +39,11 @@ error. Small cardinalities use linear counting for better accuracy.
 
 Seeded and deterministic. HyperLogLog reads both the high index bits and the
 low-bit zero-run, so the default hasher applies a strong finalizer for good
-distribution. `WithSeed` varies the seed; `WithHasher` plugs in a custom hash.
+distribution. `WithSeed` varies the seed (distinct seeds give independent hash
+functions, so repeated trials are genuinely independent); `WithHasher` plugs in a
+custom hash. The default hasher counts keys equal under `==` once — `+0` and `-0`
+are one element, as is every NaN — and, behind an interface key type
+(`Sketch[any]`), counts values of different dynamic types separately.
 
 ## Mergeability
 

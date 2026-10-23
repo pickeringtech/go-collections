@@ -36,8 +36,12 @@ overflow.
 ## Hashing
 
 Seeded and deterministic; each row's column comes from two base hashes via
-Kirsch–Mitzenmacher double hashing. `WithSeed` varies the seed; `WithHasher`
-plugs in a custom hash.
+Kirsch–Mitzenmacher double hashing, with each row's position passed through a
+64-bit finalizer before it is reduced modulo the width so the rows behave as
+independent hash functions (which the `delta` bound assumes). `WithSeed` varies
+the seed (distinct seeds give independent hash functions); `WithHasher` plugs in
+a custom hash. The default hasher treats keys equal under `==` as one element —
+`+0` and `-0` share a count — and every NaN as one element too.
 
 ## Mergeability
 
