@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/sketches/bloom"
@@ -315,5 +316,22 @@ func TestFilter_InterfaceKeysDistinguishTypes(t *testing.T) {
 				t.Errorf("Contains(%T(%v)) = %v, want %v", tt.probe, tt.probe, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestNew_SizeCapFollowsAddressSpace checks that New rejects, with
+// ErrInvalidConfig, a filter whose bit array could not be allocated on this
+// platform, rather than panicking in make. The fixed 2^40-bit cap assumed a
+// 64-bit address space; on a 32-bit platform 2e9 items at a 1e-12 rate need
+// ~1.2e11 bits (14 GB), under that cap but far beyond what make can address.
+// The tighter cap only binds on 32-bit platforms; the 64-bit cap is exercised
+// by TestNew_InvalidConfig.
+func TestNew_SizeCapFollowsAddressSpace(t *testing.T) {
+	if strconv.IntSize != 32 {
+		t.Skip("the address-space cap is tighter than the 2^40-bit cap only on 32-bit platforms")
+	}
+	_, err := bloom.New[int](2_000_000_000, 1e-12)
+	if !errors.Is(err, bloom.ErrInvalidConfig) {
+		t.Errorf("New(2e9, 1e-12) error = %v, want ErrInvalidConfig", err)
 	}
 }

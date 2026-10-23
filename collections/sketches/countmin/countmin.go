@@ -16,9 +16,12 @@ var ErrInvalidConfig = errors.New("countmin: invalid configuration")
 // maxCounters caps the number of counters (w*d) New will allocate. Bounds tight
 // enough to need more than this — from a minuscule epsilon or delta — are almost
 // certainly a misconfiguration, and the unbounded product risks integer
-// overflow, so New rejects them. 1<<40 counters is 8 TiB, far beyond any real
-// in-memory sketch.
-const maxCounters = 1 << 40
+// overflow, so New rejects them. The cap is the smaller of 1<<40 counters
+// (8 TiB, far beyond any real in-memory sketch, and the binding limit on 64-bit
+// platforms) and the largest uint64 slice whose byte size fits in an int
+// (math.MaxInt/8 counters on a 32-bit platform), beyond which make would panic
+// rather than return.
+const maxCounters = min(1<<40, math.MaxInt/8)
 
 // Sketch is a Count-Min sketch: it tracks approximate frequencies of elements
 // in sublinear space. Estimate never under-reports a count — it returns the
@@ -50,7 +53,9 @@ var _ Frequency[string] = (*Sketch[string])(nil)
 //	d = ceil(ln(1/delta)) rows
 //
 // New returns an error wrapping ErrInvalidConfig if epsilon or delta is not in
-// the open interval (0, 1).
+// the open interval (0, 1), or if the bounds need more counters (w·d) than the
+// size cap: 1<<40 counters, or on a 32-bit platform the largest table the
+// address space can hold (about 2.7e8 counters).
 func New[T comparable](epsilon, delta float64, opts ...Option[T]) (*Sketch[T], error) {
 	if epsilon <= 0 || epsilon >= 1 || math.IsNaN(epsilon) {
 		return nil, fmt.Errorf("%w: epsilon must be in (0,1), got %v", ErrInvalidConfig, epsilon)

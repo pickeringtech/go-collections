@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/sketches/countmin"
@@ -272,5 +273,22 @@ func TestSketch_FailureRateWithinDelta(t *testing.T) {
 	rate := float64(failures) / queries
 	if rate > delta {
 		t.Errorf("P(overshoot > epsilon·N) = %.5f over %d absent keys, want <= delta %v", rate, queries, delta)
+	}
+}
+
+// TestNew_SizeCapFollowsAddressSpace checks that New rejects, with
+// ErrInvalidConfig, a counter table that could not be allocated on this
+// platform, rather than panicking in make. The fixed 2^40-counter cap assumed a
+// 64-bit address space; on a 32-bit platform epsilon=1e-9 needs ~1.4e10
+// counters (108 GB), under that cap but far beyond what make can address. The
+// tighter cap only binds on 32-bit platforms; the 64-bit cap is exercised by
+// TestNew_InvalidConfig.
+func TestNew_SizeCapFollowsAddressSpace(t *testing.T) {
+	if strconv.IntSize != 32 {
+		t.Skip("the address-space cap is tighter than the 2^40-counter cap only on 32-bit platforms")
+	}
+	_, err := countmin.New[int](1e-9, 0.01)
+	if !errors.Is(err, countmin.ErrInvalidConfig) {
+		t.Errorf("New(1e-9, 0.01) error = %v, want ErrInvalidConfig", err)
 	}
 }
