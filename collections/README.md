@@ -164,12 +164,14 @@ dict := collections.NewDict(
 
 // Immutable - returns new collection
 newDict := dict.Put("count", 2)
-fmt.Printf("Original: %d, New: %d\n",
-    dict.Get("count", 0), newDict.Get("count", 0)) // Original: 1, New: 2
+original, _ := dict.Get("count", 0)
+updated, _ := newDict.Get("count", 0)
+fmt.Printf("Original: %d, New: %d\n", original, updated) // Original: 1, New: 2
 
 // Mutable - modifies in place
 dict.PutInPlace("count", 3)
-fmt.Printf("Modified: %d\n", dict.Get("count", 0)) // Modified: 3
+modified, _ := dict.Get("count", 0)
+fmt.Printf("Modified: %d\n", modified) // Modified: 3
 ```
 
 ### Functional Programming Style
@@ -266,10 +268,10 @@ func getPage(url string) []byte {
 
 ### Permission System
 ```go
-// Role-based permissions
+// Role-based permissions (sets is ".../collections/sets")
 type Role struct {
     Name        string
-    Permissions collections.Set[string]
+    Permissions sets.Set[string]
 }
 
 admin := Role{
