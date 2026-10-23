@@ -238,3 +238,40 @@ func TestSketch_SignedZeroIsOneElement(t *testing.T) {
 		t.Errorf("Count() = %d for {+0, -0, NaN×3}, want 2", got)
 	}
 }
+
+// TestSketch_SeedsGiveIndependentEstimates runs the same stream through sketches
+// with seeds 0..63 and checks the estimates behave like independent trials:
+// their mean relative error is near zero and their spread is near the
+// documented StandardError. When seeds were not mixed properly, seeds 0..255
+// gave bit-identical registers for 256-aligned integer keys, so every "trial"
+// returned the same estimate (zero spread, and a mean error equal to one
+// trial's error).
+func TestSketch_SeedsGiveIndependentEstimates(t *testing.T) {
+	const (
+		precision = 10 // m = 1024, StandardError ≈ 3.25%
+		n         = 4096
+		trials    = 64
+	)
+	var sum, sumSq float64
+	var se float64
+	for seed := uint64(0); seed < trials; seed++ {
+		s := mustNew[int](t, hll.WithPrecision[int](precision), hll.WithSeed[int](seed))
+		for i := 0; i < n; i++ {
+			s.Add(i)
+		}
+		rel := (float64(s.Count()) - n) / n
+		sum += rel
+		sumSq += rel * rel
+		se = s.StandardError()
+	}
+	mean := sum / trials
+	spread := math.Sqrt(sumSq/trials - mean*mean)
+	// The mean of 64 independent trials has standard error se/8; allow 4 of them.
+	if math.Abs(mean) > 4*se/8 {
+		t.Errorf("mean relative error across seeds = %+.4f, want within ±%.4f", mean, 4*se/8)
+	}
+	if spread < se/2 || spread > 2*se {
+		t.Errorf("spread of estimates across seeds = %.4f, want within [%.4f, %.4f] of StandardError %.4f",
+			spread, se/2, 2*se, se)
+	}
+}

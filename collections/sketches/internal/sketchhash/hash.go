@@ -7,7 +7,10 @@
 // Hash64 therefore takes a numeric seed and, for the key types sketches are
 // used with in practice — strings, the integer kinds and the floats — produces
 // a value that depends only on (seed, value). Those are the keys tests assert
-// on, so golden values are stable across runs.
+// on, so golden values are stable across runs. The seed is mixed into the whole
+// hash state before any input is consumed, so distinct seeds behave as
+// independent hash functions (as repeated HyperLogLog trials or a Count-Min
+// sketch's rows require), not as relabellings of one another.
 //
 // For any other comparable key type Hash64 falls back to hash/maphash's
 // Comparable (Go 1.24+), keyed by a process-stable seed created once at init.
@@ -22,8 +25,7 @@ import (
 )
 
 const (
-	fnvOffset64 = 14695981039346656037
-	fnvPrime64  = 1099511628211
+	fnvPrime64 = 1099511628211
 
 	// lane is the golden-ratio odd constant used to derive an independent
 	// second hash lane for Kirsch–Mitzenmacher double hashing.
@@ -33,7 +35,7 @@ const (
 // comparableSeed keys the maphash.Comparable fallback. It is created once so
 // every sketch in this process hashes exotic key types the same way (a
 // prerequisite for Merge); it is intentionally not derived from the caller's
-// numeric seed, which is folded in separately by Hash64.
+// numeric seed, whose basis (see seedBasis) is folded in separately by Hash64.
 var comparableSeed = maphash.MakeSeed()
 
 // Hash64 returns a 64-bit hash of v keyed by seed. For strings, the integer
@@ -46,19 +48,32 @@ var comparableSeed = maphash.MakeSeed()
 // fixed meaning instead: every NaN, whatever its sign or payload, hashes
 // alike, and a sketch therefore treats all NaNs as a single element.
 func Hash64[T comparable](seed uint64, v T) uint64 {
+	basis := seedBasis(seed)
 	switch x := any(v).(type) {
 	case string:
-		return mix64(fnvString(seed, x))
+		return mix64(fnvString(basis, x))
 	case float32:
-		return mix64(fnvUint(seed, float32Bits(x)))
+		return mix64(fnvUint(basis, float32Bits(x)))
 	case float64:
-		return mix64(fnvUint(seed, float64Bits(x)))
+		return mix64(fnvUint(basis, float64Bits(x)))
 	default:
-		if u, ok := asUint64(v); ok {
-			return mix64(fnvUint(seed, u))
+		u, ok := asUint64(v)
+		if ok {
+			return mix64(fnvUint(basis, u))
 		}
-		return mix64(maphash.Comparable(comparableSeed, v) ^ seed)
+		return mix64(maphash.Comparable(comparableSeed, v) ^ basis)
 	}
+}
+
+// seedBasis derives the hashing start state from seed by running it through
+// the SplitMix64 finalizer, a bijection that spreads every seed bit across the
+// whole word. Starting FNV-1a from the raw seed instead (offset ^ seed) put the
+// seed in exactly the bits the first input byte is XORed into, so
+// Hash64(s, x) == Hash64(0, x^s) for every s < 256 and those seeds were the
+// same hash function on any 256-aligned run of integer keys. Distinct seeds now
+// start from unrelated states, so they give independent hash functions.
+func seedBasis(seed uint64) uint64 {
+	return mix64(seed)
 }
 
 // asUint64 returns the bit pattern of v as a uint64 for the integer kinds,
@@ -147,9 +162,10 @@ func Pair[T comparable](seed uint64, v T) (h1, h2 uint64) {
 	return h1, h2
 }
 
-// fnvString folds seed into the FNV-1a basis and hashes s.
-func fnvString(seed uint64, s string) uint64 {
-	h := uint64(fnvOffset64) ^ seed
+// fnvString hashes s with FNV-1a, starting from basis (see seedBasis) in
+// place of the standard offset basis.
+func fnvString(basis uint64, s string) uint64 {
+	h := basis
 	for i := 0; i < len(s); i++ {
 		h ^= uint64(s[i])
 		h *= fnvPrime64
@@ -157,9 +173,10 @@ func fnvString(seed uint64, s string) uint64 {
 	return h
 }
 
-// fnvUint folds seed into the FNV-1a basis and hashes the eight bytes of x.
-func fnvUint(seed uint64, x uint64) uint64 {
-	h := uint64(fnvOffset64) ^ seed
+// fnvUint hashes the eight bytes of x with FNV-1a, starting from basis (see
+// seedBasis) in place of the standard offset basis.
+func fnvUint(basis uint64, x uint64) uint64 {
+	h := basis
 	for i := 0; i < 8; i++ {
 		h ^= x & 0xff
 		h *= fnvPrime64

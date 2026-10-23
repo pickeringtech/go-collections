@@ -165,3 +165,53 @@ func TestHash64_EqualFloatsHashEqual(t *testing.T) {
 		})
 	}
 }
+
+// TestHash64_SeedsAreIndependent checks that distinct seeds give unrelated
+// hash functions. Folding the seed into the bits the first input byte is XORed
+// into made Hash64(s, x) == Hash64(0, x^s) for every s < 256, so seeds 0..255
+// produced the identical hash multiset over any 256-aligned run of integers
+// (and "independent" HyperLogLog trials were one trial repeated). Across 256
+// seeds and 1024 keys a random function collides with seed 0's hash set with
+// probability ~2^-34, so any shared value is a structural relation.
+func TestHash64_SeedsAreIndependent(t *testing.T) {
+	const keys = 1024
+	reference := make(map[uint64]bool, keys)
+	for i := 0; i < keys; i++ {
+		reference[sketchhash.Hash64(0, i)] = true
+	}
+	shared := 0
+	for seed := uint64(1); seed < 256; seed++ {
+		for i := 0; i < keys; i++ {
+			if reference[sketchhash.Hash64(seed, i)] {
+				shared++
+			}
+		}
+	}
+	if shared != 0 {
+		t.Errorf("%d hashes under seeds 1..255 also occur under seed 0, want 0", shared)
+	}
+}
+
+// TestHash64_SeedNotXoredIntoInput pins the specific relations the old seed
+// folding produced, for each key family and for both double-hash lanes.
+func TestHash64_SeedNotXoredIntoInput(t *testing.T) {
+	h1a, h2a := sketchhash.Pair(1, 6)
+	h1b, h2b := sketchhash.Pair(0, 6^1)
+	tests := []struct {
+		name string
+		a, b uint64
+	}{
+		{"int: Hash64(s, x) vs Hash64(0, x^s)", sketchhash.Hash64(5, 40), sketchhash.Hash64(0, 40^5)},
+		{"string: Hash64(1, \"a\") vs Hash64(0, \"`\")", sketchhash.Hash64(1, "a"), sketchhash.Hash64(0, "`")},
+		{"float64 low seed bits", sketchhash.Hash64(1, math.Float64frombits(2)), sketchhash.Hash64(0, math.Float64frombits(3))},
+		{"Pair first lane", h1a, h1b},
+		{"Pair second lane", h2a, h2b},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.a == tt.b {
+				t.Errorf("hashes collide (%#x): the seed is not mixed independently of the input", tt.a)
+			}
+		})
+	}
+}
