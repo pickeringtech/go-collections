@@ -299,7 +299,9 @@ func (d *Digest) CDF(x float64) (float64, bool) {
 // been built with identical compression; otherwise Merge returns an error
 // wrapping ErrInvalidConfig and leaves the receiver unchanged. Merging a nil
 // digest is also an error. Because the receiver is unchanged on error, callers
-// can retry after correcting the configuration.
+// can retry after correcting the configuration. Merging a digest into itself
+// is allowed and is equivalent to merging an identical copy: every value then
+// counts twice.
 func (d *Digest) Merge(other *Digest) error {
 	if other == nil {
 		return fmt.Errorf("%w: cannot merge a nil digest", ErrInvalidConfig)
@@ -308,17 +310,21 @@ func (d *Digest) Merge(other *Digest) error {
 		return fmt.Errorf("%w: digests differ (compression=%v/%v)",
 			ErrInvalidConfig, d.compression, other.compression)
 	}
-	// Pull other's buffered points and centroids into the receiver's buffer,
-	// then let compress rebuild the summary. other is read, not mutated.
-	d.buffer = append(d.buffer, other.centroids...)
-	d.buffer = append(d.buffer, other.buffer...)
-	d.count += other.count
-	if other.min < d.min {
-		d.min = other.min
-	}
-	if other.max > d.max {
-		d.max = other.max
-	}
+	// Snapshot everything read from other before the receiver is touched:
+	// other may be the receiver itself (d.Merge(d)), in which case appending to
+	// d.buffer would also grow the other.buffer read afterwards. other is read,
+	// not mutated.
+	incoming := make([]centroid, 0, len(other.centroids)+len(other.buffer))
+	incoming = append(incoming, other.centroids...)
+	incoming = append(incoming, other.buffer...)
+	count, lo, hi := other.count, other.min, other.max
+
+	// Pull the snapshot into the receiver's buffer, then let compress rebuild
+	// the summary.
+	d.buffer = append(d.buffer, incoming...)
+	d.count += count
+	d.min = min(d.min, lo)
+	d.max = max(d.max, hi)
 	d.compress()
 	return nil
 }

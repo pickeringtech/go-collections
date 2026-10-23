@@ -553,3 +553,56 @@ func TestDigest_MergeEmpty(t *testing.T) {
 		t.Errorf("Quantile(0) after merge into empty = (%v, %v), want (10, true)", got, ok)
 	}
 }
+
+// TestDigest_MergeSelf checks that d.Merge(d) behaves exactly like merging an
+// identical copy. Merge used to append other's centroids to the receiver's
+// buffer and then read other.buffer — by then the receiver's own, already
+// extended buffer — so a self-merge absorbed the centroids three times over:
+// 1000 adds then Merge(self) reported Count 2000 but carried weight 2501, and
+// the median moved from ~500 to ~333.
+func TestDigest_MergeSelf(t *testing.T) {
+	values := make([]float64, 1000)
+	for i := range values {
+		values[i] = float64(i)
+	}
+	tests := []struct {
+		name    string
+		prepare func(d *tdigest.Digest)
+	}{
+		{"with unmerged buffer", func(*tdigest.Digest) {}},
+		{"after compression", func(d *tdigest.Digest) { _, _ = d.Quantile(0.5) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			self := buildDigest(t, 100, values)
+			viaCopy := buildDigest(t, 100, values)
+			duplicate := buildDigest(t, 100, values)
+			tt.prepare(self)
+			tt.prepare(viaCopy)
+			tt.prepare(duplicate)
+
+			err := self.Merge(self)
+			if err != nil {
+				t.Fatalf("Merge(self): %v", err)
+			}
+			err = viaCopy.Merge(duplicate)
+			if err != nil {
+				t.Fatalf("Merge(copy): %v", err)
+			}
+			if self.Count() != 2000 {
+				t.Errorf("Count after Merge(self) = %v, want 2000", self.Count())
+			}
+			for _, q := range []float64{0.01, 0.25, 0.5, 0.75, 0.99} {
+				got, _ := self.Quantile(q)
+				want, _ := viaCopy.Quantile(q)
+				if got != want {
+					t.Errorf("Quantile(%v) after Merge(self) = %v, want %v (as merging a copy)", q, got, want)
+				}
+			}
+			median, _ := self.Quantile(0.5)
+			if math.Abs(median-499.5) > 10 {
+				t.Errorf("median after Merge(self) = %v, want ≈ 499.5", median)
+			}
+		})
+	}
+}
