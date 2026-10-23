@@ -56,7 +56,7 @@ jobs:
     name: Recompute & publish CI health badges
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Full history so the rebase-on-reject retry below has something to
           # rebase onto if main advances while this job runs.
@@ -67,7 +67,7 @@ jobs:
           # the queue. Also rewrites the remote to SSH so the push/pull go over
           # the key, not the read-only token.
           ssh-key: ${{ secrets.BENCH_REPORT_DEPLOY_KEY }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod
@@ -90,14 +90,33 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build
-          # `| jq -c .` forces one compact JSON object per line: `gh api --jq`
+          # gh_api OUT ARGS... runs `gh api ARGS...` into the file OUT, retrying
+          # with backoff. A single transient API error (e.g. the HTTP 502 that
+          # failed the 2026-10-23 refresh) must not lose a whole day's badge
+          # update. Each attempt rewrites OUT, so a paginated stream cut off
+          # part-way can't leave duplicated or partial runs behind.
+          gh_api() {
+            local out=$1 attempt
+            shift
+            for attempt in 1 2 3 4; do
+              if gh api "$@" > "$out"; then
+                return 0
+              fi
+              if [ "$attempt" -lt 4 ]; then
+                echo "::warning::gh api failed (attempt ${attempt}/4); retrying in $((attempt * 20))s"
+                sleep $((attempt * 20))
+              fi
+            done
+            return 1
+          }
+          gh_api build/ci-runs-page.jsonl --paginate \
+            "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100" \
+            --jq '.workflow_runs[] | {id: .id, sha: .head_sha, conclusion: .conclusion, timestamp: .created_at}'
+          # `jq -c .` forces one compact JSON object per line: `gh api --jq`
           # only emits compact output as an undocumented side effect, so the
           # `while read -r` loop below can't safely depend on it (a pretty-printed
           # object would be read as broken fragments and, under `set -e`, abort).
-          gh api --paginate \
-            "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100" \
-            --jq '.workflow_runs[] | {id: .id, sha: .head_sha, conclusion: .conclusion, timestamp: .created_at}' \
-            | jq -c '.' > build/ci-runs-raw.ndjson
+          jq -c '.' build/ci-runs-page.jsonl > build/ci-runs-raw.ndjson
           : > build/ci-runs.ndjson
           while IFS= read -r run; do
             if [ "$(jq -r '.conclusion' <<<"$run")" = "success" ]; then
@@ -105,8 +124,9 @@ jobs:
               continue
             fi
             id=$(jq -r '.id' <<<"$run")
-            gate=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs" \
-              --jq 'first(.jobs[] | select(.name == "CI Gate") | .conclusion) // ""')
+            gh_api build/ci-gate.txt "/repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs" \
+              --jq 'first(.jobs[] | select(.name == "CI Gate") | .conclusion) // ""'
+            gate=$(cat build/ci-gate.txt)
             if [ "$gate" = "success" ]; then
               jq -c '.conclusion = "success"' <<<"$run" >> build/ci-runs.ndjson
             else

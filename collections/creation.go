@@ -13,78 +13,103 @@ import (
 	"github.com/pickeringtech/go-collections/constraints"
 )
 
-// NewList creates a List backed by an array (slice) with the given values.
-func NewList[T any](values ...T) lists.List[T] {
+// NewList creates a List backed by an array (slice) with the given values. It
+// returns the MutableList interface so the in-place operations (PushInPlace,
+// InsertInPlace, ...) are reachable; MutableList embeds List, so the immutable
+// API remains available too.
+func NewList[T any](values ...T) lists.MutableList[T] {
 	return lists.NewArray(values...)
 }
 
-// NewConcurrentList creates a thread-safe List backed by an array with the given values.
-func NewConcurrentList[T any](values ...T) lists.List[T] {
+// NewConcurrentList creates a thread-safe List backed by an array with the given
+// values. It returns the MutableList interface so the in-place operations are
+// reachable.
+func NewConcurrentList[T any](values ...T) lists.MutableList[T] {
 	return lists.NewConcurrentArray[T](values...)
 }
 
-// NewConcurrentRWList creates a thread-safe List backed by an array, optimised for concurrent reads (RWMutex-guarded), with the given values.
-func NewConcurrentRWList[T any](values ...T) lists.List[T] {
+// NewConcurrentRWList creates a thread-safe List backed by an array, optimised
+// for concurrent reads (RWMutex-guarded), with the given values. It returns the
+// MutableList interface so the in-place operations are reachable.
+func NewConcurrentRWList[T any](values ...T) lists.MutableList[T] {
 	return lists.NewConcurrentRWArray[T](values...)
 }
 
-// NewQueue creates a Queue (FIFO) backed by an array with the given values.
-func NewQueue[T any](values ...T) lists.Queue[T] {
+// NewQueue creates a Queue (FIFO) backed by an array with the given values. It
+// returns the MutableQueue interface so the in-place operations (EnqueueInPlace,
+// DequeueInPlace) are reachable; MutableQueue embeds Queue, so the immutable API
+// remains available too.
+func NewQueue[T any](values ...T) lists.MutableQueue[T] {
 	return lists.NewArray(values...)
 }
 
-// NewConcurrentRWQueue creates a thread-safe Queue (FIFO) backed by an array, optimised for concurrent reads (RWMutex-guarded), with the given values.
-func NewConcurrentRWQueue[T any](values ...T) lists.Queue[T] {
+// NewConcurrentRWQueue creates a thread-safe Queue (FIFO) backed by an array,
+// optimised for concurrent reads (RWMutex-guarded), with the given values. It
+// returns the MutableQueue interface so the in-place operations are reachable.
+func NewConcurrentRWQueue[T any](values ...T) lists.MutableQueue[T] {
 	return lists.NewConcurrentRWArray[T](values...)
 }
 
-// NewConcurrentQueue creates a thread-safe Queue (FIFO) backed by an array with the given values.
-func NewConcurrentQueue[T any](values ...T) lists.Queue[T] {
+// NewConcurrentQueue creates a thread-safe Queue (FIFO) backed by an array with
+// the given values. It returns the MutableQueue interface so the in-place
+// operations are reachable.
+func NewConcurrentQueue[T any](values ...T) lists.MutableQueue[T] {
 	return lists.NewConcurrentArray[T](values...)
 }
 
-// NewStack creates a Stack (LIFO) backed by an array with the given values.
-func NewStack[T any](values ...T) lists.Stack[T] {
+// NewStack creates a Stack (LIFO) backed by an array with the given values. It
+// returns the MutableStack interface so the in-place operations (PushInPlace,
+// PopInPlace) are reachable; MutableStack embeds Stack, so the immutable API
+// remains available too.
+func NewStack[T any](values ...T) lists.MutableStack[T] {
 	return lists.NewArray(values...)
 }
 
-// NewConcurrentStack creates a thread-safe Stack (LIFO) backed by an array with the given values.
-func NewConcurrentStack[T any](values ...T) lists.Stack[T] {
+// NewConcurrentStack creates a thread-safe Stack (LIFO) backed by an array with
+// the given values. It returns the MutableStack interface so the in-place
+// operations are reachable.
+func NewConcurrentStack[T any](values ...T) lists.MutableStack[T] {
 	return lists.NewConcurrentArray[T](values...)
 }
 
-// NewConcurrentRWStack creates a thread-safe Stack (LIFO) backed by an array, optimised for concurrent reads (RWMutex-guarded), with the given values.
-func NewConcurrentRWStack[T any](values ...T) lists.Stack[T] {
+// NewConcurrentRWStack creates a thread-safe Stack (LIFO) backed by an array,
+// optimised for concurrent reads (RWMutex-guarded), with the given values. It
+// returns the MutableStack interface so the in-place operations are reachable.
+func NewConcurrentRWStack[T any](values ...T) lists.MutableStack[T] {
 	return lists.NewConcurrentRWArray[T](values...)
 }
 
-// NewDeque creates an unbounded Deque (double-ended queue) backed by a ring buffer with the given values (values[0] becomes the front).
-func NewDeque[T any](values ...T) deques.Deque[T] {
+// NewDeque creates an unbounded Deque (double-ended queue) backed by a ring
+// buffer with the given values (values[0] becomes the front). It returns the
+// MutableDeque interface so the in-place operations (InsertInPlace,
+// RemoveAtInPlace, ...) are reachable; MutableDeque embeds Deque, so the
+// immutable API remains available too.
+func NewDeque[T any](values ...T) deques.MutableDeque[T] {
 	return deques.NewRingBuffer[T](values...)
 }
 
-// NewConcurrentDeque creates a thread-safe, unbounded Deque (mutex-guarded) backed by a ring buffer with the given values.
-func NewConcurrentDeque[T any](values ...T) deques.Deque[T] {
+// NewConcurrentDeque creates a thread-safe, unbounded Deque (mutex-guarded) backed by a ring buffer with the given values. It returns the MutableDeque interface so the in-place operations are reachable.
+func NewConcurrentDeque[T any](values ...T) deques.MutableDeque[T] {
 	return deques.NewConcurrentRingBuffer[T](values...)
 }
 
-// NewConcurrentRWDeque creates a thread-safe, unbounded Deque optimised for concurrent reads (RWMutex-guarded) with the given values.
-func NewConcurrentRWDeque[T any](values ...T) deques.Deque[T] {
+// NewConcurrentRWDeque creates a thread-safe, unbounded Deque optimised for concurrent reads (RWMutex-guarded) with the given values. It returns the MutableDeque interface so the in-place operations are reachable.
+func NewConcurrentRWDeque[T any](values ...T) deques.MutableDeque[T] {
 	return deques.NewConcurrentRWRingBuffer[T](values...)
 }
 
-// NewBoundedDeque creates a bounded (circular) Deque with the given capacity and overflow policy, seeded with the given values.
-func NewBoundedDeque[T any](capacity int, policy deques.OverflowPolicy, values ...T) deques.Deque[T] {
+// NewBoundedDeque creates a bounded (circular) Deque with the given capacity and overflow policy, seeded with the given values. It returns the MutableDeque interface so the in-place operations are reachable.
+func NewBoundedDeque[T any](capacity int, policy deques.OverflowPolicy, values ...T) deques.MutableDeque[T] {
 	return deques.NewBoundedRingBuffer[T](capacity, policy, values...)
 }
 
-// NewBoundedConcurrentDeque creates a thread-safe, bounded Deque (mutex-guarded) with the given capacity and overflow policy, seeded with the given values.
-func NewBoundedConcurrentDeque[T any](capacity int, policy deques.OverflowPolicy, values ...T) deques.Deque[T] {
+// NewBoundedConcurrentDeque creates a thread-safe, bounded Deque (mutex-guarded) with the given capacity and overflow policy, seeded with the given values. It returns the MutableDeque interface so the in-place operations are reachable.
+func NewBoundedConcurrentDeque[T any](capacity int, policy deques.OverflowPolicy, values ...T) deques.MutableDeque[T] {
 	return deques.NewBoundedConcurrentRingBuffer[T](capacity, policy, values...)
 }
 
-// NewBoundedConcurrentRWDeque creates a thread-safe, bounded Deque optimised for concurrent reads (RWMutex-guarded) with the given capacity and overflow policy, seeded with the given values.
-func NewBoundedConcurrentRWDeque[T any](capacity int, policy deques.OverflowPolicy, values ...T) deques.Deque[T] {
+// NewBoundedConcurrentRWDeque creates a thread-safe, bounded Deque optimised for concurrent reads (RWMutex-guarded) with the given capacity and overflow policy, seeded with the given values. It returns the MutableDeque interface so the in-place operations are reachable.
+func NewBoundedConcurrentRWDeque[T any](capacity int, policy deques.OverflowPolicy, values ...T) deques.MutableDeque[T] {
 	return deques.NewBoundedConcurrentRWRingBuffer[T](capacity, policy, values...)
 }
 
@@ -126,63 +151,67 @@ func NewConcurrentRWSet[T comparable](elements ...T) sets.Set[T] {
 	return sets.NewConcurrentHashRW[T](elements...)
 }
 
-// NewLinkedList creates a List backed by a singly linked list with the given elements.
-func NewLinkedList[T any](elements ...T) lists.List[T] {
+// NewLinkedList creates a List backed by a singly linked list with the given elements. It returns the MutableList interface so the in-place operations are reachable.
+func NewLinkedList[T any](elements ...T) lists.MutableList[T] {
 	return lists.NewLinked[T](elements...)
 }
 
-// NewConcurrentLinkedList creates a thread-safe List backed by a singly linked list with the given elements.
-func NewConcurrentLinkedList[T any](elements ...T) lists.List[T] {
+// NewConcurrentLinkedList creates a thread-safe List backed by a singly linked list with the given elements. It returns the MutableList interface so the in-place operations are reachable.
+func NewConcurrentLinkedList[T any](elements ...T) lists.MutableList[T] {
 	return lists.NewConcurrentLinked[T](elements...)
 }
 
-// NewConcurrentRWLinkedList creates a thread-safe List backed by a singly linked list, optimised for concurrent reads, with the given elements.
-func NewConcurrentRWLinkedList[T any](elements ...T) lists.List[T] {
+// NewConcurrentRWLinkedList creates a thread-safe List backed by a singly linked list, optimised for concurrent reads, with the given elements. It returns the MutableList interface so the in-place operations are reachable.
+func NewConcurrentRWLinkedList[T any](elements ...T) lists.MutableList[T] {
 	return lists.NewConcurrentRWLinked[T](elements...)
 }
 
-// NewListMultimap creates a list-backed Multimap (one key to many ordered, possibly-duplicate values) with the given entries. V may be any type.
-func NewListMultimap[K comparable, V any](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+// NewListMultimap creates a list-backed Multimap (one key to many ordered,
+// possibly-duplicate values) with the given entries. V may be any type. It
+// returns the MutableMultimap interface so the in-place operations (PutInPlace,
+// RemoveInPlace, ...) are reachable; MutableMultimap embeds Multimap, so the
+// immutable API remains available too.
+func NewListMultimap[K comparable, V any](entries ...multimaps.Entry[K, V]) multimaps.MutableMultimap[K, V] {
 	return multimaps.NewListMultimap(entries...)
 }
 
-// NewConcurrentListMultimap creates a thread-safe list-backed Multimap (mutex-guarded) with the given entries. V may be any type.
-func NewConcurrentListMultimap[K comparable, V any](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+// NewConcurrentListMultimap creates a thread-safe list-backed Multimap (mutex-guarded) with the given entries. V may be any type. It returns the MutableMultimap interface so the in-place operations are reachable.
+func NewConcurrentListMultimap[K comparable, V any](entries ...multimaps.Entry[K, V]) multimaps.MutableMultimap[K, V] {
 	return multimaps.NewConcurrentListMultimap(entries...)
 }
 
-// NewConcurrentRWListMultimap creates a thread-safe list-backed Multimap optimised for concurrent reads (RWMutex-guarded) with the given entries. V may be any type.
-func NewConcurrentRWListMultimap[K comparable, V any](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+// NewConcurrentRWListMultimap creates a thread-safe list-backed Multimap optimised for concurrent reads (RWMutex-guarded) with the given entries. V may be any type. It returns the MutableMultimap interface so the in-place operations are reachable.
+func NewConcurrentRWListMultimap[K comparable, V any](entries ...multimaps.Entry[K, V]) multimaps.MutableMultimap[K, V] {
 	return multimaps.NewConcurrentRWListMultimap(entries...)
 }
 
-// NewSetMultimap creates a set-backed Multimap (one key to many distinct values) with the given entries.
-func NewSetMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+// NewSetMultimap creates a set-backed Multimap (one key to many distinct values) with the given entries. It returns the MutableMultimap interface so the in-place operations are reachable.
+func NewSetMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.MutableMultimap[K, V] {
 	return multimaps.NewSetMultimap(entries...)
 }
 
-// NewConcurrentSetMultimap creates a thread-safe set-backed Multimap (mutex-guarded) with the given entries.
-func NewConcurrentSetMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+// NewConcurrentSetMultimap creates a thread-safe set-backed Multimap (mutex-guarded) with the given entries. It returns the MutableMultimap interface so the in-place operations are reachable.
+func NewConcurrentSetMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.MutableMultimap[K, V] {
 	return multimaps.NewConcurrentSetMultimap(entries...)
 }
 
-// NewConcurrentRWSetMultimap creates a thread-safe set-backed Multimap optimised for concurrent reads (RWMutex-guarded) with the given entries.
-func NewConcurrentRWSetMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.Multimap[K, V] {
+// NewConcurrentRWSetMultimap creates a thread-safe set-backed Multimap optimised for concurrent reads (RWMutex-guarded) with the given entries. It returns the MutableMultimap interface so the in-place operations are reachable.
+func NewConcurrentRWSetMultimap[K comparable, V comparable](entries ...multimaps.Entry[K, V]) multimaps.MutableMultimap[K, V] {
 	return multimaps.NewConcurrentRWSetMultimap(entries...)
 }
 
-// NewDoublyLinkedList creates a List backed by a doubly linked list with the given elements.
-func NewDoublyLinkedList[T any](elements ...T) lists.List[T] {
+// NewDoublyLinkedList creates a List backed by a doubly linked list with the given elements. It returns the MutableList interface so the in-place operations are reachable.
+func NewDoublyLinkedList[T any](elements ...T) lists.MutableList[T] {
 	return lists.NewDoublyLinked[T](elements...)
 }
 
-// NewConcurrentDoublyLinkedList creates a thread-safe List backed by a doubly linked list with the given elements.
-func NewConcurrentDoublyLinkedList[T any](elements ...T) lists.List[T] {
+// NewConcurrentDoublyLinkedList creates a thread-safe List backed by a doubly linked list with the given elements. It returns the MutableList interface so the in-place operations are reachable.
+func NewConcurrentDoublyLinkedList[T any](elements ...T) lists.MutableList[T] {
 	return lists.NewConcurrentDoublyLinked[T](elements...)
 }
 
-// NewConcurrentRWDoublyLinkedList creates a thread-safe List backed by a doubly linked list, optimised for concurrent reads, with the given elements.
-func NewConcurrentRWDoublyLinkedList[T any](elements ...T) lists.List[T] {
+// NewConcurrentRWDoublyLinkedList creates a thread-safe List backed by a doubly linked list, optimised for concurrent reads, with the given elements. It returns the MutableList interface so the in-place operations are reachable.
+func NewConcurrentRWDoublyLinkedList[T any](elements ...T) lists.MutableList[T] {
 	return lists.NewConcurrentRWDoublyLinked[T](elements...)
 }
 
@@ -247,8 +276,10 @@ func NewConcurrentRWLRU[K comparable, V any](capacity int, opts ...lru.Option[K,
 }
 
 // ListFromSeq creates a List backed by an array from the values produced by seq,
-// preserving their order. It is the inbound counterpart to the List.Values iterator.
-func ListFromSeq[T any](seq iter.Seq[T]) lists.List[T] {
+// preserving their order. It is the inbound counterpart to the List.Values
+// iterator. It returns the MutableList interface so the in-place operations are
+// reachable.
+func ListFromSeq[T any](seq iter.Seq[T]) lists.MutableList[T] {
 	return lists.FromSeq(seq)
 }
 
@@ -265,8 +296,9 @@ func SetFromSeq[T comparable](seq iter.Seq[T]) sets.Set[T] {
 }
 
 // DequeFromSeq creates an unbounded Deque backed by a ring buffer from the values
-// produced by seq (the first value becomes the front).
-func DequeFromSeq[T any](seq iter.Seq[T]) deques.Deque[T] {
+// produced by seq (the first value becomes the front). It returns the
+// MutableDeque interface so the in-place operations are reachable.
+func DequeFromSeq[T any](seq iter.Seq[T]) deques.MutableDeque[T] {
 	return deques.FromSeq(seq)
 }
 
@@ -277,13 +309,16 @@ func HeapFromSeq[T any](less heaps.LessFunc[T], seq iter.Seq[T]) heaps.Heap[T] {
 }
 
 // ListMultimapFromSeq2 creates a list-backed Multimap from the key/value pairs
-// produced by seq, preserving order and keeping duplicate values. V may be any type.
-func ListMultimapFromSeq2[K comparable, V any](seq iter.Seq2[K, V]) multimaps.Multimap[K, V] {
+// produced by seq, preserving order and keeping duplicate values. V may be any
+// type. It returns the MutableMultimap interface so the in-place operations are
+// reachable.
+func ListMultimapFromSeq2[K comparable, V any](seq iter.Seq2[K, V]) multimaps.MutableMultimap[K, V] {
 	return multimaps.ListMultimapFromSeq2(seq)
 }
 
 // SetMultimapFromSeq2 creates a set-backed Multimap from the key/value pairs produced
-// by seq, collapsing duplicate values bound to the same key.
-func SetMultimapFromSeq2[K comparable, V comparable](seq iter.Seq2[K, V]) multimaps.Multimap[K, V] {
+// by seq, collapsing duplicate values bound to the same key. It returns the
+// MutableMultimap interface so the in-place operations are reachable.
+func SetMultimapFromSeq2[K comparable, V comparable](seq iter.Seq2[K, V]) multimaps.MutableMultimap[K, V] {
 	return multimaps.SetMultimapFromSeq2(seq)
 }

@@ -12,15 +12,17 @@
 //     never under-reporting, in space independent of the stream's cardinality.
 //   - [hll] — approximate cardinality. "How many distinct things have I seen?"
 //     in a few kilobytes, even for billions of distinct items.
+//   - [tdigest] — approximate quantiles. "What's the 99th-percentile latency?"
+//     over an unbounded stream, in memory set by a compression parameter.
 //
 // The streaming sketches share a common design: bounded, configurable accuracy
-// with documented error bounds; seeded, pluggable hashing (WithSeed/WithHasher)
-// so behaviour is reproducible; mergeability (Merge) for parallel and
+// with documented error bounds; mergeability (Merge) for parallel and
 // distributed aggregation; and a delegating, read-write-mutex-guarded Concurrent
-// variant alongside a plain type that is not safe for concurrent use.
-//
-// (A streaming-quantiles sketch — t-digest — is co-designed with the stats
-// quantile work and lives with that package rather than here.)
+// variant alongside a plain type that is not safe for concurrent use. The
+// comparable-typed sketches (bloom, countmin, hll) additionally take seeded,
+// pluggable hashing (WithSeed/WithHasher) so behaviour is reproducible; tdigest
+// is float64-only (it has no keys to hash) and approximates the value domain of
+// the stats quantile functions rather than being generic over an element type.
 //
 // # Quick Start
 //
@@ -83,4 +85,5 @@
 // [bloom]: https://pkg.go.dev/github.com/pickeringtech/go-collections/collections/sketches/bloom
 // [countmin]: https://pkg.go.dev/github.com/pickeringtech/go-collections/collections/sketches/countmin
 // [hll]: https://pkg.go.dev/github.com/pickeringtech/go-collections/collections/sketches/hll
+// [tdigest]: https://pkg.go.dev/github.com/pickeringtech/go-collections/collections/sketches/tdigest
 package sketches

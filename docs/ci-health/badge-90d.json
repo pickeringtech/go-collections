@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "main health (90d)",
-  "message": "99% (112/113)",
-  "color": "brightgreen"
+  "message": "no runs",
+  "color": "lightgrey"
 }

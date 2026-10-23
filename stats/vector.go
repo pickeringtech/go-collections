@@ -45,8 +45,15 @@ func Norm[T constraints.Numeric](a []T) (float64, bool) {
 }
 
 // EuclideanDistance returns the straight-line distance between the points a and
-// b — √(Σ (aᵢ−bᵢ)²) — together with an ok flag. The squared differences are
-// summed with Kahan compensated summation.
+// b — √(Σ (aᵢ−bᵢ)²) — together with an ok flag. This is the canonical vector
+// geometry for the module; ml/distance.Euclidean and the clustering metrics
+// delegate here rather than reimplementing it.
+//
+// The differences are first scaled by the largest |aᵢ−bᵢ| (the dnrm2 trick) so
+// the squared terms stay near 1 — guarding against overflow for huge
+// coordinates and underflow for tiny ones — and the scaled squares are then
+// summed with Kahan compensated summation for precision across many small
+// terms. The result is both overflow-safe and high-precision.
 //
 // ok is false (and the result 0) when the distance is undefined: when the
 // vectors are empty or of differing lengths. Non-finite inputs (NaN/Inf)
@@ -55,12 +62,32 @@ func EuclideanDistance[T constraints.Numeric](a, b []T) (float64, bool) {
 	if len(a) != len(b) || len(a) == 0 {
 		return 0, false
 	}
+	// First pass: the scaling factor is the largest absolute difference. A
+	// non-finite difference short-circuits to a non-finite result, matching the
+	// documented NaN/Inf policy.
+	var scale float64
+	for i := range a {
+		diff := math.Abs(float64(a[i]) - float64(b[i]))
+		switch {
+		case math.IsNaN(diff):
+			return math.NaN(), true
+		case math.IsInf(diff, 1):
+			return math.Inf(1), true
+		case diff > scale:
+			scale = diff
+		}
+	}
+	if scale == 0 {
+		// Every coordinate matches, so the points are identical.
+		return 0, true
+	}
+	// Second pass: Kahan-sum the scaled squares, then undo the scaling.
 	var sum kahan
 	for i := range a {
-		d := float64(a[i]) - float64(b[i])
+		d := (float64(a[i]) - float64(b[i])) / scale
 		sum.add(d * d)
 	}
-	return math.Sqrt(sum.sum), true
+	return scale * math.Sqrt(sum.sum), true
 }
 
 // CosineSimilarity returns the cosine of the angle between the vectors a and b —

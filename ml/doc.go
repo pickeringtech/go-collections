@@ -5,7 +5,16 @@
 //
 // # Taxonomy
 //
-// The first family is evaluation metrics, under ml/metrics, one package per
+// One family scores how far apart two inputs are — numeric vectors or
+// sequences (including strings):
+//
+//   - ml/distance — distance metrics where lower means closer: Euclidean,
+//     Manhattan, Minkowski and Cosine over numeric vectors, plus the Hamming and
+//     Levenshtein edit distances over sequences.
+//   - ml/similarity — similarity metrics where higher means more alike: cosine
+//     similarity and the set-overlap measures Jaccard, Dice and Overlap.
+//
+// A second family is evaluation metrics, under ml/metrics, one package per
 // problem type:
 //
 //   - ml/metrics/regression — MSE, RMSE, MAE, MAPE and R² for continuous targets.

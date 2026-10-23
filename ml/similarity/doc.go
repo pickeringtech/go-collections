@@ -47,8 +47,9 @@
 //
 // # Set Similarity
 //
-// Jaccard, Dice and Overlap all compose the Intersection, Union and Length
-// methods on the sets.Set[T] interface — no set algebra is reimplemented here.
+// Jaccard, Dice and Overlap all compose the Intersection and Length methods on
+// the sets.Set[T] interface — |A∪B| is derived as |A|+|B|−|A∩B| rather than
+// materialised, so no set algebra is reimplemented here.
 //
 //   - Jaccard: |A∩B| / |A∪B| — ranges from 0 (disjoint) to 1 (equal).
 //     Empty∩Empty → 0.

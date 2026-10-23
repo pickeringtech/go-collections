@@ -30,18 +30,11 @@ func DotProduct[T constraints.Numeric](a, b []T) (float64, bool) {
 //
 // Non-finite inputs (NaN/Inf) propagate to a non-finite result with ok == true,
 // following the package's NaN/Inf policy.
+//
+// It delegates directly to stats.CosineSimilarity, the module's canonical
+// vector geometry, so it shares that contract exactly.
 func CosineSimilarity[T constraints.Numeric](a, b []T) (float64, bool) {
-	dot, ok := stats.Dot(a, b)
-	if !ok {
-		return 0, false
-	}
-	normA, _ := stats.Norm(a)
-	normB, _ := stats.Norm(b)
-	denom := normA * normB
-	if denom == 0 {
-		return 0, false
-	}
-	return dot / denom, true
+	return stats.CosineSimilarity(a, b)
 }
 
 // Jaccard computes the Jaccard similarity coefficient between two sets:

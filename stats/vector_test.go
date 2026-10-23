@@ -208,6 +208,50 @@ func TestEuclideanDistance(t *testing.T) {
 			t.Errorf("mismatched lengths reported ok")
 		}
 	})
+
+	t.Run("NaN propagates with ok", func(t *testing.T) {
+		got, ok := stats.EuclideanDistance([]float64{math.NaN(), 0}, []float64{0, 0})
+		if !ok {
+			t.Fatalf("ok = false, want true (NaN propagates with ok == true)")
+		}
+		if !math.IsNaN(got) {
+			t.Fatalf("EuclideanDistance = %v, want NaN", got)
+		}
+	})
+
+	t.Run("Inf propagates with ok", func(t *testing.T) {
+		got, ok := stats.EuclideanDistance([]float64{math.Inf(1), 0}, []float64{0, 0})
+		if !ok {
+			t.Fatalf("ok = false, want true (Inf propagates with ok == true)")
+		}
+		if !math.IsInf(got, 1) {
+			t.Fatalf("EuclideanDistance = %v, want +Inf", got)
+		}
+	})
+
+	t.Run("overflow-safe for huge coordinates", func(t *testing.T) {
+		// A naive Σ(aᵢ−bᵢ)² squares 1e200 to 1e400, which overflows float64
+		// to +Inf. The scaled sum-of-squares keeps the exact magnitude.
+		got, ok := stats.EuclideanDistance([]float64{1e200, 0}, []float64{0, 0})
+		if !ok {
+			t.Fatalf("ok = false, want true")
+		}
+		if got != 1e200 {
+			t.Fatalf("EuclideanDistance = %v, want 1e200 (no overflow)", got)
+		}
+	})
+
+	t.Run("underflow-safe for tiny coordinates", func(t *testing.T) {
+		// 3e-200 and 4e-200 form a scaled 3-4-5 triangle whose squares would
+		// underflow to zero without scaling; the distance is exactly 5e-200.
+		got, ok := stats.EuclideanDistance([]float64{0, 0}, []float64{3e-200, 4e-200})
+		if !ok {
+			t.Fatalf("ok = false, want true")
+		}
+		if !approxEqual(got/1e-200, 5) {
+			t.Fatalf("EuclideanDistance = %v, want 5e-200 (no underflow)", got)
+		}
+	})
 }
 
 func TestCosineSimilarity(t *testing.T) {

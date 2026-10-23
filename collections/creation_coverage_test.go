@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/dicts"
+	"github.com/pickeringtech/go-collections/collections/lists"
 	"github.com/pickeringtech/go-collections/collections/multimaps"
 )
 
@@ -90,11 +91,10 @@ func TestListConstructors(t *testing.T) {
 }
 
 func TestQueueConstructors(t *testing.T) {
-	queues := map[string]func(...int) interface {
-		PeekFront() (int, bool)
-	}{
-		"NewQueue":           func(v ...int) interface{ PeekFront() (int, bool) } { return NewQueue(v...) },
-		"NewConcurrentQueue": func(v ...int) interface{ PeekFront() (int, bool) } { return NewConcurrentQueue(v...) },
+	queues := map[string]func(...int) lists.MutableQueue[int]{
+		"NewQueue":             NewQueue[int],
+		"NewConcurrentQueue":   NewConcurrentQueue[int],
+		"NewConcurrentRWQueue": NewConcurrentRWQueue[int],
 	}
 	for name, make := range queues {
 		t.Run(name, func(t *testing.T) {
@@ -103,16 +103,23 @@ func TestQueueConstructors(t *testing.T) {
 			if !ok || front != 10 {
 				t.Errorf("PeekFront() = (%d, %t), want (10, true)", front, ok)
 			}
+
+			// The facade returns MutableQueue, so the in-place FIFO operations
+			// are reachable.
+			q.EnqueueInPlace(40)
+			head, ok := q.DequeueInPlace()
+			if !ok || head != 10 {
+				t.Errorf("DequeueInPlace() = (%d, %t), want (10, true)", head, ok)
+			}
 		})
 	}
 }
 
 func TestStackConstructors(t *testing.T) {
-	stacks := map[string]func(...int) interface {
-		PeekEnd() (int, bool)
-	}{
-		"NewStack":           func(v ...int) interface{ PeekEnd() (int, bool) } { return NewStack(v...) },
-		"NewConcurrentStack": func(v ...int) interface{ PeekEnd() (int, bool) } { return NewConcurrentStack(v...) },
+	stacks := map[string]func(...int) lists.MutableStack[int]{
+		"NewStack":             NewStack[int],
+		"NewConcurrentStack":   NewConcurrentStack[int],
+		"NewConcurrentRWStack": NewConcurrentRWStack[int],
 	}
 	for name, make := range stacks {
 		t.Run(name, func(t *testing.T) {
@@ -120,6 +127,14 @@ func TestStackConstructors(t *testing.T) {
 			end, ok := s.PeekEnd()
 			if !ok || end != 30 {
 				t.Errorf("PeekEnd() = (%d, %t), want (30, true)", end, ok)
+			}
+
+			// The facade returns MutableStack, so the in-place LIFO operations
+			// are reachable.
+			s.PushInPlace(40)
+			top, ok := s.PopInPlace()
+			if !ok || top != 40 {
+				t.Errorf("PopInPlace() = (%d, %t), want (40, true)", top, ok)
 			}
 		})
 	}
@@ -164,7 +179,7 @@ func TestDictConstructors(t *testing.T) {
 }
 
 func TestMultimapConstructors(t *testing.T) {
-	multimapFns := map[string]func(...multimaps.Entry[string, int]) multimaps.Multimap[string, int]{
+	multimapFns := map[string]func(...multimaps.Entry[string, int]) multimaps.MutableMultimap[string, int]{
 		"NewListMultimap":             NewListMultimap[string, int],
 		"NewConcurrentListMultimap":   NewConcurrentListMultimap[string, int],
 		"NewConcurrentRWListMultimap": NewConcurrentRWListMultimap[string, int],
@@ -187,6 +202,13 @@ func TestMultimapConstructors(t *testing.T) {
 			}
 			if m.ContainsEntry("a", 99) {
 				t.Errorf("ContainsEntry(a, 99) = true, want false")
+			}
+
+			// The facade returns MutableMultimap, so the in-place operations are
+			// reachable.
+			m.PutInPlace("a", 99)
+			if !m.ContainsEntry("a", 99) {
+				t.Errorf("after PutInPlace(a, 99), ContainsEntry(a, 99) = false, want true")
 			}
 		})
 	}

@@ -68,7 +68,7 @@ func main() {
 			misses++
 			cache.PutInPlace(key, 1)
 		}
-		recent = recent.PushBack(key)
+		recent.PushBackInPlace(key)
 		processed++
 		if processed == *limit {
 			break

@@ -12,14 +12,14 @@ import (
 type DistanceFunc func(a, b []float64) float64
 
 // EuclideanDistance is the default metric — the straight-line (L2) distance
-// between two points, sqrt(Σ(aᵢ − bᵢ)²).
+// between two points, sqrt(Σ(aᵢ − bᵢ)²). It delegates to the module's canonical
+// stats.EuclideanDistance. validate guarantees equal-length, finite coordinate
+// rows before this runs, so the ok flag is discarded: the only remaining input
+// that makes it false is a zero-dimensional row, whose distance is 0 anyway —
+// the same value the previous local implementation returned.
 func EuclideanDistance(a, b []float64) float64 {
-	var sum float64
-	for i := range a {
-		d := a[i] - b[i]
-		sum += d * d
-	}
-	return math.Sqrt(sum)
+	d, _ := stats.EuclideanDistance(a, b)
+	return d
 }
 
 // validate checks the shared preconditions for the silhouette functions and

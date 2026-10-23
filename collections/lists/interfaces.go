@@ -168,8 +168,12 @@ type Stack[T any] interface {
 }
 
 // MutableStack is implemented by collections supporting in-place LIFO
-// operations that modify the receiver.
+// operations that modify the receiver. It embeds Stack so a MutableStack is a
+// usable stack handle on its own (the read-oriented Push/Pop/PeekEnd remain
+// reachable alongside the in-place mutators); the method-set overlap this
+// creates inside MutableList is permitted (Go 1.14+).
 type MutableStack[T any] interface {
+	Stack[T]
 	PushInPlace(element T)
 	PopInPlace() (T, bool)
 }
@@ -183,8 +187,12 @@ type Queue[T any] interface {
 }
 
 // MutableQueue is implemented by collections supporting in-place FIFO
-// operations that modify the receiver.
+// operations that modify the receiver. It embeds Queue so a MutableQueue is a
+// usable queue handle on its own (the read-oriented Enqueue/Dequeue/PeekFront
+// remain reachable alongside the in-place mutators); the method-set overlap
+// this creates inside MutableList is permitted (Go 1.14+).
 type MutableQueue[T any] interface {
+	Queue[T]
 	EnqueueInPlace(element T)
 	DequeueInPlace() (T, bool)
 }

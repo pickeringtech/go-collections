@@ -14,6 +14,17 @@ silent: false
 
 unleash:
   dry-run: false
+  # Mutate only the root library module. examples/ and tools/* are separate Go
+  # modules that the root `go test ./...` never runs, so every mutant in them is
+  # "NOT COVERED" by construction — counting them roughly halved the reported
+  # mutator coverage without saying anything about the library's tests. Their
+  # own suites run in CI's examples-e2e / *-test jobs. (Agent worktrees under
+  # .claude/ or .claire/ are local-only copies of the tree; skip them too.)
+  exclude-files:
+    - "^examples/"
+    - "^tools/"
+    - "^\\.claude/"
+    - "^\\.claire/"
   threshold:
     efficacy: 0          # report-only; CI env MUTATION_EFFICACY_MIN is the ratchet knob
     mutant-coverage: 0    # report-only; CI env MUTATION_MCOVER_MIN is the ratchet knob

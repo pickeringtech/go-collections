@@ -34,7 +34,8 @@
 //
 //   - Euclidean: the straight-line L2 distance between two points.
 //   - Manhattan: the L1 (taxicab) distance — sum of absolute differences.
-//   - Minkowski: the Lp generalisation; p<1 returns ok==false (not a metric).
+//   - Minkowski: the Lp generalisation; a non-finite p or p<1 returns
+//     ok==false (not a valid metric parameter).
 //   - CosineDistance: 1 minus the cosine similarity; in [0, 2]; delegates to
 //     ml/similarity.CosineSimilarity.
 //

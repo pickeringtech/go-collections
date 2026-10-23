@@ -47,15 +47,28 @@ env:
   # these as the suite improves; this is the single ratchet knob for both jobs.
   MUTATION_EFFICACY_MIN: "0"   # % of (KILLED) / (KILLED + LIVED)
   MUTATION_MCOVER_MIN: "0"     # % of (KILLED + LIVED) / (all mutants)
+  # Applied to every `go test` gremlins runs (coverage pass + one per mutant):
+  #   -count=1  defeats the test-result cache that setup-go restores. gremlins
+  #             derives each mutant's timeout from how long the coverage pass
+  #             took; a cached pass "takes" ~0s, so every mutant would time out
+  #             instantly and the report would be meaningless.
+  #   -exec     runs each test binary under a per-process memory cap so a
+  #             runaway-allocation mutant dies alone instead of OOM-killing the
+  #             whole runner — the cause of every weekly full-run failure to date
+  #             (see .github/scripts/memcap-exec.sh).
+  GOFLAGS: "-count=1 -exec=${{ github.workspace }}/.github/scripts/memcap-exec.sh"
 
 jobs:
   full:
     name: Full run (weekly / on-demand) — report-only
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    # A full run is ~1,700 mutants; bound it well under the 6h job ceiling so a
+    # pathological run fails fast and visibly instead of idling for hours.
+    timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod   # project tests run under the declared Go version
       # Cache the compiled gremlins binary, keyed on its pinned version + OS
@@ -64,7 +77,7 @@ jobs:
       # the pinned tool version alone is a stable key. Restore-then-install: the
       # install is a fast no-op on a hit and only rebuilds on a version bump.
       - name: Cache gremlins binary
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/go/bin/gremlins
           key: ${{ runner.os }}-tool-gremlins-${{ env.GREMLINS_VERSION }}
@@ -83,7 +96,7 @@ jobs:
             --threshold-efficacy "${MUTATION_EFFICACY_MIN}" \
             --threshold-mcover "${MUTATION_MCOVER_MIN}"
       - name: Upload mutation report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutation-report
           path: mutation-report.json
@@ -93,13 +106,14 @@ jobs:
     name: Per-merge scoped run (changed lines only) — report-only
     if: github.event_name == 'merge_group'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # gremlins --diff needs history back to the merge base
           # The merge queue's post-merge tree (the commit actually about to land).
           ref: ${{ github.event.merge_group.head_sha }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Determine whether this merge changes non-test Go source
@@ -131,7 +145,7 @@ jobs:
       # Gated on the same condition as the install so a tests-only PR skips both.
       - name: Cache gremlins binary
         if: steps.changed.outputs.run == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/go/bin/gremlins
           key: ${{ runner.os }}-tool-gremlins-${{ env.GREMLINS_VERSION }}
@@ -153,7 +167,7 @@ jobs:
             --threshold-efficacy "${MUTATION_EFFICACY_MIN}" \
             --threshold-mcover "${MUTATION_MCOVER_MIN}"
       - name: Upload mutation report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutation-report-merge
           path: mutation-report.json
