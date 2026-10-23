@@ -20,14 +20,9 @@ type Sum struct {
 // addition in the compensation term.
 func (s *Sum) Add(x float64) {
 	t := s.sum + x
-	switch {
-	case math.IsInf(t, 0):
-		// The total is infinite, so there is no round-off left to recover; the
-		// error terms below would evaluate Inf − Inf = NaN and poison an
-		// otherwise-infinite total. Keep the IEEE result and leave c alone.
-	case math.Abs(s.sum) >= math.Abs(x):
+	if math.Abs(s.sum) >= math.Abs(x) {
 		s.c += (s.sum - t) + x // the low-order bits of x were lost
-	default:
+	} else {
 		s.c += (x - t) + s.sum // the low-order bits of the old total were lost
 	}
 	s.sum = t
@@ -35,5 +30,14 @@ func (s *Sum) Add(x float64) {
 
 // Total returns the compensated sum of every value added so far.
 func (s *Sum) Total() float64 {
+	if math.IsInf(s.sum, 0) {
+		// Once the running total is infinite there is no round-off left to
+		// recover, and the error terms (Inf − Inf) have made c NaN or infinite.
+		// The IEEE total is the answer; checking here rather than in Add keeps
+		// the per-term hot path branch-light. (c can only go non-finite after
+		// the total has: while every partial sum is finite, so is each error
+		// term.)
+		return s.sum
+	}
 	return s.sum + s.c
 }

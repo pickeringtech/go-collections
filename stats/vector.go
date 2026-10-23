@@ -43,18 +43,46 @@ func Norm[T constraints.Numeric](a []T) (float64, bool) {
 	if len(a) == 0 {
 		return 0, false
 	}
+	// Fast path: one pass over the unscaled squares. Its result is exact to
+	// within a few ulps whenever the sum of squares is a finite, normal float,
+	// which covers ordinary data. Only when it overflows (|aᵢ| beyond ~1e154),
+	// lands in the subnormal range where squares have shed precision (or
+	// underflowed to 0), or is not finite at all does Norm fall back to the
+	// two-pass scaled computation.
+	var sum kahan.Sum
+	for _, v := range a {
+		f := float64(v)
+		sum.Add(f * f)
+	}
+	total := sum.Total()
+	if total >= minNormal && !math.IsInf(total, 1) {
+		return math.Sqrt(total), true
+	}
+	return scaledNorm(a), true
+}
+
+// minNormal is the smallest positive normal float64 (2^-1022). A sum of squares
+// below it has lost precision to subnormal (or zero) underflow.
+const minNormal = 0x1p-1022
+
+// scaledNorm is the overflow- and underflow-safe L2 norm (the dnrm2 trick):
+// each element is divided by the largest |aᵢ| before squaring, so every squared
+// term lies in [0, 1] and the sum cannot overflow or lose its significant terms
+// to underflow. A NaN or infinite element makes the scale, and so the result,
+// NaN or +Inf.
+func scaledNorm[T constraints.Numeric](a []T) float64 {
 	scale := maxAbs(a)
 	if scale == 0 || nonFinite(scale) {
 		// The zero vector has norm 0; a NaN or infinite scale is the result
-		// itself, per the propagation policy above.
-		return scale, true
+		// itself, per Norm's propagation policy.
+		return scale
 	}
 	var sum kahan.Sum
 	for _, v := range a {
 		f := float64(v) / scale
 		sum.Add(f * f)
 	}
-	return scale * math.Sqrt(sum.Total()), true
+	return scale * math.Sqrt(sum.Total())
 }
 
 // EuclideanDistance returns the straight-line distance between the points a and

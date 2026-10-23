@@ -293,6 +293,8 @@ func TestNormAndCosineExtremeMagnitudes(t *testing.T) {
 		{name: "Norm of a huge element", fn: func() (float64, bool) { return stats.Norm([]float64{1e200}) }, want: 1e200},
 		{name: "Norm of a huge 3-4-5 triple", fn: func() (float64, bool) { return stats.Norm([]float64{3e200, -4e200}) }, want: 5e200},
 		{name: "Norm of tiny elements", fn: func() (float64, bool) { return stats.Norm([]float64{3e-200, 4e-200}) }, want: 5e-200},
+		{name: "Norm whose squares are subnormal", fn: func() (float64, bool) { return stats.Norm([]float64{3e-160, 4e-160}) }, want: 5e-160},
+		{name: "Norm whose squares just stay normal", fn: func() (float64, bool) { return stats.Norm([]float64{3e-150, 4e-150}) }, want: 5e-150},
 		{name: "Norm of the largest floats", fn: func() (float64, bool) { return stats.Norm([]float64{math.MaxFloat64, 0}) }, want: math.MaxFloat64},
 		{name: "CosineSimilarity of huge vectors", fn: func() (float64, bool) {
 			return stats.CosineSimilarity([]float64{1e200, 1e200}, []float64{1e200, 1e200})
