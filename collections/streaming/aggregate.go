@@ -11,7 +11,7 @@ import "github.com/pickeringtech/go-collections/constraints"
 // RunningMean is single-threaded; see the package documentation on thread
 // safety.
 type RunningMean struct {
-	n    int
+	n    int64
 	mean float64
 }
 
@@ -36,8 +36,9 @@ func (m *RunningMean) Result() (float64, bool) {
 	return m.mean, true
 }
 
-// Count returns the number of values added so far.
-func (m *RunningMean) Count() int {
+// Count returns the number of values added so far. It is an int64 on every
+// platform, so it does not wrap after 2^31-1 values where int is 32 bits.
+func (m *RunningMean) Count() int64 {
 	return m.n
 }
 
@@ -59,7 +60,7 @@ func (m *RunningMean) Count() int {
 // rather than being silently dropped. RunningVariance is single-threaded; see
 // the package documentation on thread safety.
 type RunningVariance struct {
-	n    int
+	n    int64
 	mean float64
 	m2   float64
 }
@@ -108,8 +109,9 @@ func (v *RunningVariance) PopulationVariance() (float64, bool) {
 	return v.m2 / float64(v.n), true
 }
 
-// Count returns the number of values added so far.
-func (v *RunningVariance) Count() int {
+// Count returns the number of values added so far. It is an int64 on every
+// platform, so it does not wrap after 2^31-1 values where int is 32 bits.
+func (v *RunningVariance) Count() int64 {
 	return v.n
 }
 

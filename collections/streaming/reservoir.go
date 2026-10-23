@@ -43,9 +43,11 @@ func randOrDefault(rng *rand.Rand) *rand.Rand {
 // always produce the same sample. It is single-threaded; see the package
 // documentation on thread safety.
 type Reservoir[T any] struct {
-	k     int
-	rng   *rand.Rand
-	seen  int
+	k   int
+	rng *rand.Rand
+	// seen counts the elements fed so far. It is an int64, not an int, so it
+	// cannot overflow after 2^31-1 elements on 32-bit platforms.
+	seen  int64
 	items []T
 }
 
@@ -64,7 +66,9 @@ func NewReservoir[T any](k int, rng *rand.Rand) *Reservoir[T] {
 // Add feeds one element into the stream. While fewer than k elements have been
 // seen it is always retained; thereafter the n-th element (n > k) replaces a
 // uniformly chosen incumbent with probability k/n, preserving the uniform-sample
-// invariant. Add is O(1) and a no-op when k <= 0.
+// invariant. The element count is 64-bit on every platform, so the sample stays
+// uniform for streams of up to math.MaxInt64 elements. Add is O(1) and a no-op
+// when k <= 0.
 func (r *Reservoir[T]) Add(element T) {
 	if r.k <= 0 {
 		return
@@ -74,8 +78,8 @@ func (r *Reservoir[T]) Add(element T) {
 		r.items = append(r.items, element)
 		return
 	}
-	j := r.rng.IntN(r.seen)
-	if j < r.k {
+	j := r.rng.Int64N(r.seen)
+	if j < int64(r.k) {
 		r.items[j] = element
 	}
 }

@@ -251,7 +251,7 @@ func FuzzRunningVariance(f *testing.F) {
 			}
 		}
 
-		if v.Count() != len(values) {
+		if v.Count() != int64(len(values)) {
 			t.Fatalf("Count() = %d, want %d", v.Count(), len(values))
 		}
 	})

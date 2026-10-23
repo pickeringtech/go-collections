@@ -19,7 +19,7 @@ func TestRunningMean_ResultAndCount(t *testing.T) {
 		args    args
 		wantVal float64
 		wantOK  bool
-		wantN   int
+		wantN   int64
 	}{
 		{name: "empty stream not ok", args: args{values: nil}, wantVal: 0, wantOK: false, wantN: 0},
 		{name: "single element", args: args{values: []float64{42}}, wantVal: 42, wantOK: true, wantN: 1},
@@ -95,7 +95,7 @@ func TestRunningVariance_Contracts(t *testing.T) {
 			if _, ok := v.Mean(); ok != tt.wantMean {
 				t.Errorf("Mean() ok = %v, want %v", ok, tt.wantMean)
 			}
-			if v.Count() != len(tt.args.values) {
+			if v.Count() != int64(len(tt.args.values)) {
 				t.Errorf("Count() = %d, want %d", v.Count(), len(tt.args.values))
 			}
 		})
@@ -253,5 +253,34 @@ func TestRunningMinMax_Strings(t *testing.T) {
 	lo, hi, ok := mm.Result()
 	if !ok || lo != "apple" || hi != "cherry" {
 		t.Errorf("Result() = (%q, %q, %v), want (apple, cherry, true)", lo, hi, ok)
+	}
+}
+
+// TestRunningAggregates_CountIs64Bit pins the counters to 64 bits on every
+// platform. They were int, which is 32 bits on 386/arm: after 2^31-1 values the
+// count wrapped negative (RunningMean.Count < 0, and the mean update divided by
+// a negative n). Reaching 2^31 Adds is too slow for a unit test, so the test
+// fixes the width at compile time — assigning Count to an int64 does not build
+// against an int-returning Count — and checks the counts themselves.
+func TestRunningAggregates_CountIs64Bit(t *testing.T) {
+	m := streaming.NewRunningMean()
+	v := streaming.NewRunningVariance()
+	for i := 0; i < 5; i++ {
+		m.Add(float64(i))
+		v.Add(float64(i))
+	}
+	tests := []struct {
+		name  string
+		count int64
+	}{
+		{"RunningMean", m.Count()},
+		{"RunningVariance", v.Count()},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.count != 5 {
+				t.Errorf("Count() = %d, want 5", tt.count)
+			}
+		})
 	}
 }
