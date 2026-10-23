@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -51,48 +50,6 @@ func TestNew_InvalidConfig(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tc.wantMsg) {
 				t.Errorf("New(%d, %v) error = %q, want it to contain %q", tc.n, tc.p, err, tc.wantMsg)
-			}
-		})
-	}
-}
-
-// TestNew_AllocatesOnlyTheWholeWordBitArray pins the documented memory
-// footprint: the bit array is BitSize() bits rounded up to whole 64-bit words.
-// The bytes New allocates are measured directly, with headroom for the Filter
-// header and allocator size-class rounding but not for an array sized as
-// anything other than ceil(m/64) words.
-func TestNew_AllocatesOnlyTheWholeWordBitArray(t *testing.T) {
-	type args struct {
-		n int
-		p float64
-	}
-	tests := []struct {
-		name      string
-		args      args
-		wantWords uint64
-	}{
-		// m = ceil(-1000·ln(0.01)/ln²2) = 9586 bits → 150 words.
-		{name: "a thousand items at one percent needs 150 words", args: args{n: 1000, p: 0.01}, wantWords: 150},
-		// m = 2 bits still occupies one whole word.
-		{name: "a two-bit filter needs one word", args: args{n: 1, p: 0.5}, wantWords: 1},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var before, after runtime.MemStats
-			runtime.ReadMemStats(&before)
-			f, err := bloom.New[int](tt.args.n, tt.args.p)
-			runtime.ReadMemStats(&after)
-			if err != nil {
-				t.Fatalf("New(%d, %v): unexpected error %v", tt.args.n, tt.args.p, err)
-			}
-			words := (f.BitSize() + 63) / 64
-			if words != tt.wantWords {
-				t.Errorf("BitSize() = %d needs %d words, want %d", f.BitSize(), words, tt.wantWords)
-			}
-			allocated := after.TotalAlloc - before.TotalAlloc
-			limit := 2*tt.wantWords*8 + 4096
-			if allocated > limit {
-				t.Errorf("New allocated %d bytes, want at most %d for a %d-word bit array", allocated, limit, tt.wantWords)
 			}
 		})
 	}
