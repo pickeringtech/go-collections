@@ -55,8 +55,8 @@
 //
 //	// List-backed
 //	multimaps.NewListMultimap[K, V]()              // not thread-safe
-//	multimaps.NewConcurrentListMultimap[K, V]()    // *sync.Mutex (balanced)
-//	multimaps.NewConcurrentRWListMultimap[K, V]()  // *sync.RWMutex (read-heavy)
+//	multimaps.NewConcurrentListMultimap[K, V]()    // sync.Mutex (balanced)
+//	multimaps.NewConcurrentRWListMultimap[K, V]()  // sync.RWMutex (read-heavy)
 //
 //	// Set-backed
 //	multimaps.NewSetMultimap[K, V]()

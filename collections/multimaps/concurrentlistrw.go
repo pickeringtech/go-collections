@@ -51,7 +51,9 @@ func (c *ConcurrentRWListMultimap[K, V]) Get(key K) []V {
 	return c.data.Get(key)
 }
 
-// ContainsKey reports whether the given key has at least one value bound to it.
+// ContainsKey reports whether the given key is present. A key is dropped as
+// soon as its last value is removed, so a present key always has at least one
+// value bound.
 func (c *ConcurrentRWListMultimap[K, V]) ContainsKey(key K) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()

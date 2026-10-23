@@ -62,7 +62,10 @@ func (m ListMultimap[K, V]) Get(key K) []V {
 	return cloneValues(m[key])
 }
 
-// ContainsKey reports whether the given key has at least one value bound to it.
+// ContainsKey reports whether the given key is present. Every method drops a
+// key as soon as its last value is removed, and binding no values adds no key,
+// so a present key always has at least one value bound. (ListMultimap is a map
+// type; assigning to it directly bypasses that invariant.)
 func (m ListMultimap[K, V]) ContainsKey(key K) bool {
 	_, exists := m[key]
 	return exists

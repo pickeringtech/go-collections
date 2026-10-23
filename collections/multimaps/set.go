@@ -54,7 +54,10 @@ func (m SetMultimap[K, V]) Get(key K) []V {
 	return valuesSlice(m[key])
 }
 
-// ContainsKey reports whether the given key has at least one value bound to it.
+// ContainsKey reports whether the given key is present. Every method drops a
+// key as soon as its last value is removed, and binding no values adds no key,
+// so a present key always has at least one value bound. (SetMultimap is a map
+// type; assigning to it directly bypasses that invariant.)
 func (m SetMultimap[K, V]) ContainsKey(key K) bool {
 	_, exists := m[key]
 	return exists

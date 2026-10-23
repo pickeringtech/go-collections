@@ -10,8 +10,9 @@ type Indexable[K comparable, V any] interface {
 	// affect the receiver.
 	Get(key K) []V
 
-	// ContainsKey reports whether the given key has at least one value bound
-	// to it.
+	// ContainsKey reports whether the given key is present. Every operation
+	// drops a key as soon as its last value is removed, and binding no values
+	// adds no key, so a present key always has at least one value bound.
 	ContainsKey(key K) bool
 
 	// ContainsEntry reports whether the given key is bound to the given value.
