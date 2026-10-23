@@ -247,6 +247,19 @@ func TestMinkowski(t *testing.T) {
 			ok:   true,
 		},
 		{
+			// Neither point is the origin, so aᵢ−bᵢ and aᵢ+bᵢ differ in magnitude.
+			name: "points mirrored through the origin",
+			args: args{a: []float64{1, 2}, b: []float64{-1, -2}, p: 1},
+			want: 6,
+			ok:   true,
+		},
+		{
+			name: "a 3-4-5 triangle translated off the origin",
+			args: args{a: []float64{1, 1}, b: []float64{4, 5}, p: 2},
+			want: 5,
+			ok:   true,
+		},
+		{
 			name: "length mismatch is undefined",
 			args: args{a: []float64{1, 2, 3}, b: []float64{1, 2}, p: 2},
 			want: 0,
