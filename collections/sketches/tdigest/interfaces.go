@@ -10,7 +10,8 @@ type Quantiles interface {
 	Add(x float64)
 
 	// AddWeighted records a value carrying the given weight, ignoring
-	// non-finite values or non-positive weights.
+	// non-finite values, weights that are not positive and finite, and weights
+	// that would overflow the total weight.
 	AddWeighted(x float64, w float64)
 
 	// Quantile returns the estimated q-quantile for q in [0, 1].

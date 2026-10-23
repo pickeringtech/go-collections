@@ -12,9 +12,7 @@ sketches** each live in their own sub-package:
 | [`bloom`](./bloom)       | "Have I seen this before?" (membership)   | items × target rate  |
 | [`countmin`](./countmin) | "How often have I seen this?" (frequency) | target accuracy only |
 | [`hll`](./hll)           | "How many distinct things?" (cardinality) | precision only       |
-
-> A streaming-quantiles sketch (t-digest) is co-designed with the `stats`
-> quantile work and lives with that package, not here.
+| [`tdigest`](./tdigest)   | "What's the p99?" (quantiles)             | compression × log(n) |
 
 The streaming sketches share a common design: bounded, configurable accuracy
 with documented error bounds; seeded, pluggable hashing (`WithSeed`/`WithHasher`)
@@ -62,6 +60,10 @@ for _, word := range []string{"the", "lazy", "brown", "dog"} {
 est, ok := sketches.EstimatedJaccard(a, b)
 // ok == true; est ≈ Jaccard({the,quick,brown,fox}, {the,lazy,brown,dog}) = 2/6
 ```
+
+Two **empty** sketches yield `(0, false)`: the Jaccard similarity of two empty
+sets is 0/0, so it is reported as undefined (and as 0, matching
+`ml/similarity.Jaccard`) rather than as a perfect match.
 
 ### Accuracy
 

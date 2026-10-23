@@ -2,6 +2,7 @@ package tdigest_test
 
 import (
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -76,6 +77,57 @@ func FuzzDigest_BoundedError(f *testing.F) {
 			if math.Abs(got-exact) > tol {
 				t.Fatalf("Quantile(%v) = %v, exact = %v, |diff| %v > tol %v",
 					q, got, exact, math.Abs(got-exact), tol)
+			}
+		}
+	})
+}
+
+// FuzzDigest_CDF checks CDF against the exact empirical CDF (the fraction of
+// values at or below x). Below a couple of hundred unit-weight values the
+// default compression never merges two values into one centroid, so every
+// centroid is a point mass and CDF must equal the empirical CDF exactly — at
+// every observed value (ties included) and between them. Larger inputs must
+// still give a non-decreasing CDF in [0, 1].
+func FuzzDigest_CDF(f *testing.F) {
+	f.Add([]byte{1, 2, 3})
+	f.Add([]byte{})
+	f.Add([]byte{5, 5, 5, 5})
+	f.Add([]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 1})
+	f.Add([]byte{1, 5, 5, 5, 5, 9})
+
+	f.Fuzz(func(t *testing.T, raw []byte) {
+		values := make([]float64, len(raw))
+		for i, b := range raw {
+			values[i] = float64(b % 32) // a small domain so ties are common
+		}
+		d, err := tdigest.New()
+		if err != nil {
+			t.Fatalf("New: %v", err)
+		}
+		for _, v := range values {
+			d.Add(v)
+		}
+		if len(values) == 0 {
+			_, ok := d.CDF(0)
+			if ok {
+				t.Fatal("CDF on empty digest returned ok=true")
+			}
+			return
+		}
+		sorted := append([]float64(nil), values...)
+		sort.Float64s(sorted)
+		prev := 0.0
+		for x := -1.0; x <= 33; x += 0.5 {
+			got, ok := d.CDF(x)
+			if !ok || got < prev || got > 1 {
+				t.Fatalf("CDF(%v) = (%v, %v) after %v; want non-decreasing in [0, 1]", x, got, ok, prev)
+			}
+			prev = got
+			if len(values) < 200 {
+				want := float64(sort.Search(len(sorted), func(i int) bool { return sorted[i] > x })) / float64(len(sorted))
+				if got != want {
+					t.Fatalf("CDF(%v) = %v over %d values, want exact %v", x, got, len(values), want)
+				}
 			}
 		}
 	})

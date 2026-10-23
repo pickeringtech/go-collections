@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/sketches/bloom"
@@ -247,4 +248,90 @@ func ExampleFilter_Merge() {
 	fmt.Println(west.Contains("user-1"), west.Contains("user-2"))
 	// Output:
 	// true true
+}
+
+// TestFilter_SignedZeroNoFalseNegative guards the no-false-negatives guarantee
+// for floats: +0 == -0, so after adding one the filter must report the other
+// present. Every NaN is treated as the same element (see sketchhash).
+func TestFilter_SignedZeroNoFalseNegative(t *testing.T) {
+	negZero := math.Copysign(0, -1)
+	tests := []struct {
+		name     string
+		contains func() bool
+	}{
+		{"float64 -0 after +0", func() bool {
+			f := mustNew[float64](t, 1000, 0.01)
+			f.Add(0)
+			return f.Contains(negZero)
+		}},
+		{"float64 +0 after -0", func() bool {
+			f := mustNew[float64](t, 1000, 0.01)
+			f.Add(negZero)
+			return f.Contains(0)
+		}},
+		{"float32 -0 after +0", func() bool {
+			f := mustNew[float32](t, 1000, 0.01)
+			f.Add(0)
+			return f.Contains(float32(negZero))
+		}},
+		{"NaN with another payload", func() bool {
+			f := mustNew[float64](t, 1000, 0.01)
+			f.Add(math.NaN())
+			return f.Contains(math.Float64frombits(0x7FF0_0000_0000_0001))
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !tt.contains() {
+				t.Error("Contains = false, want true (an equal value was added)")
+			}
+		})
+	}
+}
+
+// TestFilter_InterfaceKeysDistinguishTypes checks that a Filter[any] does not
+// report a value of another dynamic type as present just because it has the
+// same numeric value: any(int(5)) and any(int64(5)) are distinct keys under ==.
+// The rate is set low enough that a false positive here is not plausible.
+func TestFilter_InterfaceKeysDistinguishTypes(t *testing.T) {
+	f := mustNew[any](t, 100, 1e-9)
+	f.Add(int(5))
+	f.Add(1.0)
+	tests := []struct {
+		name  string
+		probe any
+		want  bool
+	}{
+		{"same type and value is present", int(5), true},
+		{"float64 is present", 1.0, true},
+		{"int64 of the same value is absent", int64(5), false},
+		{"uint8 of the same value is absent", uint8(5), false},
+		{"uintptr of the same value is absent", uintptr(5), false},
+		{"uint64 bit pattern of the float is absent", math.Float64bits(1.0), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := f.Contains(tt.probe)
+			if got != tt.want {
+				t.Errorf("Contains(%T(%v)) = %v, want %v", tt.probe, tt.probe, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestNew_SizeCapFollowsAddressSpace checks that New rejects, with
+// ErrInvalidConfig, a filter whose bit array could not be allocated on this
+// platform, rather than panicking in make. The fixed 2^40-bit cap assumed a
+// 64-bit address space; on a 32-bit platform 2e9 items at a 1e-12 rate need
+// ~1.2e11 bits (14 GB), under that cap but far beyond what make can address.
+// The tighter cap only binds on 32-bit platforms; the 64-bit cap is exercised
+// by TestNew_InvalidConfig.
+func TestNew_SizeCapFollowsAddressSpace(t *testing.T) {
+	if strconv.IntSize != 32 {
+		t.Skip("the address-space cap is tighter than the 2^40-bit cap only on 32-bit platforms")
+	}
+	_, err := bloom.New[int](2_000_000_000, 1e-12)
+	if !errors.Is(err, bloom.ErrInvalidConfig) {
+		t.Errorf("New(2e9, 1e-12) error = %v, want ErrInvalidConfig", err)
+	}
 }

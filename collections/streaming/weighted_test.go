@@ -1,6 +1,7 @@
 package streaming_test
 
 import (
+	"fmt"
 	"math"
 	"reflect"
 	"sort"
@@ -30,6 +31,9 @@ func TestWeightedReservoir_RetainsAllWhenStreamAtMostK(t *testing.T) {
 		{name: "exactly k keeps all", args: args{stream: []elem{{1, 2}, {2, 3}, {3, 4}}, k: 3}, want: []int{1, 2, 3}},
 		{name: "non-positive weights ignored", args: args{stream: []elem{{1, 1}, {2, 0}, {3, -5}, {4, 2}}, k: 5}, want: []int{1, 4}},
 		{name: "NaN weight ignored", args: args{stream: []elem{{1, 1}, {2, math.NaN()}, {3, 2}}, k: 5}, want: []int{1, 3}},
+		{name: "infinite weight ignored", args: args{stream: []elem{{1, 1}, {2, math.Inf(1)}, {3, 2}}, k: 5}, want: []int{1, 3}},
+		{name: "negative infinite weight ignored", args: args{stream: []elem{{1, 1}, {2, math.Inf(-1)}}, k: 5}, want: []int{1}},
+		{name: "subnormal weight counts", args: args{stream: []elem{{1, 1}, {2, 5e-324}}, k: 5}, want: []int{1, 2}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -154,5 +158,71 @@ func TestWeightedReservoir_ResultOrderedByRetentionStrength(t *testing.T) {
 	sort.Ints(sorted)
 	if !reflect.DeepEqual(sorted, []int{1, 2, 3}) {
 		t.Errorf("sample = %v, want a permutation of [1 2 3]", got)
+	}
+}
+
+// TestWeightedReservoir_UniformForEqualWeightsAtAnyScale checks that equal
+// weights give a uniform sample whatever their magnitude. The key u^(1/w)
+// underflowed to 0 for small weights and rounded to 1 for huge ones; the
+// resulting ties never displace an incumbent, so the earliest elements won:
+// with all weights 1e-5 the first half of the stream supplied 96% of the
+// sample, and with 1e17 all of it. Trials are seeded by index, so the test is
+// deterministic.
+func TestWeightedReservoir_UniformForEqualWeightsAtAnyScale(t *testing.T) {
+	const (
+		n      = 100
+		k      = 10
+		trials = 2000
+	)
+	for _, weight := range []float64{1, 1e-5, 1e17, 1e-300, 1e300, math.MaxFloat64, 5e-324} {
+		t.Run(fmt.Sprintf("weight %g", weight), func(t *testing.T) {
+			perDecile := make([]int, 10)
+			for trial := int64(0); trial < trials; trial++ {
+				r := streaming.NewWeightedReservoir[int](k, streaming.NewRand(trial))
+				for v := 0; v < n; v++ {
+					r.Add(v, weight)
+				}
+				for _, v := range r.Result() {
+					perDecile[v/10]++
+				}
+			}
+			// Each decile should supply a tenth of the trials·k picks (2000);
+			// its standard deviation is ≈ 40, so ±10% is about five of them.
+			want := trials * k / 10
+			for decile, got := range perDecile {
+				if got < want*9/10 || got > want*11/10 {
+					t.Errorf("elements %d-%d supplied %d of %d picks, want ≈ %d (uniform)",
+						decile*10, decile*10+9, got, trials*k, want)
+				}
+			}
+		})
+	}
+}
+
+// TestWeightedReservoir_ProportionalAtExtremeScales checks that selection stays
+// proportional to weight when every weight is scaled far from 1: only the
+// ratios matter, so weights {1, 2, 3, 4}·s must behave like {1, 2, 3, 4}.
+func TestWeightedReservoir_ProportionalAtExtremeScales(t *testing.T) {
+	weights := []float64{1, 2, 3, 4}
+	const trials = 20000
+	for _, scale := range []float64{1e-5, 1e17, 1e-300, 1e300} {
+		t.Run(fmt.Sprintf("scale %g", scale), func(t *testing.T) {
+			counts := make([]int, len(weights))
+			for trial := int64(0); trial < trials; trial++ {
+				r := streaming.NewWeightedReservoir[int](1, streaming.NewRand(trial))
+				for v, w := range weights {
+					r.Add(v, w*scale)
+				}
+				counts[r.Result()[0]]++
+			}
+			for v, w := range weights {
+				want := float64(trials) * w / 10
+				rel := math.Abs(float64(counts[v])-want) / want
+				if rel > 0.07 {
+					t.Errorf("element %d (weight %g) selected %d times, expected ≈ %.0f (rel error %.3f > 0.07)",
+						v, w*scale, counts[v], want, rel)
+				}
+			}
+		})
 	}
 }

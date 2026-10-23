@@ -7,10 +7,11 @@ import (
 )
 
 // FuzzEstimatedJaccard asserts that EstimatedJaccard always returns a value
-// in [0, 1] for any pair of string sets derived from the fuzzer's byte inputs.
+// in [0, 1] for any pair of byte sets derived from the fuzzer's inputs.
 //
 // The two sketches share the same construction parameters (nil rng → default
-// seed, same numHashes) so they are always compatible (ok == true).
+// seed, same numHashes) so they are always compatible: ok is false only when
+// both sets are empty (Jaccard 0/0 is undefined), and then the value is 0.
 func FuzzEstimatedJaccard(f *testing.F) {
 	// Seed corpus: the first byte slice populates sketch a, the second sketch b.
 	f.Add([]byte(nil), []byte(nil))
@@ -34,11 +35,16 @@ func FuzzEstimatedJaccard(f *testing.F) {
 		}
 
 		est, ok := sketches.EstimatedJaccard(a, b)
-		if !ok {
-			t.Fatalf("EstimatedJaccard returned ok=false for compatible sketches")
+		bothEmpty := len(dataA) == 0 && len(dataB) == 0
+		if ok == bothEmpty {
+			t.Fatalf("EstimatedJaccard ok = %v for |A|=%d, |B|=%d; want ok only when a set is non-empty",
+				ok, len(dataA), len(dataB))
 		}
 		if est < 0 || est > 1 {
 			t.Fatalf("EstimatedJaccard = %v, want in [0, 1]", est)
+		}
+		if bothEmpty && est != 0 {
+			t.Fatalf("EstimatedJaccard of two empty sets = %v, want 0", est)
 		}
 	})
 }

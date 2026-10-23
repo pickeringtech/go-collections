@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/sketches/countmin"
@@ -226,4 +227,68 @@ func ExampleSketch() {
 	// go: 3
 	// rust: 2
 	// zig: 1
+}
+
+// TestSketch_SignedZeroNeverUnderCounts guards the never-under-count guarantee
+// for floats: +0 == -0, so their occurrences are one element's count.
+func TestSketch_SignedZeroNeverUnderCounts(t *testing.T) {
+	s := mustNew[float64](t, 0.01, 0.01)
+	s.AddCount(0, 10)
+	s.AddCount(math.Copysign(0, -1), 5)
+	got := s.Estimate(math.Copysign(0, -1))
+	if got < 15 {
+		t.Errorf("Estimate(-0) = %d after 10×(+0) and 5×(-0), want >= 15", got)
+	}
+}
+
+// TestSketch_FailureRateWithinDelta checks the (epsilon, delta) guarantee
+// empirically on a narrow table: epsilon=0.17, delta=1e-4 gives a 16×10
+// sketch. One heavy hitter carries 90% of N, so an absent key's estimate
+// exceeds epsilon·N only if every row maps it onto the heavy hitter's column.
+// With independent rows that is a (1/16)^10 event; when every row's column was
+// (h1 + row·h2) mod w, a key matching the heavy hitter's (h1, h2) mod w collided
+// in all rows at once, flooring the failure rate near 1/128 — 77× delta.
+func TestSketch_FailureRateWithinDelta(t *testing.T) {
+	const (
+		epsilon = 0.17
+		delta   = 1e-4
+		queries = 200_000
+	)
+	s := mustNew[uint64](t, epsilon, delta)
+	if s.Width() != 16 || s.Depth() != 10 {
+		t.Fatalf("dimensions = %d×%d, want 16×10", s.Width(), s.Depth())
+	}
+	s.AddCount(1<<62, 900)
+	for i := uint64(0); i < 100; i++ {
+		s.Add(1<<61 + i)
+	}
+	bound := epsilon * float64(s.Total())
+	failures := 0
+	for i := uint64(0); i < queries; i++ {
+		// Keys never added: their true count is 0.
+		if float64(s.Estimate(1<<40+i)) > bound {
+			failures++
+		}
+	}
+	rate := float64(failures) / queries
+	if rate > delta {
+		t.Errorf("P(overshoot > epsilon·N) = %.5f over %d absent keys, want <= delta %v", rate, queries, delta)
+	}
+}
+
+// TestNew_SizeCapFollowsAddressSpace checks that New rejects, with
+// ErrInvalidConfig, a counter table that could not be allocated on this
+// platform, rather than panicking in make. The fixed 2^40-counter cap assumed a
+// 64-bit address space; on a 32-bit platform epsilon=1e-9 needs ~1.4e10
+// counters (108 GB), under that cap but far beyond what make can address. The
+// tighter cap only binds on 32-bit platforms; the 64-bit cap is exercised by
+// TestNew_InvalidConfig.
+func TestNew_SizeCapFollowsAddressSpace(t *testing.T) {
+	if strconv.IntSize != 32 {
+		t.Skip("the address-space cap is tighter than the 2^40-counter cap only on 32-bit platforms")
+	}
+	_, err := countmin.New[int](1e-9, 0.01)
+	if !errors.Is(err, countmin.ErrInvalidConfig) {
+		t.Errorf("New(1e-9, 0.01) error = %v, want ErrInvalidConfig", err)
+	}
 }

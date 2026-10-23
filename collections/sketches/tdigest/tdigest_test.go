@@ -2,8 +2,10 @@ package tdigest_test
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"math/rand/v2"
+	"sort"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/sketches/tdigest"
@@ -551,5 +553,399 @@ func TestDigest_MergeEmpty(t *testing.T) {
 	}
 	if got, ok := target.Quantile(0); !ok || got != 10 {
 		t.Errorf("Quantile(0) after merge into empty = (%v, %v), want (10, true)", got, ok)
+	}
+}
+
+// TestDigest_MergeSelf checks that d.Merge(d) behaves exactly like merging an
+// identical copy. Merge used to append other's centroids to the receiver's
+// buffer and then read other.buffer — by then the receiver's own, already
+// extended buffer — so a self-merge absorbed the centroids three times over:
+// 1000 adds then Merge(self) reported Count 2000 but carried weight 2501, and
+// the median moved from ~500 to ~333.
+func TestDigest_MergeSelf(t *testing.T) {
+	values := make([]float64, 1000)
+	for i := range values {
+		values[i] = float64(i)
+	}
+	tests := []struct {
+		name    string
+		prepare func(d *tdigest.Digest)
+	}{
+		{"with unmerged buffer", func(*tdigest.Digest) {}},
+		{"after compression", func(d *tdigest.Digest) { _, _ = d.Quantile(0.5) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			self := buildDigest(t, 100, values)
+			viaCopy := buildDigest(t, 100, values)
+			duplicate := buildDigest(t, 100, values)
+			tt.prepare(self)
+			tt.prepare(viaCopy)
+			tt.prepare(duplicate)
+
+			err := self.Merge(self)
+			if err != nil {
+				t.Fatalf("Merge(self): %v", err)
+			}
+			err = viaCopy.Merge(duplicate)
+			if err != nil {
+				t.Fatalf("Merge(copy): %v", err)
+			}
+			if self.Count() != 2000 {
+				t.Errorf("Count after Merge(self) = %v, want 2000", self.Count())
+			}
+			for _, q := range []float64{0.01, 0.25, 0.5, 0.75, 0.99} {
+				got, _ := self.Quantile(q)
+				want, _ := viaCopy.Quantile(q)
+				if got != want {
+					t.Errorf("Quantile(%v) after Merge(self) = %v, want %v (as merging a copy)", q, got, want)
+				}
+			}
+			median, _ := self.Quantile(0.5)
+			if math.Abs(median-499.5) > 10 {
+				t.Errorf("median after Merge(self) = %v, want ≈ 499.5", median)
+			}
+		})
+	}
+}
+
+// assertFiniteQueries fails the test if any query on d returns ok=false or a
+// non-finite or out-of-range result.
+func assertFiniteQueries(t *testing.T, d *tdigest.Digest) {
+	t.Helper()
+	if math.IsInf(d.Count(), 0) || math.IsNaN(d.Count()) {
+		t.Fatalf("Count() = %v, want finite", d.Count())
+	}
+	lo, _ := d.Min()
+	hi, _ := d.Max()
+	for _, q := range []float64{0, 0.01, 0.25, 0.5, 0.75, 0.99, 1} {
+		got, ok := d.Quantile(q)
+		if !ok || math.IsNaN(got) || got < lo || got > hi {
+			t.Errorf("Quantile(%v) = (%v, %v), want a value in [%v, %v]", q, got, ok, lo, hi)
+		}
+	}
+	// lo/2 + hi/2 rather than (lo+hi)/2, which overflows for extreme data.
+	for _, x := range []float64{lo, lo/2 + hi/2, hi} {
+		got, ok := d.CDF(x)
+		if !ok || math.IsNaN(got) || got < 0 || got > 1 {
+			t.Errorf("CDF(%v) = (%v, %v), want a fraction in [0, 1]", x, got, ok)
+		}
+	}
+}
+
+// TestDigest_AddWeightedRejectsUnusableWeights checks that AddWeighted ignores
+// a weight that is not a positive finite number, and a weight that would push
+// the total weight past math.MaxFloat64. An infinite weight, or a total that
+// overflowed to +Inf, used to be accepted and turned every later query into
+// NaN with ok=true.
+func TestDigest_AddWeightedRejectsUnusableWeights(t *testing.T) {
+	tests := []struct {
+		name      string
+		weight    float64
+		wantCount float64
+	}{
+		{name: "positive infinite weight is ignored", weight: math.Inf(1), wantCount: 2},
+		{name: "negative infinite weight is ignored", weight: math.Inf(-1), wantCount: 2},
+		{name: "NaN weight is ignored", weight: math.NaN(), wantCount: 2},
+		{name: "zero weight is ignored", weight: 0, wantCount: 2},
+		{name: "negative weight is ignored", weight: -1, wantCount: 2},
+		{name: "a weight overflowing the total is ignored", weight: math.MaxFloat64, wantCount: math.MaxFloat64},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := buildDigest(t, 100, []float64{2, 3})
+			if tt.weight == math.MaxFloat64 {
+				// Fill the digest to the limit first: this weight still fits
+				// (2 + MaxFloat64 rounds to MaxFloat64), the second does not.
+				d = buildDigest(t, 100, nil)
+				d.AddWeighted(2, math.MaxFloat64)
+			}
+			d.AddWeighted(1, tt.weight)
+			if d.Count() != tt.wantCount {
+				t.Errorf("Count() = %v, want %v", d.Count(), tt.wantCount)
+			}
+			assertFiniteQueries(t, d)
+		})
+	}
+}
+
+// TestDigest_MergeRejectsWeightOverflow checks that a Merge whose combined
+// weight would exceed math.MaxFloat64 returns ErrWeightOverflow and leaves the
+// receiver unchanged, rather than overflowing the total to +Inf.
+func TestDigest_MergeRejectsWeightOverflow(t *testing.T) {
+	heavy := func() *tdigest.Digest {
+		d := buildDigest(t, 100, nil)
+		d.AddWeighted(1, math.MaxFloat64/2)
+		d.AddWeighted(2, math.MaxFloat64/2)
+		return d
+	}
+	tests := []struct {
+		name  string
+		other func(receiver *tdigest.Digest) *tdigest.Digest
+	}{
+		{"another heavy digest", func(*tdigest.Digest) *tdigest.Digest { return heavy() }},
+		{"the receiver itself", func(receiver *tdigest.Digest) *tdigest.Digest { return receiver }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := heavy()
+			before := d.Count()
+			beforeMedian, _ := d.Quantile(0.5)
+			err := d.Merge(tt.other(d))
+			if !errors.Is(err, tdigest.ErrWeightOverflow) {
+				t.Fatalf("Merge error = %v, want ErrWeightOverflow", err)
+			}
+			if d.Count() != before {
+				t.Errorf("Count after rejected Merge = %v, want %v (unchanged)", d.Count(), before)
+			}
+			median, _ := d.Quantile(0.5)
+			if median != beforeMedian {
+				t.Errorf("median after rejected Merge = %v, want %v (unchanged)", median, beforeMedian)
+			}
+			assertFiniteQueries(t, d)
+		})
+	}
+}
+
+// TestDigest_ExtremeFiniteValuesStayFinite checks that finite inputs near
+// ±math.MaxFloat64 never produce a non-finite estimate. The centroid-mean
+// update computed (next-cur)·w/W and the interpolation computed v0 + f·(v1-v0);
+// both overflow when the operands span more than math.MaxFloat64 (or when a
+// huge weight multiplies the gap), so {-1.7e308, 1.7e308} gave Quantile(0.5) =
+// +Inf and CDF(1e308) = NaN with ok=true, and compression could store a ±Inf
+// centroid mean.
+func TestDigest_ExtremeFiniteValuesStayFinite(t *testing.T) {
+	type args struct {
+		compression float64
+		values      []float64
+		weight      float64
+	}
+	repeated := func(n int, xs ...float64) []float64 {
+		out := make([]float64, 0, n*len(xs))
+		for i := 0; i < n; i++ {
+			out = append(out, xs...)
+		}
+		return out
+	}
+	tests := []struct {
+		name       string
+		args       args
+		wantMedian float64
+		medianTol  float64
+	}{
+		{
+			name:       "two opposite extremes",
+			args:       args{compression: 100, values: []float64{-1.7e308, 1.7e308}, weight: 1},
+			wantMedian: 0,
+		},
+		{
+			name:       "the float64 range end to end",
+			args:       args{compression: 100, values: []float64{-math.MaxFloat64, 0, math.MaxFloat64}, weight: 1},
+			wantMedian: 0,
+		},
+		{
+			name:       "many opposite extremes merged into centroids",
+			args:       args{compression: 100, values: repeated(500, -1.7e308, 1.7e308), weight: 1},
+			wantMedian: 0,
+			medianTol:  1.7e308,
+		},
+		{
+			// Halving a subnormal rank loses it entirely, so the overflow-safe
+			// path must only be taken when a span actually overflows.
+			name:       "subnormal weights",
+			args:       args{compression: 100, values: []float64{0, 1, 2, 3, 4}, weight: 5e-324},
+			wantMedian: 2,
+		},
+		{
+			name: "huge weights merged at low compression",
+			args: args{compression: 1, values: []float64{0, 10, 20, 30, 40}, weight: math.MaxFloat64 / 8},
+			// Every value carries the same weight, so the median is the middle value
+			// up to the digest's coarseness at compression 1.
+			wantMedian: 20,
+			medianTol:  20,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := buildDigest(t, tt.args.compression, nil)
+			for _, v := range tt.args.values {
+				d.AddWeighted(v, tt.args.weight)
+			}
+			assertFiniteQueries(t, d)
+			median, _ := d.Quantile(0.5)
+			if math.Abs(median-tt.wantMedian) > tt.medianTol {
+				t.Errorf("Quantile(0.5) = %v, want %v ± %v", median, tt.wantMedian, tt.medianTol)
+			}
+			c, ok := d.CDF(1e308)
+			if !ok || math.IsNaN(c) || c < 0 || c > 1 {
+				t.Errorf("CDF(1e308) = (%v, %v), want a fraction in [0, 1]", c, ok)
+			}
+		})
+	}
+}
+
+// exactCDF returns the fraction of values at or below x — the empirical CDF
+// that Digest.CDF estimates. sorted must be in ascending order.
+func exactCDF(sorted []float64, x float64) float64 {
+	atOrBelow := sort.Search(len(sorted), func(i int) bool { return sorted[i] > x })
+	return float64(atOrBelow) / float64(len(sorted))
+}
+
+// TestDigest_CDFAtRepeatedValues checks CDF's "fraction at or below x"
+// contract where values repeat, including at the minimum. CDF used to read
+// the rank of the first centroid at x's centre, leaving out the weight sitting
+// exactly at x: 9×0 then 1 gave CDF(0) = 0 (true 0.9), and 1, 50×5, 9 gave
+// CDF(5) ≈ 0.03 (true 51/52).
+func TestDigest_CDFAtRepeatedValues(t *testing.T) {
+	type point struct {
+		value, weight float64
+	}
+	repeat := func(value float64, n int) []point {
+		out := make([]point, n)
+		for i := range out {
+			out[i] = point{value: value, weight: 1}
+		}
+		return out
+	}
+	concat := func(parts ...[]point) []point {
+		var out []point
+		for _, p := range parts {
+			out = append(out, p...)
+		}
+		return out
+	}
+	tests := []struct {
+		name   string
+		points []point
+		x      float64
+		want   float64
+	}{
+		{"repeated minimum", concat(repeat(0, 9), repeat(1, 1)), 0, 0.9},
+		{"just above a repeated minimum", concat(repeat(0, 9), repeat(1, 1)), 0.5, 0.9},
+		{"repeated interior value", concat(repeat(1, 1), repeat(5, 50), repeat(9, 1)), 5, 51.0 / 52},
+		{"just below a repeated interior value", concat(repeat(1, 1), repeat(5, 50), repeat(9, 1)), 4.999, 1.0 / 52},
+		{"singleton minimum", concat(repeat(1, 1), repeat(5, 50), repeat(9, 1)), 1, 1.0 / 52},
+		{"heavily weighted interior point", []point{{1, 1}, {5, 1000}, {9, 1}}, 5, 1001.0 / 1002},
+		{"distinct singletons", concat(repeat(1, 1), repeat(2, 1), repeat(3, 1), repeat(4, 1), repeat(5, 1)), 3, 0.6},
+		{"between distinct singletons", concat(repeat(1, 1), repeat(2, 1), repeat(3, 1), repeat(4, 1), repeat(5, 1)), 3.5, 0.6},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := buildDigest(t, 100, nil)
+			for _, p := range tt.points {
+				d.AddWeighted(p.value, p.weight)
+			}
+			got, ok := d.CDF(tt.x)
+			if !ok || math.Abs(got-tt.want) > 1e-12 {
+				t.Errorf("CDF(%v) = (%v, %v), want (%v, true)", tt.x, got, ok, tt.want)
+			}
+		})
+	}
+}
+
+// TestDigest_CDFMatchesEmpiricalCDF compares CDF against the exact empirical
+// CDF on large streams, with and without ties, at every distinct value of a
+// discrete stream and at a grid of points of a continuous one. Ties are where
+// the old midpoint-only estimate was furthest off: it dropped the whole
+// weight sitting at x.
+func TestDigest_CDFMatchesEmpiricalCDF(t *testing.T) {
+	rng := rand.New(rand.NewPCG(5, 9))
+	discrete := make([]float64, 20000)
+	for i := range discrete {
+		discrete[i] = float64(rng.IntN(20)) // 20 distinct values, ~5% of the weight each
+	}
+	continuous := make([]float64, 20000)
+	for i := range continuous {
+		continuous[i] = rng.NormFloat64()
+	}
+	mixed := make([]float64, 0, 20000)
+	mixed = append(mixed, continuous[:15000]...)
+	for i := 0; i < 5000; i++ {
+		mixed = append(mixed, 0.25) // a 25% point mass inside a continuous body
+	}
+	gridOf := func(values []float64) []float64 {
+		lo, hi, _ := stats.MinMax(values)
+		grid := []float64{0.25}
+		for i := 0; i <= 100; i++ {
+			grid = append(grid, lo+(hi-lo)*float64(i)/100)
+		}
+		return grid
+	}
+	tests := []struct {
+		name   string
+		values []float64
+		at     []float64
+	}{
+		{"discrete values", discrete, []float64{0, 1, 2, 5, 9.5, 10, 13, 18, 19}},
+		{"continuous values", continuous, gridOf(continuous)},
+		{"point mass in a continuous body", mixed, gridOf(mixed)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := buildDigest(t, 100, tt.values)
+			sorted := append([]float64(nil), tt.values...)
+			sort.Float64s(sorted)
+			for _, x := range tt.at {
+				got, ok := d.CDF(x)
+				want := exactCDF(sorted, x)
+				if !ok || math.Abs(got-want) > 0.02 {
+					t.Errorf("CDF(%v) = (%v, %v), exact %v, |diff| > 0.02", x, got, ok, want)
+				}
+			}
+		})
+	}
+}
+
+// TestDigest_CDFIsMonotone checks that CDF never decreases as x grows — across
+// point masses, wide centroids and the extremes — and stays in [0, 1].
+func TestDigest_CDFIsMonotone(t *testing.T) {
+	rng := rand.New(rand.NewPCG(2, 4))
+	d := buildDigest(t, 50, nil)
+	for i := 0; i < 5000; i++ {
+		d.Add(math.Round(rng.NormFloat64()*4) / 2) // many ties on a half-integer grid
+		d.Add(rng.NormFloat64() * 3)
+	}
+	other := buildDigest(t, 50, nil)
+	for i := 0; i < 3000; i++ {
+		other.Add(math.Round(rng.NormFloat64() * 3))
+	}
+	err := d.Merge(other)
+	if err != nil {
+		t.Fatalf("Merge: %v", err)
+	}
+	prev := 0.0
+	for x := -20.0; x <= 20; x += 0.01 {
+		got, ok := d.CDF(x)
+		if !ok || got < prev || got > 1 {
+			t.Fatalf("CDF(%v) = (%v, %v) after CDF = %v just below it; want non-decreasing in [0, 1]", x, got, ok, prev)
+		}
+		prev = got
+	}
+}
+
+// TestDigest_CDFAtMinimumCountsTheMinimum pins the documented x == Min()
+// behaviour: from compression 4 upwards the smallest observation always stays
+// a point mass, so CDF(Min()) is at least its weight's share, even after a
+// Merge. (Below 4 the scale function lets it merge, and the doc says so.)
+func TestDigest_CDFAtMinimumCountsTheMinimum(t *testing.T) {
+	for _, compression := range []float64{4, 20, 100, 500} {
+		t.Run(fmt.Sprintf("compression %v", compression), func(t *testing.T) {
+			rng := rand.New(rand.NewPCG(uint64(compression), 1))
+			a := buildDigest(t, compression, nil)
+			b := buildDigest(t, compression, nil)
+			for i := 0; i < 3000; i++ {
+				a.Add(rng.NormFloat64())
+				b.Add(rng.NormFloat64() + 1)
+			}
+			err := a.Merge(b)
+			if err != nil {
+				t.Fatalf("Merge: %v", err)
+			}
+			lo, _ := a.Min()
+			got, ok := a.CDF(lo)
+			if !ok || got < 1/a.Count() {
+				t.Errorf("CDF(Min()) = (%v, %v), want at least 1/Count = %v", got, ok, 1/a.Count())
+			}
+		})
 	}
 }

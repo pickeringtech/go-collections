@@ -223,3 +223,74 @@ func ExampleSketch() {
 	// Output:
 	// within 2%: true
 }
+
+// TestSketch_SignedZeroIsOneElement checks that +0 and -0 (equal under ==) are
+// counted as one distinct element, and every NaN payload as another single one.
+func TestSketch_SignedZeroIsOneElement(t *testing.T) {
+	s := mustNew[float64](t)
+	s.Add(0)
+	s.Add(math.Copysign(0, -1))
+	s.Add(math.NaN())
+	s.Add(math.Float64frombits(0x7FF0_0000_0000_0001))
+	s.Add(math.Copysign(math.NaN(), -1))
+	got := s.Count()
+	if got != 2 {
+		t.Errorf("Count() = %d for {+0, -0, NaN×3}, want 2", got)
+	}
+}
+
+// TestSketch_SeedsGiveIndependentEstimates runs the same stream through sketches
+// with seeds 0..63 and checks the estimates behave like independent trials:
+// their mean relative error is near zero and their spread is near the
+// documented StandardError. When seeds were not mixed properly, seeds 0..255
+// gave bit-identical registers for 256-aligned integer keys, so every "trial"
+// returned the same estimate (zero spread, and a mean error equal to one
+// trial's error).
+func TestSketch_SeedsGiveIndependentEstimates(t *testing.T) {
+	const (
+		precision = 10 // m = 1024, StandardError ≈ 3.25%
+		n         = 4096
+		trials    = 64
+	)
+	var sum, sumSq float64
+	var se float64
+	for seed := uint64(0); seed < trials; seed++ {
+		s := mustNew[int](t, hll.WithPrecision[int](precision), hll.WithSeed[int](seed))
+		for i := 0; i < n; i++ {
+			s.Add(i)
+		}
+		rel := (float64(s.Count()) - n) / n
+		sum += rel
+		sumSq += rel * rel
+		se = s.StandardError()
+	}
+	mean := sum / trials
+	spread := math.Sqrt(sumSq/trials - mean*mean)
+	// The mean of 64 independent trials has standard error se/8; allow 4 of them.
+	if math.Abs(mean) > 4*se/8 {
+		t.Errorf("mean relative error across seeds = %+.4f, want within ±%.4f", mean, 4*se/8)
+	}
+	if spread < se/2 || spread > 2*se {
+		t.Errorf("spread of estimates across seeds = %.4f, want within [%.4f, %.4f] of StandardError %.4f",
+			spread, se/2, 2*se, se)
+	}
+}
+
+// TestSketch_InterfaceKeysCountedByType checks that a Sketch[any] counts values
+// of different dynamic types as distinct, as == does: int(i), int64(i),
+// uint32(i) and float64(i) are four keys, not one.
+func TestSketch_InterfaceKeysCountedByType(t *testing.T) {
+	s := mustNew[any](t)
+	for i := 0; i < 1000; i++ {
+		s.Add(i) // dynamic type int
+		s.Add(int64(i))
+		s.Add(uint32(i))
+		s.Add(float64(i))
+	}
+	got := s.Count()
+	tolerance := 3*s.StandardError() + 0.01
+	e := relErr(got, 4000)
+	if e > tolerance {
+		t.Errorf("Count() = %d for 4000 distinct any keys, relative error %.4f exceeds %.4f", got, e, tolerance)
+	}
+}

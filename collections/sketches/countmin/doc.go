@@ -37,10 +37,15 @@
 //
 // # Hashing
 //
-// Hashing is seeded and deterministic. Each of the d rows is indexed by an
-// independent column derived from two base hashes via Kirsch–Mitzenmacher
-// double hashing. Use WithSeed to vary the seed and WithHasher to supply a
-// custom hash for exotic key types or cross-process reproducibility.
+// Hashing is seeded and deterministic. Each of the d rows is indexed by a
+// column derived from two base hashes via Kirsch–Mitzenmacher double hashing;
+// each row's position is passed through a 64-bit finalizer before it is reduced
+// modulo the width, so the rows behave as independent hash functions — the
+// assumption behind the delta bound — whatever the width. Use WithSeed to vary the seed and WithHasher to supply a
+// custom hash for exotic key types or cross-process reproducibility. The
+// default hasher counts keys that are equal under == as the same element —
+// float keys are hashed by value, so +0 and -0 share one count — and counts
+// every NaN as one element too.
 //
 // # Mergeability
 //

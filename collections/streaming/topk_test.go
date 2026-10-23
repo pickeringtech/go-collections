@@ -1,6 +1,7 @@
 package streaming_test
 
 import (
+	"math"
 	"reflect"
 	"sort"
 	"testing"
@@ -138,5 +139,56 @@ func TestTopK_CustomLessFunc(t *testing.T) {
 	want := []job{{"deploy", 9}, {"incident", 7}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Result() = %v, want %v", got, want)
+	}
+}
+
+// sameFloats reports whether a and b hold the same values in order, treating
+// NaN as equal to NaN (reflect.DeepEqual does not).
+func sameFloats(a, b []float64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] && !(math.IsNaN(a[i]) && math.IsNaN(b[i])) {
+			return false
+		}
+	}
+	return true
+}
+
+// TestTopKOrdered_NaNRanksLowest checks that NaN cannot block a float TopK.
+// Ranked with a < b, NaN compares false both ways: once at the heap's root
+// every later element failed to beat it and was discarded, so the top 3 of
+// {NaN, 1, 2, 100, 200, 300} came out as [2 1 NaN]. NaN now ranks below every
+// other value (cmp.Less), so it is kept only while fewer than k other values
+// have been seen.
+func TestTopKOrdered_NaNRanksLowest(t *testing.T) {
+	nan := math.NaN()
+	type args struct {
+		k      int
+		stream []float64
+	}
+	tests := []struct {
+		name string
+		args args
+		want []float64
+	}{
+		{name: "NaN first", args: args{k: 3, stream: []float64{nan, 1, 2, 100, 200, 300}}, want: []float64{300, 200, 100}},
+		{name: "NaN after the heap fills", args: args{k: 3, stream: []float64{5, 6, 7, nan, 100, 200, 300}}, want: []float64{300, 200, 100}},
+		{name: "NaN kept while fewer than k other values", args: args{k: 3, stream: []float64{nan, 1}}, want: []float64{1, nan}},
+		{name: "negative infinity still beats NaN", args: args{k: 2, stream: []float64{nan, math.Inf(-1), nan}}, want: []float64{math.Inf(-1), nan}},
+		{name: "signed zeros tie", args: args{k: 1, stream: []float64{math.Copysign(0, -1), 0}}, want: []float64{math.Copysign(0, -1)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			top := streaming.NewTopKOrdered[float64](tt.args.k)
+			for _, v := range tt.args.stream {
+				top.Add(v)
+			}
+			got := top.Result()
+			if !sameFloats(got, tt.want) {
+				t.Errorf("Result() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

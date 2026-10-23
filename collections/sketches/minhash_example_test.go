@@ -41,3 +41,13 @@ func ExampleEstimatedJaccard_mismatch() {
 	fmt.Println(ok)
 	// Output: false
 }
+
+func ExampleEstimatedJaccard_empty() {
+	// The Jaccard similarity of two empty sets is 0/0, so it is undefined.
+	a := sketches.NewMinHash[string](64, nil)
+	b := sketches.NewMinHash[string](64, nil)
+
+	est, ok := sketches.EstimatedJaccard(a, b)
+	fmt.Println(est, ok)
+	// Output: 0 false
+}

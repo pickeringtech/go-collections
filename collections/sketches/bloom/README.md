@@ -41,8 +41,12 @@ elements and the false-positive rate climbs above the target;
 
 Hashing is seeded and deterministic. `k` bit positions come from two base hashes
 via Kirsch–Mitzenmacher double hashing (two hashes per op, not `k`). Use
-`WithSeed` to vary the seed and `WithHasher` to plug in a custom hash for exotic
-key types or cross-process reproducibility.
+`WithSeed` to vary the seed (distinct seeds give independent hash functions) and
+`WithHasher` to plug in a custom hash for exotic key types or cross-process
+reproducibility. The default hasher treats keys equal under `==` as one element
+— adding `+0` makes `-0` present — and every NaN as one element too; behind an
+interface key type (`Filter[any]`) values of different dynamic types stay
+distinct, as `==` keeps them.
 
 ## Mergeability
 

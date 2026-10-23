@@ -13,7 +13,8 @@
 //   - [hll] — approximate cardinality. "How many distinct things have I seen?"
 //     in a few kilobytes, even for billions of distinct items.
 //   - [tdigest] — approximate quantiles. "What's the 99th-percentile latency?"
-//     over an unbounded stream, in memory set by a compression parameter.
+//     over an unbounded stream, in memory scaled by a compression parameter
+//     and growing only logarithmically with the stream length.
 //
 // The streaming sketches share a common design: bounded, configurable accuracy
 // with documented error bounds; mergeability (Merge) for parallel and
@@ -44,7 +45,9 @@
 //
 //	// Estimate the Jaccard similarity of the two sets.
 //	est, ok := sketches.EstimatedJaccard(a, b)
-//	// ok == true; est ≈ 0.5 (exact Jaccard = 2/6 ≈ 0.333; MinHash has variance)
+//	// ok == true; est ≈ 0.33, the exact Jaccard |{the, brown}| / 6 = 1/3. The
+//	// estimate varies between program runs (element hashing is seeded per
+//	// process), with a standard deviation of about sqrt(J(1-J)/128) ≈ 0.04.
 //	_ = est
 //	_ = ok
 //
@@ -80,7 +83,10 @@
 // EstimatedJaccard compares two sketches' signatures element-wise and returns
 // the fraction of positions where the minimum hash values agree. It returns
 // ok == false when the two sketches were built with different numHashes or
-// different permutation families (mismatched construction parameters).
+// different permutation families (mismatched construction parameters), and
+// when both sketches are empty: the Jaccard similarity of two empty sets is
+// undefined, so the result is (0, false) rather than the 1 that two untouched
+// signatures would agree on.
 //
 // [bloom]: https://pkg.go.dev/github.com/pickeringtech/go-collections/collections/sketches/bloom
 // [countmin]: https://pkg.go.dev/github.com/pickeringtech/go-collections/collections/sketches/countmin

@@ -2,8 +2,8 @@
 
 A [t-digest](https://github.com/tdunning/t-digest): a streaming, mergeable sketch
 that estimates quantiles (and the inverse CDF) of a stream of `float64` values in
-memory bounded by a compression parameter, independent of how many values it has
-seen.
+memory that scales with a compression parameter and grows only logarithmically
+with how many values it has seen.
 
 ```go
 import "github.com/pickeringtech/go-collections/collections/sketches/tdigest"
@@ -15,15 +15,16 @@ for _, v := range latencies {
 p99, ok := d.Percentile(99) // estimated 99th-percentile latency
 ```
 
-It is the approximate, bounded-memory counterpart of the exact
+It is the approximate, small-memory counterpart of the exact
 [`stats`](../../../stats) quantile functions: where `stats.Quantile` sorts the
 whole sample, a `Digest` keeps only a small set of weighted centroids.
 
 ## The guarantee
 
-- **Bounded memory.** The retained centroid count is roughly proportional to the
-  compression parameter and **independent of the stream length** — a long-running
-  stream never grows the digest.
+- **Small memory.** The retained centroid count is proportional to the
+  compression parameter and grows only **logarithmically** with the stream
+  length — each tenfold increase in the number of values adds about
+  1.5×compression centroids — so even a very long stream keeps the digest small.
 - **Exact extremes.** `Quantile(0)` and `Quantile(1)` return the exact observed
   minimum and maximum; a single distinct value is returned exactly for any
   quantile.
@@ -36,11 +37,14 @@ whole sample, a `Digest` keeps only a small set of weighted centroids.
 `New()` uses `DefaultCompression` (100); `WithCompression(c)` trades memory for
 accuracy.
 
-| Compression `c` | Approx. centroids | Typical use                          |
-| --------------- | ----------------- | ------------------------------------ |
-| 20              | ~tens             | rough estimates, very small footprint |
-| 100 (default)   | ~hundreds         | good balance for monitoring          |
-| 500             | ~thousands        | tight tails for SLO reporting        |
+| Compression `c` | Centroids after 1e3 / 1e5 / 1e7 values | Typical use                           |
+| --------------- | -------------------------------------- | ------------------------------------- |
+| 20              | ~75 / ~140 / ~200                      | rough estimates, very small footprint |
+| 100 (default)   | ~280 / ~590 / ~890                     | good balance for monitoring           |
+| 500             | ~1000 / ~2400 / ~3900                  | tight tails for SLO reporting         |
+
+(Measured on uniform data; up to 5·`c` further values sit in the merge buffer
+between compressions.)
 
 Error shrinks as `c` grows and is concentrated away from the tails: at the
 default compression, extreme percentiles are typically estimated to within a

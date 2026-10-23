@@ -1,6 +1,8 @@
 package streaming
 
 import (
+	"cmp"
+
 	"github.com/pickeringtech/go-collections/collections/heaps"
 	"github.com/pickeringtech/go-collections/constraints"
 	"github.com/pickeringtech/go-collections/slices"
@@ -28,7 +30,10 @@ type TopK[T any] struct {
 }
 
 // NewTopK creates a TopK that retains the k highest-ranked elements according
-// to less, where less(a, b) reports whether a ranks below b. For k <= 0 the
+// to less, where less(a, b) reports whether a ranks below b. less must be a
+// strict weak ordering; a comparator under which some value is incomparable to
+// everything (such as a < b over floats containing NaN) can wedge that value at
+// the bottom of the heap and silently discard better elements. For k <= 0 the
 // resulting TopK retains nothing and Result is always empty.
 //
 // To rank by an ordered type's natural order, use [NewTopKOrdered].
@@ -42,8 +47,13 @@ func NewTopK[T any](k int, less heaps.LessFunc[T]) *TopK[T] {
 
 // NewTopKOrdered creates a TopK over an ordered type that retains the k largest
 // elements by natural order. For k <= 0 it retains nothing.
+//
+// Elements are ranked with cmp.Less, under which NaN ranks below every other
+// value (including -Inf) and -0 ties with +0. A NaN is therefore retained only
+// while fewer than k other elements have been seen, and is the first to be
+// displaced; it can never block a larger element.
 func NewTopKOrdered[T constraints.Ordered](k int) *TopK[T] {
-	return NewTopK[T](k, heaps.Min[T])
+	return NewTopK[T](k, cmp.Less[T])
 }
 
 // Add feeds one element into the stream. It runs in O(log k): the element is

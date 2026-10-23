@@ -37,17 +37,22 @@ type Filter[T comparable] struct {
 // maxBits caps the bit-array size New will allocate. A filter needing more bits
 // than this — from an enormous expectedItems or a minuscule falsePositiveRate —
 // is almost certainly a misconfiguration, and the unbounded size risks integer
-// overflow, so New rejects it. 1<<40 bits is 128 GiB, far beyond any real
-// in-memory filter.
-const maxBits = 1 << 40
+// overflow, so New rejects it. The cap is the smaller of 1<<40 bits (128 GiB,
+// far beyond any real in-memory filter, and the binding limit on 64-bit
+// platforms) and the largest array of 64-bit words whose byte size fits in an
+// int (math.MaxInt/8 words, about 16 GiB of bits on a 32-bit platform), beyond
+// which make would panic rather than return.
+const maxBits = min(1<<40, math.MaxInt/8*64)
 
 // Interface guard.
 var _ Membership[string] = (*Filter[string])(nil)
 
 // New creates a Bloom filter sized for expectedItems insertions at the target
 // falsePositiveRate (for example 0.01 for 1%). It returns an error wrapping
-// ErrInvalidConfig if expectedItems <= 0 or falsePositiveRate is not in the
-// open interval (0, 1).
+// ErrInvalidConfig if expectedItems <= 0, if falsePositiveRate is not in the
+// open interval (0, 1), or if the pair needs a bit array larger than the size
+// cap: 1<<40 bits, or on a 32-bit platform the largest array the address space
+// can hold (about 1.7e10 bits).
 //
 // The actual memory used is optimalBits(expectedItems, falsePositiveRate) bits,
 // rounded up to a whole 64-bit word. Inserting more than expectedItems elements

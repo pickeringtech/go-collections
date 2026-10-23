@@ -251,8 +251,65 @@ func FuzzRunningVariance(f *testing.F) {
 			}
 		}
 
-		if v.Count() != len(values) {
+		if v.Count() != int64(len(values)) {
 			t.Fatalf("Count() = %d, want %d", v.Count(), len(values))
+		}
+	})
+}
+
+// FuzzRunningMean is a differential fuzz test against stats.Mean: after every
+// Add, RunningMean must report the same ok flag as stats.Mean over the same
+// prefix and, when ok, the same mean within tolerance. Bytes 253..255 map to
+// -Inf, +Inf and NaN, and 0/1 to ∓1.7e308, so the non-finite contract and the
+// overflow-safe update are exercised alongside ordinary magnitudes.
+func FuzzRunningMean(f *testing.F) {
+	f.Add([]byte(nil))
+	f.Add([]byte{5})
+	f.Add([]byte{0, 1})
+	f.Add([]byte{2, 4, 255, 4})
+	f.Add([]byte{254, 253, 7})
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		values := make([]float64, len(data))
+		for i, b := range data {
+			switch b {
+			case 0:
+				values[i] = -1.7e308
+			case 1:
+				values[i] = 1.7e308
+			case 253:
+				values[i] = math.Inf(-1)
+			case 254:
+				values[i] = math.Inf(1)
+			case 255:
+				values[i] = math.NaN()
+			default:
+				values[i] = float64(b) - 128
+			}
+		}
+
+		m := streaming.NewRunningMean()
+		scale := 1.0 // largest finite magnitude so far: the scale of rounding error
+		for i := range values {
+			m.Add(values[i])
+			if !math.IsInf(values[i], 0) && !math.IsNaN(values[i]) {
+				scale = math.Max(scale, math.Abs(values[i]))
+			}
+			got, ok := m.Result()
+			want, wantOK := stats.Mean(values[:i+1])
+			if ok != wantOK {
+				t.Fatalf("after %d adds: ok = %v, stats.Mean ok = %v", i+1, ok, wantOK)
+			}
+			if ok && (math.IsNaN(got) || math.IsInf(got, 0)) {
+				t.Fatalf("after %d adds: Result() = %v, want finite for finite inputs", i+1, got)
+			}
+			// Both means round at the scale of the largest input (cancelling
+			// ±1.7e308 leaves error of that order), and stats.Mean's Kahan total
+			// can itself overflow near MaxFloat64, so compare relative to the
+			// input scale and only while the oracle stayed finite.
+			if ok && !math.IsInf(want, 0) && math.Abs(got-want) > 1e-9*scale {
+				t.Fatalf("after %d adds: Result() = %v, stats.Mean = %v", i+1, got, want)
+			}
 		}
 	})
 }

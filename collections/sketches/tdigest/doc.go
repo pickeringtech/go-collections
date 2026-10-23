@@ -1,9 +1,9 @@
 // Package tdigest provides a t-digest: a streaming, mergeable sketch that
 // estimates quantiles (and the inverse CDF) of a stream of float64 values in
-// memory that scales with a compression parameter and is independent of how
-// many values have been seen.
+// memory that scales with a compression parameter and grows only
+// logarithmically with how many values have been seen.
 //
-// It is the approximate, bounded-memory counterpart of the exact
+// It is the approximate, small-memory counterpart of the exact
 // [github.com/pickeringtech/go-collections/stats] quantile functions: where
 // stats.Quantile sorts the whole sample, a Digest keeps only a small set of
 // weighted centroids. Use it when the stream is too large to hold or sort, or
@@ -34,9 +34,14 @@
 //
 // # Accuracy and memory
 //
-// The retained centroid count is roughly proportional to the compression
-// parameter and independent of the stream length, so memory is bounded no
-// matter how long the stream runs. Higher compression keeps more centroids,
+// The retained centroid count is proportional to the compression parameter and
+// grows logarithmically with the stream length: each tenfold increase in the
+// number of values adds about 1.5×compression centroids (at the default 100,
+// roughly 280 centroids after 1e3 values, 450 after 1e4 and 900 after 1e7), plus
+// a buffer of up to 5×compression unmerged values. Memory therefore stays small
+// for any realistic stream, though it is not strictly constant: the q(1-q) scale
+// function behind the tail accuracy below keeps the tail centroids small however
+// long the stream runs. Higher compression keeps more centroids,
 // costing memory but tightening the estimates. The scale function deliberately
 // makes error smallest at the tails (q near 0 or 1, e.g. p99/p999 latency
 // percentiles — the common case for monitoring) and largest in the middle of
