@@ -292,7 +292,9 @@ func TestHash64_GoldenValues(t *testing.T) {
 // power-of-two table — the case where reducing the raw progression would hit
 // only a fraction of the slots.
 func TestMix64(t *testing.T) {
-	if sketchhash.Mix64(12345) != sketchhash.Mix64(12345) {
+	first := sketchhash.Mix64(12345)
+	second := sketchhash.Mix64(12345)
+	if first != second {
 		t.Fatal("Mix64 is not deterministic")
 	}
 	seen := make(map[uint64]bool, 4096)

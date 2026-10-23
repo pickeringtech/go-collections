@@ -282,7 +282,7 @@ func TestSketch_SeedsGiveIndependentEstimates(t *testing.T) {
 func TestSketch_InterfaceKeysCountedByType(t *testing.T) {
 	s := mustNew[any](t)
 	for i := 0; i < 1000; i++ {
-		s.Add(int(i))
+		s.Add(i) // dynamic type int
 		s.Add(int64(i))
 		s.Add(uint32(i))
 		s.Add(float64(i))
