@@ -62,7 +62,7 @@ func TestAllMatch(t *testing.T) {
 					return element < 4
 				},
 			},
-			want: false,
+			want: true,
 		},
 		{
 			name: "empty input results in true",
@@ -72,7 +72,7 @@ func TestAllMatch(t *testing.T) {
 					return element < 4
 				},
 			},
-			want: false,
+			want: true,
 		},
 	}
 	for _, tt := range tests {

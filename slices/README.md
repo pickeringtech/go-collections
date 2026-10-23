@@ -163,6 +163,10 @@ anyOdd := slices.AnyMatch(numbers, func(n int) bool { return n%2 == 1 })   // fa
 users := []User{{Role: "admin"}, {Role: "user"}}
 allAdmins := slices.AllMatch(users, func(u User) bool { return u.Role == "admin" }) // false
 hasAdmin := slices.AnyMatch(users, func(u User) bool { return u.Role == "admin" })  // true
+
+// On an empty slice AllMatch is vacuously true and AnyMatch is false.
+slices.AllMatch([]int{}, func(n int) bool { return n > 0 }) // true
+slices.AnyMatch([]int{}, func(n int) bool { return n > 0 }) // false
 ```
 
 ### Utility Operations

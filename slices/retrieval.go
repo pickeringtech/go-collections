@@ -2,10 +2,9 @@ package slices
 
 // AllMatch tests each element of the input with the provided function.  If all the elements, when passed through the
 // function result in a truthy boolean value, true is returned from this function.  Otherwise, false is returned.
+// An empty or nil input has no element that fails the test, so the result is vacuously true (matching Python's
+// all([]) and Java's Stream.allMatch); fun is never called.
 func AllMatch[T any](input []T, fun FindFunc[T]) bool {
-	if len(input) == 0 {
-		return false
-	}
 	for _, element := range input {
 		if !fun(element) {
 			return false
@@ -16,7 +15,7 @@ func AllMatch[T any](input []T, fun FindFunc[T]) bool {
 
 // AnyMatch tests each element of the input with the provided function.  If any of the elements, when passed through the
 // function result in a truthy boolean value, a match is found and true is returned from this function.  Otherwise, false
-// is returned.
+// is returned, including for an empty or nil input.
 func AnyMatch[T any](input []T, fun FindFunc[T]) bool {
 	for _, element := range input {
 		if fun(element) {

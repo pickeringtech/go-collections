@@ -7,7 +7,8 @@ import (
 )
 
 // listBuilders enumerates every concrete List implementation so the shared
-// Searchable contract (here, NoneMatch) is exercised uniformly across them.
+// Searchable contract (here, NoneMatch and AllMatch) is exercised uniformly
+// across them.
 var listBuilders = []struct {
 	name  string
 	build func(elements ...int) lists.List[int]
@@ -44,6 +45,37 @@ func TestList_NoneMatch(t *testing.T) {
 				list := builder.build(tc.elements...)
 				if got := list.NoneMatch(tc.fn); got != tc.want {
 					t.Errorf("NoneMatch() = %v, want %v", got, tc.want)
+				}
+			})
+		}
+	}
+}
+
+// TestList_AllMatch pins that every implementation agrees AllMatch is vacuously
+// true for an empty list. The slice-backed and concurrent lists delegate to
+// slices.AllMatch, which once reported false for empty input while the linked
+// lists reported true.
+func TestList_AllMatch(t *testing.T) {
+	isOdd := func(i int) bool { return i%2 == 1 }
+
+	cases := []struct {
+		name     string
+		elements []int
+		fn       func(int) bool
+		want     bool
+	}{
+		{"every element matches", []int{1, 3, 5}, isOdd, true},
+		{"some element fails", []int{1, 2, 3}, isOdd, false},
+		{"empty is vacuously true", nil, isOdd, true},
+	}
+
+	for _, builder := range listBuilders {
+		for _, tc := range cases {
+			t.Run(builder.name+"/"+tc.name, func(t *testing.T) {
+				list := builder.build(tc.elements...)
+				got := list.AllMatch(tc.fn)
+				if got != tc.want {
+					t.Errorf("AllMatch() = %v, want %v", got, tc.want)
 				}
 			})
 		}
