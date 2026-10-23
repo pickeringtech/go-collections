@@ -94,12 +94,27 @@ func TestQuantileWith(t *testing.T) {
 	}
 }
 
-func TestQuantileWithNearestRoundsDown(t *testing.T) {
-	// q=0.6 on [1 2 3 4 5] -> continuous rank 2.4, frac 0.4 < 0.5, so Nearest
-	// takes the lower sample (3 rather than 4).
-	got, ok := stats.QuantileWith([]float64{1, 2, 3, 4, 5}, 0.6, stats.Nearest)
-	if !approxEqual(got, 3) || !ok {
-		t.Errorf("QuantileWith(..., 0.6, Nearest) = (%v, %v), want (3, true)", got, ok)
+func TestQuantileWithNearest(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []float64
+		q     float64
+		want  float64
+	}{
+		// q=0.6 on [1 2 3 4 5] -> continuous rank 2.4, frac 0.4 < 0.5, so Nearest
+		// takes the lower sample (3 rather than 4).
+		{name: "a fraction below one half rounds down", input: []float64{1, 2, 3, 4, 5}, q: 0.6, want: 3},
+		// q=0.5 on [1 2 3 4] -> continuous rank 1.5, frac exactly 0.5: the tie
+		// rounds to the higher rank (3 rather than 2).
+		{name: "an exact half rounds to the higher rank", input: []float64{1, 2, 3, 4}, q: 0.5, want: 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := stats.QuantileWith(tt.input, tt.q, stats.Nearest)
+			if !approxEqual(got, tt.want) || !ok {
+				t.Errorf("QuantileWith(%v, %v, Nearest) = (%v, %v), want (%v, true)", tt.input, tt.q, got, ok, tt.want)
+			}
+		})
 	}
 }
 

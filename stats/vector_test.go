@@ -224,6 +224,27 @@ func TestEuclideanDistance(t *testing.T) {
 		}
 	})
 
+	t.Run("measures between two points away from the origin", func(t *testing.T) {
+		// With one point at the origin aᵢ−bᵢ and aᵢ+bᵢ have the same magnitude,
+		// so these cases put both points elsewhere.
+		tests := []struct {
+			name string
+			a, b []float64
+			want float64
+		}{
+			{name: "points mirrored through the origin", a: []float64{3, 4}, b: []float64{-3, -4}, want: 10},
+			{name: "a 3-4-5 triangle translated off the origin", a: []float64{1, 2}, b: []float64{4, 6}, want: 5},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got, ok := stats.EuclideanDistance(tt.a, tt.b)
+				if !ok || !approxEqual(got, tt.want) {
+					t.Errorf("EuclideanDistance(%v, %v) = %v, %v; want %v, true", tt.a, tt.b, got, ok, tt.want)
+				}
+			})
+		}
+	})
+
 	t.Run("rejects empty and mismatched lengths", func(t *testing.T) {
 		_, ok := stats.EuclideanDistance([]float64{}, []float64{})
 		if ok {
@@ -379,6 +400,9 @@ func TestCosineSimilarity(t *testing.T) {
 		"identical direction": {[]float64{1, 1}, []float64{2, 2}, 1},
 		"orthogonal":          {[]float64{1, 0}, []float64{0, 1}, 0},
 		"opposite":            {[]float64{1, 0}, []float64{-1, 0}, -1},
+		// Strictly inside (−1, 1), so the clamp cannot mask a wrong ratio.
+		"forty-five degrees apart":        {[]float64{1, 0}, []float64{1, 1}, math.Sqrt2 / 2},
+		"one hundred thirty-five degrees": {[]float64{1, 0}, []float64{-1, 1}, -math.Sqrt2 / 2},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

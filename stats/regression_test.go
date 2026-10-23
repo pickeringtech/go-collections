@@ -62,6 +62,17 @@ func TestLinearRegression(t *testing.T) {
 		}
 	})
 
+	t.Run("two points fit the line through them", func(t *testing.T) {
+		// Two points are the fewest that define a line: y = 2x exactly.
+		fit, ok := stats.LinearRegression([]float64{1, 3}, []float64{2, 6})
+		if !ok {
+			t.Fatalf("ok = false, want true")
+		}
+		if math.Abs(fit.Slope-2) > eps || math.Abs(fit.Intercept) > eps || math.Abs(fit.R2-1) > eps {
+			t.Errorf("fit = %+v, want slope 2 intercept 0 R2 1", fit)
+		}
+	})
+
 	t.Run("Predict and residuals", func(t *testing.T) {
 		fit, _ := stats.LinearRegression([]float64{1, 2, 3, 4, 5}, []float64{2, 4, 5, 4, 6})
 		// Fitted value at x=3 is 0.8*3 + 1.8 = 4.2; residual against observed 5.

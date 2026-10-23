@@ -94,6 +94,7 @@ func TestCorrelation(t *testing.T) {
 		{name: "perfect negative", x: linX, y: yInvert, want: -1, ok: true},
 		{name: "shifted is still perfectly correlated", x: linX, y: []float64{5, 7, 9, 11, 13}, want: 1, ok: true},
 		{name: "uncorrelated", x: []float64{1, 2, 3, 4}, y: []float64{1, 2, 2, 1}, want: 0, ok: true},
+		{name: "two pairs are the fewest that are defined", x: []float64{1, 2}, y: []float64{3, 1}, want: -1, ok: true},
 		{name: "constant x is undefined", x: []float64{2, 2, 2}, y: []float64{1, 2, 3}, want: 0, ok: false},
 		{name: "constant y is undefined", x: []float64{1, 2, 3}, y: []float64{4, 4, 4}, want: 0, ok: false},
 		{name: "single pair is undefined", x: []float64{1}, y: []float64{2}, want: 0, ok: false},
