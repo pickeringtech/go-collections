@@ -2,7 +2,6 @@ package channels
 
 import (
 	"context"
-	"runtime"
 	"testing"
 )
 
@@ -54,12 +53,10 @@ func TestSendUnblocksWhenCancelledWhileBlocked(t *testing.T) {
 		result <- send(ctx, out, 7)
 	}()
 
-	// Yield generously so the send goroutine clears the leading ctx.Err() check
-	// (context still live) and parks in the select before we cancel — otherwise
+	// Wait until the send goroutine has cleared the leading ctx.Err() check
+	// (context still live) and parked in the select before we cancel — otherwise
 	// it would short-circuit and we would not exercise the ctx.Done branch.
-	for i := 0; i < 1000; i++ {
-		runtime.Gosched()
-	}
+	WaitUntilParkedIn(t, "channels.send[")
 	cancel()
 
 	if <-result {
@@ -130,11 +127,9 @@ func TestReceiveUnblocksWhenCancelledWhileBlocked(t *testing.T) {
 		result <- ok
 	}()
 
-	// Yield generously so the goroutine clears the leading ctx.Err() check and
-	// parks in the select before we cancel.
-	for i := 0; i < 1000; i++ {
-		runtime.Gosched()
-	}
+	// Wait until the goroutine has cleared the leading ctx.Err() check and
+	// parked in the select before we cancel.
+	WaitUntilParkedIn(t, "channels.receive[")
 	cancel()
 
 	if <-result {
