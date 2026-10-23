@@ -49,9 +49,14 @@ func (a *Array[T]) Dequeue() (T, bool, List[T]) {
 }
 
 // DequeueInPlace removes and returns the first element, reporting whether one
-// was present, modifying the receiver.
+// was present, modifying the receiver. The vacated slot is zeroed, so the list's
+// backing array does not keep the removed element reachable.
 func (a *Array[T]) DequeueInPlace() (T, bool) {
 	res, ok, newSli := slices.PopFront(a.elements)
+	if ok {
+		var zero T
+		a.elements[0] = zero
+	}
 	a.elements = newSli
 	return res, ok
 }
@@ -214,9 +219,14 @@ func (a *Array[T]) Pop() (T, bool, List[T]) {
 }
 
 // PopInPlace removes and returns the last element, reporting whether one was
-// present, modifying the receiver.
+// present, modifying the receiver. The vacated slot is zeroed, so the list's
+// backing array does not keep the removed element reachable.
 func (a *Array[T]) PopInPlace() (T, bool) {
 	res, ok, newSli := slices.Pop(a.elements)
+	if ok {
+		var zero T
+		a.elements[len(a.elements)-1] = zero
+	}
 	a.elements = newSli
 	return res, ok
 }
