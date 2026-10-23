@@ -136,18 +136,21 @@ func NewConcurrentRWDict[K comparable, V any](entries ...dicts.Pair[K, V]) dicts
 	return dicts.NewConcurrentHashRW[K, V](entries...)
 }
 
-// NewSet creates a Set backed by a hash map with the given elements.
-func NewSet[T comparable](elements ...T) sets.Set[T] {
+// NewSet creates a Set backed by a hash map with the given elements. It returns
+// the MutableSet interface so the in-place operations (AddInPlace,
+// RemoveInPlace, FilterInPlace, ...) are reachable; MutableSet embeds Set, so
+// the immutable API remains available too.
+func NewSet[T comparable](elements ...T) sets.MutableSet[T] {
 	return sets.NewHash[T](elements...)
 }
 
-// NewConcurrentSet creates a thread-safe Set (mutex-guarded) with the given elements.
-func NewConcurrentSet[T comparable](elements ...T) sets.Set[T] {
+// NewConcurrentSet creates a thread-safe Set (mutex-guarded) with the given elements. It returns the MutableSet interface so the in-place operations are reachable.
+func NewConcurrentSet[T comparable](elements ...T) sets.MutableSet[T] {
 	return sets.NewConcurrentHash[T](elements...)
 }
 
-// NewConcurrentRWSet creates a thread-safe Set optimised for concurrent reads (RWMutex-guarded) with the given elements.
-func NewConcurrentRWSet[T comparable](elements ...T) sets.Set[T] {
+// NewConcurrentRWSet creates a thread-safe Set optimised for concurrent reads (RWMutex-guarded) with the given elements. It returns the MutableSet interface so the in-place operations are reachable.
+func NewConcurrentRWSet[T comparable](elements ...T) sets.MutableSet[T] {
 	return sets.NewConcurrentHashRW[T](elements...)
 }
 
@@ -215,48 +218,52 @@ func NewConcurrentRWDoublyLinkedList[T any](elements ...T) lists.MutableList[T] 
 	return lists.NewConcurrentRWDoublyLinked[T](elements...)
 }
 
-// NewHeap creates a Heap (priority queue) ordered by the given comparator, seeded with the given values. The values are heapified in O(n).
-func NewHeap[T any](less heaps.LessFunc[T], values ...T) heaps.Heap[T] {
+// NewHeap creates a Heap (priority queue) ordered by the given comparator,
+// seeded with the given values. The values are heapified in O(n). It returns
+// the MutableHeap interface so the O(log n) in-place operations (PushInPlace,
+// PopInPlace) are reachable; MutableHeap embeds Heap, so the immutable API,
+// whose Push and Pop copy the heap, remains available too.
+func NewHeap[T any](less heaps.LessFunc[T], values ...T) heaps.MutableHeap[T] {
 	return heaps.New(less, values...)
 }
 
-// NewMinHeap creates a min-heap over an ordered type (the smallest element leaves the heap first), seeded with the given values.
-func NewMinHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+// NewMinHeap creates a min-heap over an ordered type (the smallest element leaves the heap first), seeded with the given values. It returns the MutableHeap interface so the in-place operations are reachable.
+func NewMinHeap[T constraints.Ordered](values ...T) heaps.MutableHeap[T] {
 	return heaps.NewMin(values...)
 }
 
-// NewMaxHeap creates a max-heap over an ordered type (the largest element leaves the heap first), seeded with the given values.
-func NewMaxHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+// NewMaxHeap creates a max-heap over an ordered type (the largest element leaves the heap first), seeded with the given values. It returns the MutableHeap interface so the in-place operations are reachable.
+func NewMaxHeap[T constraints.Ordered](values ...T) heaps.MutableHeap[T] {
 	return heaps.NewMax(values...)
 }
 
-// NewConcurrentHeap creates a thread-safe Heap (mutex-guarded) ordered by the given comparator, seeded with the given values.
-func NewConcurrentHeap[T any](less heaps.LessFunc[T], values ...T) heaps.Heap[T] {
+// NewConcurrentHeap creates a thread-safe Heap (mutex-guarded) ordered by the given comparator, seeded with the given values. It returns the MutableHeap interface so the in-place operations are reachable.
+func NewConcurrentHeap[T any](less heaps.LessFunc[T], values ...T) heaps.MutableHeap[T] {
 	return heaps.NewConcurrent(less, values...)
 }
 
-// NewConcurrentMinHeap creates a thread-safe min-heap (mutex-guarded) over an ordered type, seeded with the given values.
-func NewConcurrentMinHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+// NewConcurrentMinHeap creates a thread-safe min-heap (mutex-guarded) over an ordered type, seeded with the given values. It returns the MutableHeap interface so the in-place operations are reachable.
+func NewConcurrentMinHeap[T constraints.Ordered](values ...T) heaps.MutableHeap[T] {
 	return heaps.NewConcurrentMin(values...)
 }
 
-// NewConcurrentMaxHeap creates a thread-safe max-heap (mutex-guarded) over an ordered type, seeded with the given values.
-func NewConcurrentMaxHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+// NewConcurrentMaxHeap creates a thread-safe max-heap (mutex-guarded) over an ordered type, seeded with the given values. It returns the MutableHeap interface so the in-place operations are reachable.
+func NewConcurrentMaxHeap[T constraints.Ordered](values ...T) heaps.MutableHeap[T] {
 	return heaps.NewConcurrentMax(values...)
 }
 
-// NewConcurrentRWHeap creates a thread-safe Heap optimised for concurrent reads (RWMutex-guarded) ordered by the given comparator, seeded with the given values.
-func NewConcurrentRWHeap[T any](less heaps.LessFunc[T], values ...T) heaps.Heap[T] {
+// NewConcurrentRWHeap creates a thread-safe Heap optimised for concurrent reads (RWMutex-guarded) ordered by the given comparator, seeded with the given values. It returns the MutableHeap interface so the in-place operations are reachable.
+func NewConcurrentRWHeap[T any](less heaps.LessFunc[T], values ...T) heaps.MutableHeap[T] {
 	return heaps.NewConcurrentRW(less, values...)
 }
 
-// NewConcurrentRWMinHeap creates a thread-safe min-heap optimised for concurrent reads (RWMutex-guarded) over an ordered type, seeded with the given values.
-func NewConcurrentRWMinHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+// NewConcurrentRWMinHeap creates a thread-safe min-heap optimised for concurrent reads (RWMutex-guarded) over an ordered type, seeded with the given values. It returns the MutableHeap interface so the in-place operations are reachable.
+func NewConcurrentRWMinHeap[T constraints.Ordered](values ...T) heaps.MutableHeap[T] {
 	return heaps.NewConcurrentRWMin(values...)
 }
 
-// NewConcurrentRWMaxHeap creates a thread-safe max-heap optimised for concurrent reads (RWMutex-guarded) over an ordered type, seeded with the given values.
-func NewConcurrentRWMaxHeap[T constraints.Ordered](values ...T) heaps.Heap[T] {
+// NewConcurrentRWMaxHeap creates a thread-safe max-heap optimised for concurrent reads (RWMutex-guarded) over an ordered type, seeded with the given values. It returns the MutableHeap interface so the in-place operations are reachable.
+func NewConcurrentRWMaxHeap[T constraints.Ordered](values ...T) heaps.MutableHeap[T] {
 	return heaps.NewConcurrentRWMax(values...)
 }
 
@@ -284,14 +291,16 @@ func ListFromSeq[T any](seq iter.Seq[T]) lists.MutableList[T] {
 }
 
 // DictFromSeq2 creates a Dict backed by a hash map from the key/value pairs produced
-// by seq. When seq yields the same key more than once, the last value wins.
-func DictFromSeq2[K comparable, V any](seq iter.Seq2[K, V]) dicts.Dict[K, V] {
+// by seq. When seq yields the same key more than once, the last value wins. It
+// returns the MutableDict interface so the in-place operations are reachable.
+func DictFromSeq2[K comparable, V any](seq iter.Seq2[K, V]) dicts.MutableDict[K, V] {
 	return dicts.FromSeq2(seq)
 }
 
 // SetFromSeq creates a Set backed by a hash map from the elements produced by seq,
-// collapsing duplicates as any set does.
-func SetFromSeq[T comparable](seq iter.Seq[T]) sets.Set[T] {
+// collapsing duplicates as any set does. It returns the MutableSet interface so
+// the in-place operations are reachable.
+func SetFromSeq[T comparable](seq iter.Seq[T]) sets.MutableSet[T] {
 	return sets.FromSeq(seq)
 }
 
@@ -303,8 +312,9 @@ func DequeFromSeq[T any](seq iter.Seq[T]) deques.MutableDeque[T] {
 }
 
 // HeapFromSeq creates a Heap (priority queue) ordered by less from the values
-// produced by seq.
-func HeapFromSeq[T any](less heaps.LessFunc[T], seq iter.Seq[T]) heaps.Heap[T] {
+// produced by seq. It returns the MutableHeap interface so the in-place
+// operations are reachable.
+func HeapFromSeq[T any](less heaps.LessFunc[T], seq iter.Seq[T]) heaps.MutableHeap[T] {
 	return heaps.FromSeq(less, seq)
 }
 

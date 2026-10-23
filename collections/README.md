@@ -101,33 +101,27 @@ Use when you always need the most- (or least-) extreme item next. See the
 [`heaps` package](./heaps/README.md).
 
 ```go
-import (
-    "github.com/pickeringtech/go-collections/collections"
-    "github.com/pickeringtech/go-collections/collections/heaps" // for the in-place API
-)
+import "github.com/pickeringtech/go-collections/collections"
 
 // Smallest-first by default — reachable straight from the facade.
-// Pop is immutable: it returns the element, an ok flag, and the remaining heap.
 pq := collections.NewMinHeap(5, 1, 3)
-next, ok, rest := pq.Pop() // next == 1, ok == true; rest is pq without it
+pq.PushInPlace(0)
+top, ok := pq.PopInPlace() // top == 0, ok == true
+
+// The immutable Pop returns the element, an ok flag, and a new heap
+next, ok, rest := pq.Pop() // next == 1; pq is unchanged, rest is pq without it
 
 // Or order by any comparator
 tasks := collections.NewHeap(func(a, b Task) bool { return a.Priority > b.Priority })
-
-// The heaps subpackage adds the in-place, mutating API
-mpq := heaps.NewMin(5, 1, 3)
-mpq.PushInPlace(0)
-top, _ := mpq.PopInPlace() // 0
 ```
 
-**Facade constructors** (return the immutable `heaps.Heap` interface):
+**Facade constructors** (return the `heaps.MutableHeap` interface, so both the
+O(log n) in-place `PushInPlace`/`PopInPlace` and the copying immutable
+`Push`/`Pop` are available):
 - `collections.NewMinHeap()` / `collections.NewMaxHeap()` - Min / max binary heap
 - `collections.NewHeap(less, ...)` - Comparator-driven binary heap
 - `collections.NewConcurrentMinHeap()` / `…MaxHeap()` / `…Heap(less, ...)` - Thread-safe (mutex)
 - `collections.NewConcurrentRWMinHeap()` / `…RWMaxHeap()` / `…RWHeap(less, ...)` - Read-optimized thread-safe
-
-For the in-place mutating API (`PushInPlace`/`PopInPlace`), use the
-[`heaps` package](./heaps/README.md) constructors directly.
 
 ### LRU - Bounded Caches
 Use when you need a fixed-memory cache that evicts the least-recently-used

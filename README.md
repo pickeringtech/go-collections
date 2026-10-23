@@ -158,23 +158,18 @@ task, found := queue.DequeueInPlace()
 
 ### When to Use Heaps (Priority Queues)
 ```go
-import (
-    "github.com/pickeringtech/go-collections/collections"
-    "github.com/pickeringtech/go-collections/collections/heaps" // for the in-place API
-)
+import "github.com/pickeringtech/go-collections/collections"
 
 // Smallest-first scheduling — reachable straight from the facade.
-// Pop is immutable: it returns the element, an ok flag, and the remaining heap.
 pq := collections.NewMinHeap(5, 1, 3)
-next, ok, rest := pq.Pop() // next == 1, ok == true; rest is pq without it
+pq.PushInPlace(0)
+top, ok := pq.PopInPlace() // top == 0, ok == true
+
+// The immutable Pop returns the element, an ok flag, and a new heap
+next, ok, rest := pq.Pop() // next == 1; pq is unchanged, rest is pq without it
 
 // Or order by any comparator (e.g. a struct field)
 tasks := collections.NewHeap(func(a, b Task) bool { return a.Priority > b.Priority })
-
-// The heaps subpackage adds the in-place, mutating API (PushInPlace / PopInPlace)
-mpq := heaps.NewMin(5, 1, 3)
-mpq.PushInPlace(0)
-top, _ := mpq.PopInPlace() // 0
 ```
 
 **Use when**: You always need the most- (or least-) extreme item next —

@@ -103,7 +103,7 @@ func rank(totals dicts.Dict[string, int], n int) []standing {
 	}
 	heap := collections.NewHeap[standing](less)
 	totals.ForEach(func(name string, total int) {
-		heap = heap.Push(standing{name: name, total: total})
+		heap.PushInPlace(standing{name: name, total: total})
 	})
 
 	ranked := heap.AsSortedSlice()
