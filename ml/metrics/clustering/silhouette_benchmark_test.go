@@ -25,3 +25,18 @@ func BenchmarkSilhouetteScore(b *testing.B) {
 		_, _ = clustering.SilhouetteScore(points, labels)
 	}
 }
+
+// TestSilhouetteScore_AllocatesOnlyTheResult guards the per-point cluster maps
+// staying off the heap: they are created inside the per-point loop and never
+// escape, so a whole score costs a single allocation (the per-sample slice). A
+// refactor that lets them escape costs two heap allocations per point, which
+// the merge-queue benchmark gate flagged as a 1200x allocation regression.
+func TestSilhouetteScore_AllocatesOnlyTheResult(t *testing.T) {
+	points, labels := benchClusters(60)
+	got := testing.AllocsPerRun(20, func() {
+		_, _ = clustering.SilhouetteScore(points, labels)
+	})
+	if got > 1 {
+		t.Errorf("SilhouetteScore allocations per call = %v, want 1", got)
+	}
+}

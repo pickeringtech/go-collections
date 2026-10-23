@@ -53,31 +53,31 @@ func validate(points [][]float64, labels []int) (clusters int, ok bool) {
 	return k, true
 }
 
-// clusterDistances sums, for point i, the distances to every other point
-// grouped by the other point's cluster label (i itself excluded). ok is false
-// when dist returns a non-finite or negative distance — or when summing many
-// large distances overflows to ±Inf — since either would push a coefficient
-// outside the documented [−1, 1] range.
-func clusterDistances(points [][]float64, labels []int, i int, dist DistanceFunc) (sums map[int]float64, counts map[int]int, ok bool) {
-	sums = make(map[int]float64)
-	counts = make(map[int]int)
+// clusterDistances fills sums and counts, for point i, with the distances to
+// every other point grouped by the other point's cluster label (i itself
+// excluded). The caller supplies empty maps, so it owns their allocation: they
+// are created per point inside samples and never escape, which keeps them off
+// the heap. ok is false when dist returns a non-finite or negative distance —
+// or when summing many large distances overflows to ±Inf — since either would
+// push a coefficient outside the documented [−1, 1] range.
+func clusterDistances(points [][]float64, labels []int, i int, dist DistanceFunc, sums map[int]float64, counts map[int]int) bool {
 	for j := range points {
 		if i == j {
 			continue
 		}
 		d := dist(points[i], points[j])
 		if math.IsNaN(d) || math.IsInf(d, 0) || d < 0 {
-			return nil, nil, false
+			return false
 		}
 		sums[labels[j]] += d
 		if math.IsInf(sums[labels[j]], 0) {
 			// The running total overflowed; a mean built from it would
 			// yield Inf/Inf == NaN downstream, voiding the range guarantee.
-			return nil, nil, false
+			return false
 		}
 		counts[labels[j]]++
 	}
-	return sums, counts, true
+	return true
 }
 
 // samples computes the per-sample silhouette coefficients under dist, assuming
@@ -87,7 +87,9 @@ func samples(points [][]float64, labels []int, dist DistanceFunc) ([]float64, bo
 	s := make([]float64, len(points))
 	for i := range points {
 		// Mean distance from point i to each cluster (excluding i itself).
-		sums, counts, ok := clusterDistances(points, labels, i, dist)
+		sums := make(map[int]float64)
+		counts := make(map[int]int)
+		ok := clusterDistances(points, labels, i, dist, sums, counts)
 		if !ok {
 			return nil, false
 		}
