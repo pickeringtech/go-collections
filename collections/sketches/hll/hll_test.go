@@ -223,3 +223,18 @@ func ExampleSketch() {
 	// Output:
 	// within 2%: true
 }
+
+// TestSketch_SignedZeroIsOneElement checks that +0 and -0 (equal under ==) are
+// counted as one distinct element, and every NaN payload as another single one.
+func TestSketch_SignedZeroIsOneElement(t *testing.T) {
+	s := mustNew[float64](t)
+	s.Add(0)
+	s.Add(math.Copysign(0, -1))
+	s.Add(math.NaN())
+	s.Add(math.Float64frombits(0x7FF0_0000_0000_0001))
+	s.Add(math.Copysign(math.NaN(), -1))
+	got := s.Count()
+	if got != 2 {
+		t.Errorf("Count() = %d for {+0, -0, NaN×3}, want 2", got)
+	}
+}

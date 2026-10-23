@@ -40,14 +40,19 @@ var comparableSeed = maphash.MakeSeed()
 // kinds and the floats the result depends only on (seed, v) and is stable
 // across runs and processes; for other comparable types it is stable only
 // within a single process (see the package doc).
+//
+// Floats are hashed by value, not raw bits, so keys equal under == hash
+// equal: -0 hashes as +0. NaN is never equal to anything, so it is given one
+// fixed meaning instead: every NaN, whatever its sign or payload, hashes
+// alike, and a sketch therefore treats all NaNs as a single element.
 func Hash64[T comparable](seed uint64, v T) uint64 {
 	switch x := any(v).(type) {
 	case string:
 		return mix64(fnvString(seed, x))
 	case float32:
-		return mix64(fnvUint(seed, uint64(math.Float32bits(x))))
+		return mix64(fnvUint(seed, float32Bits(x)))
 	case float64:
-		return mix64(fnvUint(seed, math.Float64bits(x)))
+		return mix64(fnvUint(seed, float64Bits(x)))
 	default:
 		if u, ok := asUint64(v); ok {
 			return mix64(fnvUint(seed, u))
@@ -88,6 +93,42 @@ func asUint64[T comparable](v T) (uint64, bool) {
 	default:
 		return 0, false
 	}
+}
+
+// Canonical NaN bit patterns: every NaN is hashed as one of these, whatever
+// its sign or payload.
+const (
+	canonicalNaN32 = 0x7FC0_0000
+	canonicalNaN64 = 0x7FF8_0000_0000_0001
+)
+
+// float64Bits returns the bit pattern Hash64 hashes for f. +0 and -0 compare
+// equal (and are the same Go map key), so -0 is mapped to +0's all-zero
+// pattern; otherwise a Bloom filter given one would report the other absent.
+// NaN never compares equal to anything, so "equal keys hash equal" says
+// nothing about it; every NaN is mapped to one canonical pattern so that a
+// sketch treats all NaNs as a single element instead of splitting them by
+// payload.
+func float64Bits(f float64) uint64 {
+	if f == 0 {
+		return 0
+	}
+	if math.IsNaN(f) {
+		return canonicalNaN64
+	}
+	return math.Float64bits(f)
+}
+
+// float32Bits is float64Bits for float32: -0 hashes as +0 and every NaN as one
+// canonical pattern.
+func float32Bits(f float32) uint64 {
+	if f == 0 {
+		return 0
+	}
+	if math.IsNaN(float64(f)) {
+		return canonicalNaN32
+	}
+	return uint64(math.Float32bits(f))
 }
 
 // signedBits reinterprets a signed 64-bit integer as its uint64 bit pattern.

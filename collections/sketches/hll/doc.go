@@ -39,7 +39,9 @@
 // bits and the low-bit zero-run, so a well-distributed hash matters; the default
 // hasher applies a strong finalizer for this reason. Use WithSeed to vary the
 // seed and WithHasher for a custom hash. Two sketches must share precision and
-// seed to be merged.
+// seed to be merged. The default hasher counts keys that are equal under == as
+// one distinct element — float keys are hashed by value, so +0 and -0 count
+// once — and counts every NaN as one element too.
 //
 // # Mergeability
 //

@@ -1,6 +1,7 @@
 package sketchhash_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/sketches/internal/sketchhash"
@@ -132,5 +133,35 @@ func TestHash64_Distribution(t *testing.T) {
 		if c < expected*8/10 || c > expected*12/10 {
 			t.Errorf("bucket %d count %d outside ±20%% of %d", b, c, expected)
 		}
+	}
+}
+
+// TestHash64_EqualFloatsHashEqual checks that keys equal under == hash equal:
+// +0 and -0 compare equal (and are the same Go map key), so a sketch must not
+// tell them apart — otherwise a Bloom filter given +0 reports -0 absent (a
+// false negative). Every NaN is canonicalised to one bit pattern, so all NaNs
+// hash alike whatever their payload.
+func TestHash64_EqualFloatsHashEqual(t *testing.T) {
+	negZero := math.Copysign(0, -1)
+	quietNaN := math.NaN()
+	payloadNaN := math.Float64frombits(0x7FF0_0000_0000_0001)
+	negNaN := math.Copysign(math.NaN(), -1)
+	tests := []struct {
+		name string
+		a, b uint64
+	}{
+		{"float64 +0 and -0", sketchhash.Hash64(3, 0.0), sketchhash.Hash64(3, negZero)},
+		{"float32 +0 and -0", sketchhash.Hash64(3, float32(0)), sketchhash.Hash64(3, float32(negZero))},
+		{"float64 NaN payloads", sketchhash.Hash64(3, quietNaN), sketchhash.Hash64(3, payloadNaN)},
+		{"float64 negative NaN", sketchhash.Hash64(3, quietNaN), sketchhash.Hash64(3, negNaN)},
+		{"float32 NaN payloads", sketchhash.Hash64(3, float32(quietNaN)), sketchhash.Hash64(3, math.Float32frombits(0x7F80_0001))},
+		{"any-typed +0 and -0", sketchhash.Hash64[any](3, 0.0), sketchhash.Hash64[any](3, negZero)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.a != tt.b {
+				t.Errorf("Hash64 = %#x and %#x, want equal", tt.a, tt.b)
+			}
+		})
 	}
 }

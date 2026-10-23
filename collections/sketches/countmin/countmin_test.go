@@ -227,3 +227,15 @@ func ExampleSketch() {
 	// rust: 2
 	// zig: 1
 }
+
+// TestSketch_SignedZeroNeverUnderCounts guards the never-under-count guarantee
+// for floats: +0 == -0, so their occurrences are one element's count.
+func TestSketch_SignedZeroNeverUnderCounts(t *testing.T) {
+	s := mustNew[float64](t, 0.01, 0.01)
+	s.AddCount(0, 10)
+	s.AddCount(math.Copysign(0, -1), 5)
+	got := s.Estimate(math.Copysign(0, -1))
+	if got < 15 {
+		t.Errorf("Estimate(-0) = %d after 10×(+0) and 5×(-0), want >= 15", got)
+	}
+}

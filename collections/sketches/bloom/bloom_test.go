@@ -248,3 +248,42 @@ func ExampleFilter_Merge() {
 	// Output:
 	// true true
 }
+
+// TestFilter_SignedZeroNoFalseNegative guards the no-false-negatives guarantee
+// for floats: +0 == -0, so after adding one the filter must report the other
+// present. Every NaN is treated as the same element (see sketchhash).
+func TestFilter_SignedZeroNoFalseNegative(t *testing.T) {
+	negZero := math.Copysign(0, -1)
+	tests := []struct {
+		name     string
+		contains func() bool
+	}{
+		{"float64 -0 after +0", func() bool {
+			f := mustNew[float64](t, 1000, 0.01)
+			f.Add(0)
+			return f.Contains(negZero)
+		}},
+		{"float64 +0 after -0", func() bool {
+			f := mustNew[float64](t, 1000, 0.01)
+			f.Add(negZero)
+			return f.Contains(0)
+		}},
+		{"float32 -0 after +0", func() bool {
+			f := mustNew[float32](t, 1000, 0.01)
+			f.Add(0)
+			return f.Contains(float32(negZero))
+		}},
+		{"NaN with another payload", func() bool {
+			f := mustNew[float64](t, 1000, 0.01)
+			f.Add(math.NaN())
+			return f.Contains(math.Float64frombits(0x7FF0_0000_0000_0001))
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !tt.contains() {
+				t.Error("Contains = false, want true (an equal value was added)")
+			}
+		})
+	}
+}
