@@ -2,6 +2,7 @@ package channels_test
 
 import (
 	"context"
+	"math"
 	"reflect"
 	"runtime"
 	"testing"
@@ -48,6 +49,58 @@ func TestTumblingWindow(t *testing.T) {
 				t.Errorf("TumblingWindow() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestWindows_HugeSizeIsSafe pins that a caller-supplied window size is not
+// trusted as a preallocation hint. The windowers once reserved
+// make([]T, 0, size) inside their goroutine, so a size of math.MaxInt panicked
+// (cap out of range) and crashed the process, and any merely large size
+// reserved that much memory however short the stream. A size larger than the
+// stream simply yields no full window, as with slices.Window.
+func TestWindows_HugeSizeIsSafe(t *testing.T) {
+	input := []int{1, 2, 3}
+	tests := []struct {
+		name     string
+		windower func(ctx context.Context, in <-chan int) <-chan []int
+		want     [][]int
+	}{
+		{
+			name: "TumblingWindow with size math.MaxInt yields no windows",
+			windower: func(ctx context.Context, in <-chan int) <-chan []int {
+				return channels.TumblingWindow(ctx, in, math.MaxInt)
+			},
+			want: nil,
+		},
+		{
+			name: "SlidingWindow with size math.MaxInt yields no windows",
+			windower: func(ctx context.Context, in <-chan int) <-chan []int {
+				return channels.SlidingWindow(ctx, in, math.MaxInt, 1)
+			},
+			want: nil,
+		},
+		{
+			name: "SlidingWindow with step math.MaxInt emits only the first window",
+			windower: func(ctx context.Context, in <-chan int) <-chan []int {
+				return channels.SlidingWindow(ctx, in, 2, math.MaxInt)
+			},
+			want: [][]int{{1, 2}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			got := collectWindows(tt.windower(ctx, channels.FromSlice(ctx, input)))
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("windows = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	// The full-windows-only oracle agrees: no window of width math.MaxInt fits.
+	oracle := slices.Window(input, math.MaxInt)
+	if len(oracle) != 0 {
+		t.Errorf("slices.Window(%v, math.MaxInt) = %v, want no windows", input, oracle)
 	}
 }
 

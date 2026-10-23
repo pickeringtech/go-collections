@@ -2,6 +2,14 @@ package channels
 
 import "context"
 
+// maxWindowPrealloc caps how many elements TumblingWindow and SlidingWindow
+// reserve up front for their window buffer. The window size is caller-supplied,
+// so preallocating all of it would panic inside the goroutine (cap out of range,
+// crashing the process) for a size such as math.MaxInt, and reserve that much
+// memory for any merely large size however short the stream. Below the cap the
+// buffer is sized exactly; above it, append grows the buffer as elements arrive.
+const maxWindowPrealloc = 1024
+
 // closedEmpty returns an already-closed output channel of element type []T, the
 // degenerate result the windowers return when their size/step parameters are
 // meaningless. A consumer ranging over it sees no windows and an immediate
@@ -43,7 +51,7 @@ func TumblingWindow[T any](ctx context.Context, input <-chan T, size int) <-chan
 	output := make(chan []T)
 	go func() {
 		defer close(output)
-		buf := make([]T, 0, size)
+		buf := make([]T, 0, min(size, maxWindowPrealloc))
 		for {
 			select {
 			case <-ctx.Done():
@@ -91,7 +99,7 @@ func SlidingWindow[T any](ctx context.Context, input <-chan T, size, step int) <
 		// advance has not yet dropped. skip counts elements still to be discarded
 		// before buffering resumes, which is how step > size skips the gap
 		// between non-adjacent windows.
-		buf := make([]T, 0, size)
+		buf := make([]T, 0, min(size, maxWindowPrealloc))
 		skip := 0
 		for {
 			select {
