@@ -69,47 +69,52 @@ func (a *ConcurrentRWArray[T]) InsertInPlace(index int, element ...T) {
 
 // PushInPlace appends element to the end of the receiver under an exclusive
 // lock. It is safe for concurrent use.
+// It appends to the array's own storage, so it is amortised O(1).
 func (a *ConcurrentRWArray[T]) PushInPlace(element T) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.version++
 
-	a.elements = slices.Push(a.elements, element)
+	a.elements = append(a.elements, element)
 }
 
 // PopInPlace removes and returns the last element, reporting whether one was
 // present, modifying the receiver under an exclusive lock. It is safe for
 // concurrent use.
+// It shrinks the array's own storage in O(1) without allocating, keeping the
+// capacity for later pushes.
 func (a *ConcurrentRWArray[T]) PopInPlace() (T, bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.version++
 
-	res, ok, newSli := slices.Pop(a.elements)
-	a.elements = newSli
+	res, ok, rest := ownedPopBack(a.elements)
+	a.elements = rest
 	return res, ok
 }
 
 // EnqueueInPlace appends element to the end of the receiver under an exclusive
 // lock. It is safe for concurrent use.
+// It appends to the array's own storage, so it is amortised O(1).
 func (a *ConcurrentRWArray[T]) EnqueueInPlace(element T) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.version++
 
-	a.elements = slices.Push(a.elements, element)
+	a.elements = append(a.elements, element)
 }
 
 // DequeueInPlace removes and returns the first element, reporting whether one
 // was present, modifying the receiver under an exclusive lock. It is safe for
 // concurrent use.
+// It advances over the array's own storage in O(1) without allocating.
 func (a *ConcurrentRWArray[T]) DequeueInPlace() (T, bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.version++
 
-	res, ok, newSli := slices.PopFront(a.elements)
-	a.elements = newSli
+	res, ok, rest := ownedPopFront(a.elements)
+	a.elements = rest
 	return res, ok
 }
 
@@ -336,6 +341,7 @@ func (a *ConcurrentRWArray[T]) Remove(element T) List[T] {
 // RemoveAtInPlace removes the element at index, returning it and whether the
 // index was in bounds, modifying the receiver under an exclusive lock. It is
 // safe for concurrent use.
+// It shifts the array's own storage in place rather than allocating.
 func (a *ConcurrentRWArray[T]) RemoveAtInPlace(index int) (T, bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
@@ -346,13 +352,14 @@ func (a *ConcurrentRWArray[T]) RemoveAtInPlace(index int) (T, bool) {
 		return zero, false
 	}
 	removed := a.elements[index]
-	a.elements = slices.Delete(a.elements, index)
+	a.elements = ownedRemoveAt(a.elements, index)
 	return removed, true
 }
 
 // RemoveInPlace removes the first element deeply equal to element, reporting
 // whether an element was removed, modifying the receiver under an exclusive
 // lock. It is safe for concurrent use.
+// It shifts the array's own storage in place rather than allocating.
 func (a *ConcurrentRWArray[T]) RemoveInPlace(element T) bool {
 	a.lock.Lock()
 	defer a.lock.Unlock()
@@ -362,7 +369,7 @@ func (a *ConcurrentRWArray[T]) RemoveInPlace(element T) bool {
 	if index < 0 {
 		return false
 	}
-	a.elements = slices.Delete(a.elements, index)
+	a.elements = ownedRemoveAt(a.elements, index)
 	return true
 }
 

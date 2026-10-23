@@ -88,13 +88,14 @@ func (a *ConcurrentArray[T]) Dequeue() (T, bool, List[T]) {
 
 // DequeueInPlace removes and returns the first element, reporting whether one
 // was present, modifying the receiver. It is safe for concurrent use.
+// It advances over the array's own storage in O(1) without allocating.
 func (a *ConcurrentArray[T]) DequeueInPlace() (T, bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.version++
 
-	res, ok, newSli := slices.PopFront(a.elements)
-	a.elements = newSli
+	res, ok, rest := ownedPopFront(a.elements)
+	a.elements = rest
 	return res, ok
 }
 
@@ -112,12 +113,13 @@ func (a *ConcurrentArray[T]) Enqueue(element T) List[T] {
 
 // EnqueueInPlace appends element to the end of the receiver. It is safe for
 // concurrent use.
+// It appends to the array's own storage, so it is amortised O(1).
 func (a *ConcurrentArray[T]) EnqueueInPlace(element T) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.version++
 
-	a.elements = slices.Push(a.elements, element)
+	a.elements = append(a.elements, element)
 }
 
 // Filter returns a new List containing only the elements for which fun returns
@@ -302,6 +304,7 @@ func (a *ConcurrentArray[T]) Remove(element T) List[T] {
 
 // RemoveAtInPlace removes the element at index, returning it and whether the
 // index was in bounds, modifying the receiver. It is safe for concurrent use.
+// It shifts the array's own storage in place rather than allocating.
 func (a *ConcurrentArray[T]) RemoveAtInPlace(index int) (T, bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
@@ -312,13 +315,14 @@ func (a *ConcurrentArray[T]) RemoveAtInPlace(index int) (T, bool) {
 		return zero, false
 	}
 	removed := a.elements[index]
-	a.elements = slices.Delete(a.elements, index)
+	a.elements = ownedRemoveAt(a.elements, index)
 	return removed, true
 }
 
 // RemoveInPlace removes the first element deeply equal to element, reporting
 // whether an element was removed, modifying the receiver. It is safe for
 // concurrent use.
+// It shifts the array's own storage in place rather than allocating.
 func (a *ConcurrentArray[T]) RemoveInPlace(element T) bool {
 	a.lock.Lock()
 	defer a.lock.Unlock()
@@ -328,7 +332,7 @@ func (a *ConcurrentArray[T]) RemoveInPlace(element T) bool {
 	if index < 0 {
 		return false
 	}
-	a.elements = slices.Delete(a.elements, index)
+	a.elements = ownedRemoveAt(a.elements, index)
 	return true
 }
 
@@ -374,13 +378,15 @@ func (a *ConcurrentArray[T]) Pop() (T, bool, List[T]) {
 
 // PopInPlace removes and returns the last element, reporting whether one was
 // present, modifying the receiver. It is safe for concurrent use.
+// It shrinks the array's own storage in O(1) without allocating, keeping the
+// capacity for later pushes.
 func (a *ConcurrentArray[T]) PopInPlace() (T, bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.version++
 
-	res, ok, newSli := slices.Pop(a.elements)
-	a.elements = newSli
+	res, ok, rest := ownedPopBack(a.elements)
+	a.elements = rest
 	return res, ok
 }
 
@@ -398,12 +404,13 @@ func (a *ConcurrentArray[T]) Push(element T) List[T] {
 
 // PushInPlace appends element to the end of the receiver. It is safe for
 // concurrent use.
+// It appends to the array's own storage, so it is amortised O(1).
 func (a *ConcurrentArray[T]) PushInPlace(element T) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.version++
 
-	a.elements = slices.Push(a.elements, element)
+	a.elements = append(a.elements, element)
 }
 
 // Sort returns a new List sorted according to the less-than function lessThan,
@@ -448,7 +455,7 @@ func removeEachDeepEqual[T any](elements, rejected []T) []T {
 	for _, element := range rejected {
 		index := indexOfDeepEqual(elements, element)
 		if index >= 0 {
-			elements = slices.Delete(elements, index)
+			elements = ownedRemoveAt(elements, index)
 		}
 	}
 	return elements
@@ -478,4 +485,48 @@ func applyFilter[T any](list MutableList[T], kept, rejected []T, unchanged bool)
 	for _, element := range rejected {
 		list.RemoveInPlace(element)
 	}
+}
+
+// ownedPopBack removes and returns the last element of a slice the caller owns
+// (the concurrent arrays' own storage), reporting whether there was one. It
+// works in place in O(1): the vacated slot is zeroed so the backing array does
+// not keep the element reachable, and the capacity is kept for later pushes.
+func ownedPopBack[T any](elements []T) (T, bool, []T) {
+	var zero T
+	last := len(elements) - 1
+	if last < 0 {
+		return zero, false, elements
+	}
+	element := elements[last]
+	elements[last] = zero
+	return element, true, elements[:last]
+}
+
+// ownedPopFront removes and returns the first element of a slice the caller
+// owns, reporting whether there was one. It works in place in O(1), zeroing the
+// vacated slot; removing the only element rewinds to the start of the backing
+// array, so a queue that keeps draining to empty reuses its capacity instead of
+// walking off the end of it.
+func ownedPopFront[T any](elements []T) (T, bool, []T) {
+	var zero T
+	if len(elements) == 0 {
+		return zero, false, elements
+	}
+	element := elements[0]
+	elements[0] = zero
+	if len(elements) == 1 {
+		return element, true, elements[:0]
+	}
+	return element, true, elements[1:]
+}
+
+// ownedRemoveAt removes the element at index, which must be in bounds, from a
+// slice the caller owns. It shifts the tail left in place and zeroes the
+// vacated final slot rather than allocating a new slice.
+func ownedRemoveAt[T any](elements []T, index int) []T {
+	copy(elements[index:], elements[index+1:])
+	last := len(elements) - 1
+	var zero T
+	elements[last] = zero
+	return elements[:last]
 }
