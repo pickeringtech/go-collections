@@ -1,9 +1,22 @@
-package slices
+package slices_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
+
+	"github.com/pickeringtech/go-collections/slices"
 )
+
+func ExamplePaginate() {
+	results := []string{"a", "b", "c", "d", "e"}
+
+	first := slices.Paginate(results, 0, 2)
+	last := slices.Paginate(results, 2, 2)
+
+	fmt.Printf("first: %v, last: %v", first, last)
+	// Output: first: [a b], last: [e]
+}
 
 func TestPaginate(t *testing.T) {
 	type args[T any] struct {
@@ -92,7 +105,7 @@ func TestPaginate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Paginate(tt.args.slice, tt.args.pageIndex, tt.args.pageSize)
+			got := slices.Paginate(tt.args.slice, tt.args.pageIndex, tt.args.pageSize)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Paginate() = %v, want %v", got, tt.want)
 			}
