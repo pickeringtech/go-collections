@@ -1,7 +1,6 @@
 package lists
 
 import (
-	"sort"
 	"sync"
 
 	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
@@ -437,7 +436,7 @@ func (a *ConcurrentRWArray[T]) Sort(lessThan func(T, T) bool) List[T] {
 	defer a.lock.RUnlock()
 
 	sorted := slices.Copy(a.elements)
-	sort.SliceStable(sorted, func(i, j int) bool { return lessThan(sorted[i], sorted[j]) })
+	sortStable(sorted, lessThan)
 	return NewArray(sorted...)
 }
 
@@ -449,5 +448,5 @@ func (a *ConcurrentRWArray[T]) SortInPlace(lessThan func(T, T) bool) {
 	defer a.lock.Unlock()
 	a.version++
 
-	sort.SliceStable(a.elements, func(i, j int) bool { return lessThan(a.elements[i], a.elements[j]) })
+	sortStable(a.elements, lessThan)
 }

@@ -1,7 +1,6 @@
 package lists
 
 import (
-	"sort"
 	"sync"
 
 	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
@@ -422,7 +421,7 @@ func (a *ConcurrentArray[T]) Sort(lessThan func(T, T) bool) List[T] {
 	defer a.lock.Unlock()
 
 	sorted := slices.Copy(a.elements)
-	sort.SliceStable(sorted, func(i, j int) bool { return lessThan(sorted[i], sorted[j]) })
+	sortStable(sorted, lessThan)
 	return NewArray(sorted...)
 }
 
@@ -434,7 +433,7 @@ func (a *ConcurrentArray[T]) SortInPlace(lessThan func(T, T) bool) {
 	defer a.lock.Unlock()
 	a.version++
 
-	sort.SliceStable(a.elements, func(i, j int) bool { return lessThan(a.elements[i], a.elements[j]) })
+	sortStable(a.elements, lessThan)
 }
 
 // partitionElements calls fn once per snapshot element, in order, and splits
