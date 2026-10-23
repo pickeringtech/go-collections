@@ -111,8 +111,7 @@ func (s *Sketch[T]) Add(value T) { s.AddCount(value, 1) }
 func (s *Sketch[T]) AddCount(value T, n uint64) {
 	h1, h2 := s.pair(value)
 	for row := uint64(0); row < s.d; row++ {
-		col := (h1 + row*h2) % s.w
-		i := row*s.w + col
+		i := row*s.w + s.column(h1, h2, row)
 		if s.counts[i] > math.MaxUint64-n {
 			s.counts[i] = math.MaxUint64
 		} else {
@@ -133,12 +132,24 @@ func (s *Sketch[T]) Estimate(value T) uint64 {
 	h1, h2 := s.pair(value)
 	est := uint64(math.MaxUint64)
 	for row := uint64(0); row < s.d; row++ {
-		col := (h1 + row*h2) % s.w
-		if c := s.counts[row*s.w+col]; c < est {
+		c := s.counts[row*s.w+s.column(h1, h2, row)]
+		if c < est {
 			est = c
 		}
 	}
 	return est
+}
+
+// column returns the counter column for a value with double-hash lanes h1, h2
+// in the given row. The row's Kirsch–Mitzenmacher position h1 + row·h2 is
+// passed through a 64-bit finalizer before the reduction modulo w. Reducing the
+// position directly would make every row's column a function of (h1 mod w,
+// h2 mod w) alone whenever w has a large power-of-two factor, so two keys
+// matching there would collide in every row at once and the failure
+// probability would floor near 2/w² regardless of depth; finalizing first
+// makes the rows effectively independent, which the delta bound assumes.
+func (s *Sketch[T]) column(h1, h2, row uint64) uint64 {
+	return sketchhash.Mix64(h1+row*h2) % s.w
 }
 
 // pair derives the two double-hashing lanes for value.

@@ -261,6 +261,15 @@ func fnvUint(basis uint64, x uint64) uint64 {
 	return h
 }
 
+// Mix64 applies the SplitMix64 finalizer to z: a bijection on uint64 whose
+// every output bit depends on every input bit. Sketches use it to turn a
+// structured value — such as a Count-Min row's double-hash position h1+row·h2 —
+// into one that is effectively independent of its neighbours once reduced
+// modulo a table width.
+func Mix64(z uint64) uint64 {
+	return mix64(z)
+}
+
 // mix64 is the SplitMix64 finalizer. FNV-1a mixes its low bits well but leaves
 // the high bits weak; the finalizer avalanches the whole word so the value is
 // safe to slice for register indices (HyperLogLog) and double-hash lanes.

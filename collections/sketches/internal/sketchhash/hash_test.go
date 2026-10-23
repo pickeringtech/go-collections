@@ -285,3 +285,30 @@ func TestHash64_GoldenValues(t *testing.T) {
 		})
 	}
 }
+
+// TestMix64 checks the finalizer sketches use to decorrelate structured
+// positions: it is deterministic, maps distinct inputs to distinct outputs (it
+// is a bijection), and spreads an arithmetic progression evenly over a small
+// power-of-two table — the case where reducing the raw progression would hit
+// only a fraction of the slots.
+func TestMix64(t *testing.T) {
+	if sketchhash.Mix64(12345) != sketchhash.Mix64(12345) {
+		t.Fatal("Mix64 is not deterministic")
+	}
+	seen := make(map[uint64]bool, 4096)
+	counts := make([]int, 16)
+	const step = 1 << 4 // every raw value ≡ 0 (mod 16)
+	for i := uint64(0); i < 4096; i++ {
+		m := sketchhash.Mix64(i * step)
+		if seen[m] {
+			t.Fatalf("Mix64 collided at input %d", i*step)
+		}
+		seen[m] = true
+		counts[m%16]++
+	}
+	for slot, c := range counts {
+		if c < 256*7/10 || c > 256*13/10 {
+			t.Errorf("slot %d received %d of 4096 mixed values, want ≈256", slot, c)
+		}
+	}
+}
