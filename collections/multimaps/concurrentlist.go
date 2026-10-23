@@ -21,7 +21,11 @@ import (
 type ConcurrentListMultimap[K comparable, V any] struct {
 	_    nocopy.NoCopy
 	data ListMultimap[K, V]
-	lock sync.Mutex
+	// version counts writes to data. Every mutating method increments it
+	// under the write lock, so FilterInPlace can tell whether anything wrote
+	// to the multimap while its predicate ran outside the lock.
+	version uint64
+	lock    sync.Mutex
 }
 
 // NewConcurrentListMultimap creates a new thread-safe, list-backed multimap
@@ -169,28 +173,36 @@ func (c *ConcurrentListMultimap[K, V]) Filter(fn func(key K, value V) bool) Mult
 }
 
 // FilterInPlace removes every entry that does not satisfy the predicate. The
-// predicate is evaluated after the lock is released, against a point-in-time
-// snapshot taken under the lock, so it may safely call back into the multimap.
+// predicate is called once per entry — for each key, in the order its values
+// were bound — after the lock is released, against a point-in-time snapshot
+// taken under the lock, so it may safely call back into the multimap.
 //
-// Each rejected (key, value) entry removes one matching entry from the multimap
-// as it stands at apply time, so entries added concurrently in the evaluation
-// window are preserved.
+// If nothing wrote to the multimap while the predicate ran, it is left holding
+// exactly the bindings the predicate kept, in order — the same result as
+// ListMultimap.FilterInPlace. If a write did land in that window (from another
+// goroutine, or from the predicate itself), removal falls back to reconciling
+// against the current contents so the concurrent write is preserved: each
+// rejected entry removes the first binding of its key to a deeply-equal
+// (reflect.DeepEqual) value. In that fallback a rejected value that is not
+// DeepEqual to itself (such as NaN) is kept, and when a key holds several
+// deeply-equal values the first is removed rather than the one rejected.
 func (c *ConcurrentListMultimap[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	c.lock.Lock()
 	entries := c.data.Entries()
+	version := c.version
 	c.lock.Unlock()
 
-	var toRemove []Entry[K, V]
-	for _, entry := range entries {
-		if !fn(entry.Key, entry.Value) {
-			toRemove = append(toRemove, entry)
-		}
-	}
+	kept, rejected := partitionEntries(entries, fn)
 
 	c.lock.Lock()
-	for _, entry := range toRemove {
-		c.data.RemoveInPlace(entry.Key, entry.Value)
+	if c.version == version {
+		c.data = kept
+	} else {
+		for _, entry := range rejected {
+			c.data.RemoveInPlace(entry.Key, entry.Value)
+		}
 	}
+	c.version++
 	c.lock.Unlock()
 }
 
@@ -297,6 +309,7 @@ func (c *ConcurrentListMultimap[K, V]) PutAll(key K, values ...V) Multimap[K, V]
 func (c *ConcurrentListMultimap[K, V]) PutInPlace(key K, value V) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	c.version++
 	c.data.PutInPlace(key, value)
 }
 
@@ -304,6 +317,7 @@ func (c *ConcurrentListMultimap[K, V]) PutInPlace(key K, value V) {
 func (c *ConcurrentListMultimap[K, V]) PutAllInPlace(key K, values ...V) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	c.version++
 	c.data.PutAllInPlace(key, values...)
 }
 
@@ -325,6 +339,7 @@ func (c *ConcurrentListMultimap[K, V]) RemoveAll(key K) Multimap[K, V] {
 func (c *ConcurrentListMultimap[K, V]) RemoveInPlace(key K, value V) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	c.version++
 	return c.data.RemoveInPlace(key, value)
 }
 
@@ -332,6 +347,7 @@ func (c *ConcurrentListMultimap[K, V]) RemoveInPlace(key K, value V) bool {
 func (c *ConcurrentListMultimap[K, V]) RemoveAllInPlace(key K) ([]V, bool) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	c.version++
 	return c.data.RemoveAllInPlace(key)
 }
 
@@ -339,5 +355,23 @@ func (c *ConcurrentListMultimap[K, V]) RemoveAllInPlace(key K) ([]V, bool) {
 func (c *ConcurrentListMultimap[K, V]) Clear() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+	c.version++
 	c.data.Clear()
+}
+
+// partitionEntries calls fn once per snapshot entry, in order, and splits the
+// entries into a multimap of the bindings it kept (in their original order) and
+// a slice of the entries it rejected. It is the evaluation phase of the
+// concurrent list-backed FilterInPlace, run outside the lock.
+func partitionEntries[K comparable, V any](entries []Entry[K, V], fn func(key K, value V) bool) (ListMultimap[K, V], []Entry[K, V]) {
+	kept := make(ListMultimap[K, V])
+	var rejected []Entry[K, V]
+	for _, entry := range entries {
+		if fn(entry.Key, entry.Value) {
+			kept[entry.Key] = append(kept[entry.Key], entry.Value)
+		} else {
+			rejected = append(rejected, entry)
+		}
+	}
+	return kept, rejected
 }

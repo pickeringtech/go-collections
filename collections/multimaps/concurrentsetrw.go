@@ -173,9 +173,11 @@ func (c *ConcurrentRWSetMultimap[K, V]) Filter(fn func(key K, value V) bool) Mul
 // predicate is evaluated after the lock is released, against a point-in-time
 // snapshot taken under the lock, so it may safely call back into the multimap.
 //
-// Each rejected (key, value) entry removes one matching entry from the multimap
-// as it stands at apply time, so entries added concurrently in the evaluation
-// window are preserved.
+// Each rejected (key, value) entry is removed from the multimap as it stands at
+// apply time. A set-backed binding is identified by its value, so with no
+// concurrent write this is exactly SetMultimap.FilterInPlace's result, and an
+// entry added concurrently in the evaluation window is never in the removal
+// set, so it is preserved.
 func (c *ConcurrentRWSetMultimap[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	c.lock.RLock()
 	entries := c.data.Entries()
