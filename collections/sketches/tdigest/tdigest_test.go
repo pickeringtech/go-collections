@@ -438,6 +438,16 @@ func TestDigest_Clear(t *testing.T) {
 	if got, ok := d.Quantile(0.5); !ok || got != 99 {
 		t.Errorf("Quantile after Clear+Add = (%v, %v), want (99, true)", got, ok)
 	}
+	// Clear resets both extremes, so the next value becomes the minimum and
+	// the maximum, exactly as on a fresh digest.
+	minV, minOK := d.Min()
+	if !minOK || minV != 99 {
+		t.Errorf("Min after Clear+Add = (%v, %v), want (99, true)", minV, minOK)
+	}
+	maxV, maxOK := d.Max()
+	if !maxOK || maxV != 99 {
+		t.Errorf("Max after Clear+Add = (%v, %v), want (99, true)", maxV, maxOK)
+	}
 }
 
 func TestDigest_AddWeightedEquivalence(t *testing.T) {
@@ -663,6 +673,13 @@ func TestDigest_AddWeightedRejectsUnusableWeights(t *testing.T) {
 			d.AddWeighted(1, tt.weight)
 			if d.Count() != tt.wantCount {
 				t.Errorf("Count() = %v, want %v", d.Count(), tt.wantCount)
+			}
+			// The rejected value 1 sits below everything already added, so it
+			// must not become the minimum either (a zero weight leaves Count
+			// unchanged, so Count alone cannot tell it was ignored).
+			minV, ok := d.Min()
+			if !ok || minV != 2 {
+				t.Errorf("Min() = (%v, %v), want (2, true)", minV, ok)
 			}
 			assertFiniteQueries(t, d)
 		})
@@ -945,6 +962,108 @@ func TestDigest_CDFAtMinimumCountsTheMinimum(t *testing.T) {
 			got, ok := a.CDF(lo)
 			if !ok || got < 1/a.Count() {
 				t.Errorf("CDF(Min()) = (%v, %v), want at least 1/Count = %v", got, ok, 1/a.Count())
+			}
+		})
+	}
+}
+
+// TestDigest_SmallDigestExactEstimates pins the merge criterion and the CDF
+// interpolation on digests small enough to work out by hand. At compression 1,
+// compressing 1, 2, 3, 4 (unit weights, total 4) absorbs 2 into 1 (combined
+// weight 2 against a bound of 4·4·½·½ = 4) and then 3 (combined weight 3
+// against 4·4·¾·¼ = 3: the bound is inclusive), giving one spread centroid
+// (mean 2, weight 3) and a point at 4 (the bound at q = 1 is 0). The quantile
+// knots are therefore (1, 0), (2, 1.5), (4, 3.5) and (4, 4), and the CDF rises
+// linearly from 0 at 1 to 1.5/4 at 2, then towards 3/4 just below 4.
+//
+// -1.7e308, -1.6e308, 1.6e308, 1.7e308 compress the same way: the three lower
+// values merge into a spread centroid at m = (-1.7e308 - 1.6e308 + 1.6e308)/3
+// (weight 3) and 1.7e308 stays a point. The CDF segment between them spans more
+// than math.MaxFloat64, so its fraction must be formed from halved operands:
+// CDF(1e308) = (1.5 + 1.5·(1e308 - m)/(1.7e308 - m))/4.
+func TestDigest_SmallDigestExactEstimates(t *testing.T) {
+	quantile := func(q float64) func(d *tdigest.Digest) (float64, bool) {
+		return func(d *tdigest.Digest) (float64, bool) { return d.Quantile(q) }
+	}
+	cdf := func(x float64) func(d *tdigest.Digest) (float64, bool) {
+		return func(d *tdigest.Digest) (float64, bool) { return d.CDF(x) }
+	}
+	oneToFour := []float64{1, 2, 3, 4}
+	extremes := []float64{-1.7e308, -1.6e308, 1.6e308, 1.7e308}
+	type args struct {
+		values   []float64
+		estimate func(d *tdigest.Digest) (float64, bool)
+	}
+	tests := []struct {
+		name string
+		args args
+		want float64
+	}{
+		{name: "a low quantile interpolates from the minimum to the spread centroid", args: args{values: oneToFour, estimate: quantile(0.1)}, want: 1 + 0.4/1.5},
+		{name: "the median interpolates between the spread centroid and the point", args: args{values: oneToFour, estimate: quantile(0.5)}, want: 2.5},
+		{name: "the upper quartile interpolates between the spread centroid and the point", args: args{values: oneToFour, estimate: quantile(0.75)}, want: 3.5},
+		{name: "CDF between the minimum and the spread centroid interpolates from 0", args: args{values: oneToFour, estimate: cdf(1.5)}, want: 0.1875},
+		{name: "CDF at the spread centroid's mean counts half its weight", args: args{values: oneToFour, estimate: cdf(2)}, want: 0.375},
+		{name: "CDF between the spread centroid and the point interpolates", args: args{values: oneToFour, estimate: cdf(3)}, want: 0.5625},
+		{name: "CDF just below the point stays on the interpolated segment", args: args{values: oneToFour, estimate: cdf(3.5)}, want: 0.65625},
+		{name: "CDF across a segment wider than MaxFloat64 interpolates on halved operands", args: args{values: extremes, estimate: cdf(1e308)}, want: 0.6341911764705882},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := buildDigest(t, 1, tt.args.values)
+			got, ok := tt.args.estimate(d)
+			if !ok || math.Abs(got-tt.want) > 1e-12 {
+				t.Errorf("estimate = (%v, %v), want (%v, true)", got, ok, tt.want)
+			}
+		})
+	}
+}
+
+// TestDigest_FirstBatchIsOrderIndependent pins the buffering schedule: Add
+// buffers values and compresses only once more than 5·compression are pending,
+// so the first 5·compression+1 values are folded in one sorted batch and their
+// insertion order cannot change the summary. Compressing any earlier — at
+// exactly 5·compression values, or after every Add — would merge part of the
+// batch on its own first and make the estimates depend on the order. The values
+// are distinct, so the sort that starts each compression has no ties to break.
+func TestDigest_FirstBatchIsOrderIndependent(t *testing.T) {
+	type args struct {
+		compression float64
+		values      []float64
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "eleven values at compression 2 with the minimum added last",
+			args: args{compression: 2, values: []float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0}},
+		},
+		{
+			name: "sixteen values at compression 3 with a low value added last",
+			args: args{compression: 3, values: []float64{0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 4}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ascending := append([]float64(nil), tt.args.values...)
+			sort.Float64s(ascending)
+			inOrder := buildDigest(t, tt.args.compression, tt.args.values)
+			sorted := buildDigest(t, tt.args.compression, ascending)
+			for i := 1; i < 20; i++ {
+				q := float64(i) / 20
+				got, _ := inOrder.Quantile(q)
+				want, _ := sorted.Quantile(q)
+				if got != want {
+					t.Errorf("Quantile(%v) = %v, want %v (as when added in ascending order)", q, got, want)
+				}
+			}
+			for x := -0.5; x <= 16; x += 0.25 {
+				got, _ := inOrder.CDF(x)
+				want, _ := sorted.CDF(x)
+				if got != want {
+					t.Errorf("CDF(%v) = %v, want %v (as when added in ascending order)", x, got, want)
+				}
 			}
 		})
 	}
