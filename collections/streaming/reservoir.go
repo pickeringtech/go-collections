@@ -96,9 +96,9 @@ func (r *Reservoir[T]) Len() int {
 	return len(r.items)
 }
 
-// weightedItem pairs a stream element with its random sampling key. The key is
-// u^(1/weight) for a uniform u in [0, 1); keeping the k largest keys yields a
-// weighted sample without replacement (Efraimidis & Spirakis, A-Res).
+// weightedItem pairs a stream element with its random sampling key (see
+// samplingKey); keeping the k largest keys yields a weighted sample without
+// replacement (Efraimidis & Spirakis, A-Res).
 type weightedItem[T any] struct {
 	key  float64
 	item T
@@ -110,7 +110,9 @@ type weightedItem[T any] struct {
 // weight relative to the rest of the stream. This is the A-Res algorithm of
 // Efraimidis & Spirakis: each element is assigned the random key u^(1/weight)
 // and the k elements with the largest keys are kept, backed by a size-bounded
-// min-heap (collections/heaps) so Add is O(log k).
+// min-heap (collections/heaps) so Add is O(log k). The key is evaluated in an
+// order-preserving log-log form (see Add) so that every positive finite weight
+// works at any scale: only the ratios between weights affect the sample.
 //
 // Sampling is without replacement. The sample is exact in its probabilities, not
 // approximate. WeightedReservoir is seeded for reproducibility and is
@@ -136,24 +138,41 @@ func NewWeightedReservoir[T any](k int, rng *rand.Rand) *WeightedReservoir[T] {
 }
 
 // Add feeds one element into the stream with the given weight. Weights must be
-// strictly positive; an element with a non-positive weight (or a NaN weight) can
-// never be sampled and is ignored. Larger weights make an element proportionally
-// more likely to be retained. Add is O(log k) and a no-op when k <= 0.
+// strictly positive and finite; an element whose weight is zero, negative, NaN
+// or ±Inf has no well-defined sampling probability and is ignored (an infinite
+// weight would tie with every other infinite weight). Larger weights make an
+// element proportionally more likely to be retained, and scaling every weight by
+// the same factor leaves the sampling distribution unchanged — any positive
+// finite magnitude, subnormal to math.MaxFloat64, is handled. Add is O(log k)
+// and a no-op when k <= 0.
 func (r *WeightedReservoir[T]) Add(element T, weight float64) {
-	if r.k <= 0 || weight <= 0 || math.IsNaN(weight) {
+	if r.k <= 0 || weight <= 0 || math.IsNaN(weight) || math.IsInf(weight, 1) {
 		return
 	}
-	key := math.Pow(r.rng.Float64(), 1/weight)
-	entry := weightedItem[T]{key: key, item: element}
+	entry := weightedItem[T]{key: samplingKey(r.rng.Float64(), weight), item: element}
 	if r.heap.Length() < r.k {
 		r.heap.PushInPlace(entry)
 		return
 	}
 	lowest, _ := r.heap.Peek()
-	if lowest.key < key {
+	if lowest.key < entry.key {
 		r.heap.PopInPlace()
 		r.heap.PushInPlace(entry)
 	}
+}
+
+// samplingKey returns the A-Res key for an element of the given weight from a
+// uniform draw u in [0, 1), in a form that orders exactly as u^(1/weight) but
+// never underflows or overflows. Evaluated directly, u^(1/weight) underflows to
+// 0 for small weights and rounds to 1 for huge ones, and the resulting ties let
+// the earliest elements win; even log(u)/weight overflows to -Inf for subnormal
+// weights. Since log is increasing, u^(1/w) orders like log(u)/w = -E/w with
+// E = -log(u) > 0, which orders like log(w) - log(E): both terms are bounded
+// (|log w| <= ~745 for any positive finite w, and log E is in about
+// [-36.7, 3.6] for the u that Float64 returns). u == 0 gives E = +Inf and the
+// key -Inf, the lowest possible, matching 0^(1/w) = 0.
+func samplingKey(u, weight float64) float64 {
+	return math.Log(weight) - math.Log(-math.Log(u))
 }
 
 // Result returns a copy of the current sample as a non-nil slice, ordered by
