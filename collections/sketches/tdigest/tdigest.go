@@ -59,6 +59,10 @@ type Digest struct {
 type centroid struct {
 	mean   float64
 	weight float64
+	// point records that every value the centroid absorbed equals mean, so its
+	// whole weight sits exactly at mean (a point mass) rather than being spread
+	// around it. CDF needs this to count repeated values as "at or below" x.
+	point bool
 }
 
 // bufferFactor sizes the unmerged buffer relative to compression. A larger
@@ -120,7 +124,7 @@ func (d *Digest) AddWeighted(x float64, w float64) {
 	if math.IsInf(total, 1) {
 		return
 	}
-	d.buffer = append(d.buffer, centroid{mean: x, weight: w})
+	d.buffer = append(d.buffer, centroid{mean: x, weight: w, point: true})
 	d.count = total
 	if x < d.min {
 		d.min = x
@@ -161,6 +165,7 @@ func (d *Digest) compress() {
 			// Absorb next into cur: the combined mean lies next.weight/W of the
 			// way from cur.mean to next.mean, where W is the combined weight.
 			// lerp keeps it finite even when the means sit near ±MaxFloat64.
+			cur.point = cur.point && next.point && cur.mean == next.mean
 			cur.weight += next.weight
 			cur.mean = lerp(cur.mean, next.mean, next.weight/cur.weight)
 		} else {
@@ -298,10 +303,25 @@ func (d *Digest) Percentile(p float64) (float64, bool) {
 	return d.Quantile(p / 100)
 }
 
-// CDF returns the estimated fraction of the distribution that lies at or below
-// x — the inverse of Quantile. The second return value is false (and the result
-// 0) when the digest is empty or x is non-finite. Values below the observed
-// minimum return 0 and values at or above the maximum return 1.
+// CDF returns the estimated fraction of the total weight at or below x. The
+// second return value is false (and the result 0) when the digest is empty or x
+// is non-finite. Otherwise the result is in [0, 1] and non-decreasing in x:
+//
+//   - x below Min() gives 0, and x at or above Max() gives 1.
+//   - Weight known to sit exactly at a value counts in full once x reaches that
+//     value: every centroid that has only ever absorbed copies of one value (an
+//     unmerged Add or AddWeighted, or a run of equal values) is a point mass, so
+//     repeated values — including a repeated minimum — are counted as at or
+//     below x. In particular CDF(Min()) is the fraction of weight in point
+//     masses at the minimum, which with the default compression always includes
+//     the minimum observation itself.
+//   - Weight in a centroid that merged several distinct values is assumed
+//     spread evenly either side of its mean: half of it counts as below the
+//     mean, and the CDF rises linearly between adjacent centroid means (and
+//     between the extreme centroids and Min()/Max()).
+//
+// Equal-mean centroids are pooled before this rule is applied. CDF is an
+// approximate inverse of Quantile: CDF(Quantile(q)) ≈ q away from point masses.
 func (d *Digest) CDF(x float64) (float64, bool) {
 	if nonFinite(x) {
 		return 0, false
@@ -316,29 +336,56 @@ func (d *Digest) CDF(x float64) (float64, bool) {
 		// reports 1 at that single value: every observation is at or below it.
 		return 1, true
 	}
-	if x <= d.min {
-		// Below the minimum (and, by the check above, strictly below the
-		// maximum): nothing lies at or below x.
+	if x < d.min {
 		return 0, true
 	}
-	// d.min < x < d.max here, so x lies strictly inside the knot value range.
-	// CDF is the inverse of Quantile: interpolate rank as a function of value in
-	// the segment whose upper knot's value first reaches x, then normalise to a
-	// fraction. (A single-centroid digest has min == max and is fully handled by
-	// the bounds checks above, so there are at least two knot segments here.)
-	ks := d.knots()
-	i := 1
-	for i < len(ks)-1 && ks[i].value < x {
-		i++
+	// d.min <= x < d.max here. Take the last knot at or below x: if it sits at
+	// x, its rank — the highest at that value, so point masses at x count in
+	// full — is the answer; otherwise x lies strictly inside the segment to the
+	// next knot, whose value exceeds x (the final knot is the maximum, > x).
+	ks := d.cdfKnots()
+	j := 0
+	for ks[j+1].value <= x {
+		j++
 	}
-	// Knot values are non-decreasing and may repeat (e.g. the minimum knot and a
-	// first centroid whose mean equals it); when the bracketing segment is
-	// degenerate its rank is simply the shared knot's rank.
-	rank := ks[i].rank
-	if ks[i].value > ks[i-1].value {
-		rank = interpolate(x, ks[i-1].value, ks[i-1].rank, ks[i].value, ks[i].rank)
+	rank := ks[j].rank
+	if ks[j].value < x {
+		rank = interpolate(x, ks[j].value, ks[j].rank, ks[j+1].value, ks[j+1].rank)
 	}
-	return rank / d.count, true
+	// Summing the centroid weights in sorted order can round a hair past the
+	// separately accumulated count, so clamp the fraction.
+	return min(rank/d.count, 1), true
+}
+
+// cdfKnots returns the control points of CDF's estimate as (value, rank) pairs
+// with non-decreasing values and ranks: the minimum at rank 0, two knots per
+// run of equal-mean centroids, and the maximum at rank count. A run at mean m,
+// preceded by weight below, holding spread weight s (centroids that merged
+// distinct values) and point weight p (centroids holding only m), contributes
+// (m, below + s/2) — the CDF just below m, half the spread weight having
+// arrived — and (m, below + s/2 + p) — the CDF at m, after the jump of the
+// point mass. The CDF is linear between consecutive knots of different value.
+// The caller must ensure at least one centroid exists.
+func (d *Digest) cdfKnots() []knot {
+	ks := make([]knot, 0, 2*len(d.centroids)+2)
+	ks = append(ks, knot{value: d.min, rank: 0})
+	below := 0.0
+	for i := 0; i < len(d.centroids); {
+		mean := d.centroids[i].mean
+		spread, point := 0.0, 0.0
+		for ; i < len(d.centroids) && d.centroids[i].mean == mean; i++ {
+			if d.centroids[i].point {
+				point += d.centroids[i].weight
+			} else {
+				spread += d.centroids[i].weight
+			}
+		}
+		ks = append(ks,
+			knot{value: mean, rank: below + spread/2},
+			knot{value: mean, rank: below + spread/2 + point})
+		below += spread + point
+	}
+	return append(ks, knot{value: d.max, rank: d.count})
 }
 
 // Merge folds other into the receiver: it absorbs other's centroids so the

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"math/rand/v2"
+	"sort"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/sketches/tdigest"
@@ -779,5 +780,144 @@ func TestDigest_ExtremeFiniteValuesStayFinite(t *testing.T) {
 				t.Errorf("CDF(1e308) = (%v, %v), want a fraction in [0, 1]", c, ok)
 			}
 		})
+	}
+}
+
+// exactCDF returns the fraction of values at or below x — the empirical CDF
+// that Digest.CDF estimates. sorted must be in ascending order.
+func exactCDF(sorted []float64, x float64) float64 {
+	atOrBelow := sort.Search(len(sorted), func(i int) bool { return sorted[i] > x })
+	return float64(atOrBelow) / float64(len(sorted))
+}
+
+// TestDigest_CDFAtRepeatedValues checks CDF's "fraction at or below x"
+// contract where values repeat, including at the minimum. CDF used to read
+// the rank of the first centroid at x's centre, leaving out the weight sitting
+// exactly at x: 9×0 then 1 gave CDF(0) = 0 (true 0.9), and 1, 50×5, 9 gave
+// CDF(5) ≈ 0.03 (true 51/52).
+func TestDigest_CDFAtRepeatedValues(t *testing.T) {
+	type point struct {
+		value, weight float64
+	}
+	repeat := func(value float64, n int) []point {
+		out := make([]point, n)
+		for i := range out {
+			out[i] = point{value: value, weight: 1}
+		}
+		return out
+	}
+	concat := func(parts ...[]point) []point {
+		var out []point
+		for _, p := range parts {
+			out = append(out, p...)
+		}
+		return out
+	}
+	tests := []struct {
+		name   string
+		points []point
+		x      float64
+		want   float64
+	}{
+		{"repeated minimum", concat(repeat(0, 9), repeat(1, 1)), 0, 0.9},
+		{"just above a repeated minimum", concat(repeat(0, 9), repeat(1, 1)), 0.5, 0.9},
+		{"repeated interior value", concat(repeat(1, 1), repeat(5, 50), repeat(9, 1)), 5, 51.0 / 52},
+		{"just below a repeated interior value", concat(repeat(1, 1), repeat(5, 50), repeat(9, 1)), 4.999, 1.0 / 52},
+		{"singleton minimum", concat(repeat(1, 1), repeat(5, 50), repeat(9, 1)), 1, 1.0 / 52},
+		{"heavily weighted interior point", []point{{1, 1}, {5, 1000}, {9, 1}}, 5, 1001.0 / 1002},
+		{"distinct singletons", concat(repeat(1, 1), repeat(2, 1), repeat(3, 1), repeat(4, 1), repeat(5, 1)), 3, 0.6},
+		{"between distinct singletons", concat(repeat(1, 1), repeat(2, 1), repeat(3, 1), repeat(4, 1), repeat(5, 1)), 3.5, 0.6},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := buildDigest(t, 100, nil)
+			for _, p := range tt.points {
+				d.AddWeighted(p.value, p.weight)
+			}
+			got, ok := d.CDF(tt.x)
+			if !ok || math.Abs(got-tt.want) > 1e-12 {
+				t.Errorf("CDF(%v) = (%v, %v), want (%v, true)", tt.x, got, ok, tt.want)
+			}
+		})
+	}
+}
+
+// TestDigest_CDFMatchesEmpiricalCDF compares CDF against the exact empirical
+// CDF on large streams, with and without ties, at every distinct value of a
+// discrete stream and at a grid of points of a continuous one. Ties are where
+// the old midpoint-only estimate was furthest off: it dropped the whole
+// weight sitting at x.
+func TestDigest_CDFMatchesEmpiricalCDF(t *testing.T) {
+	rng := rand.New(rand.NewPCG(5, 9))
+	discrete := make([]float64, 20000)
+	for i := range discrete {
+		discrete[i] = float64(rng.IntN(20)) // 20 distinct values, ~5% of the weight each
+	}
+	continuous := make([]float64, 20000)
+	for i := range continuous {
+		continuous[i] = rng.NormFloat64()
+	}
+	mixed := make([]float64, 0, 20000)
+	mixed = append(mixed, continuous[:15000]...)
+	for i := 0; i < 5000; i++ {
+		mixed = append(mixed, 0.25) // a 25% point mass inside a continuous body
+	}
+	gridOf := func(values []float64) []float64 {
+		lo, hi, _ := stats.MinMax(values)
+		grid := []float64{0.25}
+		for i := 0; i <= 100; i++ {
+			grid = append(grid, lo+(hi-lo)*float64(i)/100)
+		}
+		return grid
+	}
+	tests := []struct {
+		name   string
+		values []float64
+		at     []float64
+	}{
+		{"discrete values", discrete, []float64{0, 1, 2, 5, 9.5, 10, 13, 18, 19}},
+		{"continuous values", continuous, gridOf(continuous)},
+		{"point mass in a continuous body", mixed, gridOf(mixed)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := buildDigest(t, 100, tt.values)
+			sorted := append([]float64(nil), tt.values...)
+			sort.Float64s(sorted)
+			for _, x := range tt.at {
+				got, ok := d.CDF(x)
+				want := exactCDF(sorted, x)
+				if !ok || math.Abs(got-want) > 0.02 {
+					t.Errorf("CDF(%v) = (%v, %v), exact %v, |diff| > 0.02", x, got, ok, want)
+				}
+			}
+		})
+	}
+}
+
+// TestDigest_CDFIsMonotone checks that CDF never decreases as x grows — across
+// point masses, wide centroids and the extremes — and stays in [0, 1].
+func TestDigest_CDFIsMonotone(t *testing.T) {
+	rng := rand.New(rand.NewPCG(2, 4))
+	d := buildDigest(t, 50, nil)
+	for i := 0; i < 5000; i++ {
+		d.Add(math.Round(rng.NormFloat64()*4) / 2) // many ties on a half-integer grid
+		d.Add(rng.NormFloat64() * 3)
+	}
+	other := buildDigest(t, 50, nil)
+	for i := 0; i < 3000; i++ {
+		other.Add(math.Round(rng.NormFloat64() * 3))
+	}
+	err := d.Merge(other)
+	if err != nil {
+		t.Fatalf("Merge: %v", err)
+	}
+	prev := 0.0
+	for x := -20.0; x <= 20; x += 0.01 {
+		got, ok := d.CDF(x)
+		if !ok || got < prev || got > 1 {
+			t.Fatalf("CDF(%v) = (%v, %v) after CDF = %v just below it; want non-decreasing in [0, 1]", x, got, ok, prev)
+		}
+		prev = got
 	}
 }
