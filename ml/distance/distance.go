@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/pickeringtech/go-collections/constraints"
+	"github.com/pickeringtech/go-collections/internal/kahan"
 	"github.com/pickeringtech/go-collections/ml/similarity"
 	"github.com/pickeringtech/go-collections/stats"
 )
@@ -25,7 +26,9 @@ func Euclidean[T constraints.Numeric](a, b []T) (float64, bool) {
 
 // Manhattan computes the L1 (taxicab) distance between two numeric vectors:
 // Σ |aᵢ - bᵢ|. It measures the total variation across all dimensions, treating
-// each independently.
+// each independently. The absolute differences are summed with compensated
+// (Kahan–Neumaier) summation, so small differences are not lost next to a
+// large one.
 //
 // It returns ok == false for empty input or vectors of differing lengths.
 // Non-finite inputs (NaN/Inf) propagate to a non-finite result with ok == true.
@@ -33,12 +36,11 @@ func Manhattan[T constraints.Numeric](a, b []T) (float64, bool) {
 	if len(a) != len(b) || len(a) == 0 {
 		return 0, false
 	}
-	var dist float64
+	var dist kahan.Sum
 	for i := range a {
-		diff := float64(a[i]) - float64(b[i])
-		dist += math.Abs(diff)
+		dist.Add(math.Abs(float64(a[i]) - float64(b[i])))
 	}
-	return dist, true
+	return dist.Total(), true
 }
 
 // Minkowski computes the Lp distance between two numeric vectors:
@@ -55,7 +57,8 @@ func Manhattan[T constraints.Numeric](a, b []T) (float64, bool) {
 //
 // Large finite p is handled stably: the largest absolute difference is factored
 // out before exponentiation, so the result neither overflows to +Inf nor
-// collapses to a single dimension as it would under a naive Σ diffᵖ.
+// collapses to a single dimension as it would under a naive Σ diffᵖ. The
+// scaled powers are summed with compensated (Kahan–Neumaier) summation.
 //
 // Non-finite inputs (NaN/Inf) propagate to a non-finite result with ok == true.
 func Minkowski[T constraints.Numeric](a, b []T, p float64) (float64, bool) {
@@ -84,12 +87,12 @@ func Minkowski[T constraints.Numeric](a, b []T, p float64) (float64, bool) {
 	if maxDiff == 0 {
 		return 0, true
 	}
-	var sum float64
+	var sum kahan.Sum
 	for i := range a {
 		diff := math.Abs(float64(a[i]) - float64(b[i]))
-		sum += math.Pow(diff/maxDiff, p)
+		sum.Add(math.Pow(diff/maxDiff, p))
 	}
-	return maxDiff * math.Pow(sum, 1/p), true
+	return maxDiff * math.Pow(sum.Total(), 1/p), true
 }
 
 // CosineDistance computes the cosine distance between two numeric vectors:

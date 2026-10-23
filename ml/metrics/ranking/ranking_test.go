@@ -177,3 +177,18 @@ func TestNDCGTiesKeepInputOrder(t *testing.T) {
 		t.Errorf("NDCG() = %v, %v; want %v, true", got, ok, want)
 	}
 }
+
+// TestDCGIsCompensated guards the discounted sum against round-off: each later
+// relevance is chosen so its discounted gain is exactly 1, which a naive running
+// sum after a gain of 1e17 would absorb and lose.
+func TestDCGIsCompensated(t *testing.T) {
+	relevances := make([]float64, 17)
+	relevances[0] = 1e17
+	for i := 1; i < len(relevances); i++ {
+		relevances[i] = math.Log2(float64(i + 2)) // gain / discount == 1 exactly
+	}
+	got, ok := ranking.DCG(relevances, 0)
+	if !ok || got != 1e17+16 {
+		t.Errorf("DCG() = %v, %v; want %v, true", got, ok, float64(1e17+16))
+	}
+}
