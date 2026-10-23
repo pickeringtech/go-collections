@@ -100,33 +100,39 @@ func JoinToString[T any](input []T, separator string) string {
 	return sb.String()
 }
 
-// Pop removes the last element from the input slice, returning it, whether there was one, and a new, smaller slice
-// holding the remaining elements. The input is not modified, and the returned slice never shares its backing array, so
-// writing to or appending to it cannot affect the input. The returned slice is always non-nil: popping a one-element
-// slice leaves an initialised empty slice, and an empty or nil input yields the zero value, false and an initialised
-// empty slice.
+// Pop removes the last element from the input slice, returning it, whether there was one, and the shorter slice
+// holding the remaining elements. The input is not modified. Pop is O(1): the returned slice is a view of the input's remaining elements, not a copy, with its capacity clipped to its
+// length - so appending to it always allocates fresh storage and can never overwrite the input. Like any Go sub-slice,
+// writing to one of its elements writes to the input's element too; use Copy for an independent slice.
+//
+// The returned slice is always non-nil: popping a one-element slice leaves an initialised empty slice, and an empty or
+// nil input yields the zero value, false and an initialised empty slice.
 func Pop[T any](input []T) (T, bool, []T) {
 	var lastElement T
 	if len(input) == 0 {
 		return lastElement, false, []T{}
 	}
 
-	lastElement = input[len(input)-1]
-	return lastElement, true, Copy(input[:len(input)-1])
+	last := len(input) - 1
+	lastElement = input[last]
+	return lastElement, true, input[:last:last]
 }
 
-// PopFront removes the first element from the input slice, returning it, whether there was one, and a new, smaller
-// slice holding the remaining elements. The input is not modified, and the returned slice never shares its backing
-// array, so writing to or appending to it cannot affect the input. The returned slice is always non-nil: popping a
-// one-element slice leaves an initialised empty slice, and an empty or nil input yields the zero value, false and an
-// initialised empty slice.
+// PopFront removes the first element from the input slice, returning it, whether there was one, and the shorter
+// slice holding the remaining elements. The input is not modified. PopFront is O(1): the returned slice is a view of the input's remaining elements, not a copy, with its capacity clipped to its
+// length - so appending to it always allocates fresh storage and can never overwrite the input. Like any Go sub-slice,
+// writing to one of its elements writes to the input's element too; use Copy for an independent slice.
+//
+// The returned slice is always non-nil: popping a one-element slice leaves an initialised empty slice, and an empty or
+// nil input yields the zero value, false and an initialised empty slice.
 func PopFront[T any](input []T) (T, bool, []T) {
 	var firstElement T
 	if len(input) == 0 {
 		return firstElement, false, []T{}
 	}
 	firstElement = input[0]
-	return firstElement, true, Copy(input[1:])
+	n := len(input)
+	return firstElement, true, input[1:n:n]
 }
 
 // Push adds new elements to the end of the input slice in a new slice without modifying or aliasing the input. If the

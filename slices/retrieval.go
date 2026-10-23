@@ -145,11 +145,14 @@ func PeekFront[T any](input []T) (firstElement T, ok bool) {
 	return input[0], true
 }
 
-// SubSlice provides a new slice containing the entries between the two indexes of the input slice (from is inclusive,
-// to is exclusive). The entries are copied, so the result never shares the input's backing array: writing to or
-// appending to it cannot affect the input. A range that reaches past either end of the input is clamped to it. If the
-// input is empty or nil, or the range selects nothing (it lies wholly before or after the input, or is backward), the
-// output is an initialised, non-nil empty slice.
+// SubSlice returns the entries between the two indexes of the input slice (from is inclusive, to is exclusive). It is
+// O(1): the returned slice is a view of the input's remaining elements, not a copy, with its capacity clipped to its
+// length - so appending to it always allocates fresh storage and can never overwrite the input. Like any Go sub-slice,
+// writing to one of its elements writes to the input's element too; use Copy for an independent slice.
+//
+// A range that reaches past either end of the input is clamped to it. If the input is empty or nil, or the range
+// selects nothing (it lies wholly before or after the input, or is backward), the output is an initialised, non-nil
+// empty slice.
 func SubSlice[T any](input []T, fromIndex, toIndex int) []T {
 	l := len(input)
 	if l == 0 {
@@ -173,5 +176,5 @@ func SubSlice[T any](input []T, fromIndex, toIndex int) []T {
 	if fromIndex < 0 {
 		fromIndex = 0
 	}
-	return Copy(input[fromIndex:toIndex])
+	return input[fromIndex:toIndex:toIndex]
 }
