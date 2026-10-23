@@ -302,3 +302,65 @@ func TestEstimatedJaccard_emptySketches(t *testing.T) {
 		})
 	}
 }
+
+// cycleSource is a rand.Source that replays a fixed cycle of values, so a test
+// controls the permutation coefficients NewMinHash draws.
+type cycleSource struct {
+	values []uint64
+	next   int
+}
+
+func (s *cycleSource) Uint64() uint64 {
+	v := s.values[s.next%len(s.values)]
+	s.next++
+	return v
+}
+
+// TestNewMinHash_multiplierIsForcedOdd pins the odd-multiplier normalisation:
+// each permutation's multiplier a must be odd so a·h + b is a bijection on
+// hash values, so an even draw is rounded up to the next odd number and an odd
+// draw is kept. The sources alternate a multiplier draw with a fixed offset
+// draw, so two sketches are the same permutation family — and comparable via
+// EstimatedJaccard — exactly when their normalised multipliers agree.
+func TestNewMinHash_multiplierIsForcedOdd(t *testing.T) {
+	type args struct {
+		aDraws, bDraws []uint64
+	}
+	tests := []struct {
+		name   string
+		args   args
+		want   float64
+		wantOK bool
+	}{
+		{
+			name:   "an even multiplier is rounded up to the next odd one",
+			args:   args{aDraws: []uint64{2, 7}, bDraws: []uint64{3, 7}},
+			want:   1,
+			wantOK: true,
+		},
+		{
+			name:   "a zero multiplier becomes one",
+			args:   args{aDraws: []uint64{0, 7}, bDraws: []uint64{1, 7}},
+			want:   1,
+			wantOK: true,
+		},
+		{
+			name:   "an odd multiplier is kept rather than rounded",
+			args:   args{aDraws: []uint64{5, 7}, bDraws: []uint64{6, 7}},
+			want:   0,
+			wantOK: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := sketches.NewMinHash[string](4, randv2.New(&cycleSource{values: tt.args.aDraws}))
+			b := sketches.NewMinHash[string](4, randv2.New(&cycleSource{values: tt.args.bDraws}))
+			a.Add("x")
+			b.Add("x")
+			got, ok := sketches.EstimatedJaccard(a, b)
+			if got != tt.want || ok != tt.wantOK {
+				t.Errorf("EstimatedJaccard() = (%v, %v), want (%v, %v)", got, ok, tt.want, tt.wantOK)
+			}
+		})
+	}
+}

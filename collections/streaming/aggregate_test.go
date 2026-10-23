@@ -246,6 +246,44 @@ func TestRunningMinMax_MatchesStatsOracle(t *testing.T) {
 	}
 }
 
+// TestRunningMinMax_SignedZeroMatchesStatsOracle pins the "same lo/hi pair as
+// stats.MinMax" contract where equal values are distinguishable: +0 and -0
+// compare equal, so — like stats.MinMax — an extreme is only replaced by a
+// strictly smaller (or larger) element and the first-seen zero is kept. The
+// sign bit is the only observable difference, so it is compared directly.
+func TestRunningMinMax_SignedZeroMatchesStatsOracle(t *testing.T) {
+	negZero := math.Copysign(0, -1)
+	type args struct {
+		values []float64
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "positive zero seen first stays the extreme", args: args{values: []float64{0, negZero}}},
+		{name: "negative zero seen first stays the extreme", args: args{values: []float64{negZero, 0}}},
+		{name: "an equal minimum after a larger value does not replace it", args: args{values: []float64{1, 0, negZero}}},
+		{name: "an equal maximum after a smaller value does not replace it", args: args{values: []float64{-1, negZero, 0}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mm := streaming.NewRunningMinMax[float64]()
+			for _, v := range tt.args.values {
+				mm.Add(v)
+			}
+			gotLo, gotHi, ok := mm.Result()
+			wantLo, wantHi, _ := stats.MinMax(tt.args.values)
+			if !ok || gotLo != wantLo || gotHi != wantHi {
+				t.Fatalf("Result() = (%v, %v, %v), stats = (%v, %v, true)", gotLo, gotHi, ok, wantLo, wantHi)
+			}
+			if math.Signbit(gotLo) != math.Signbit(wantLo) || math.Signbit(gotHi) != math.Signbit(wantHi) {
+				t.Errorf("Result() sign bits (lo %v, hi %v), stats sign bits (lo %v, hi %v)",
+					math.Signbit(gotLo), math.Signbit(gotHi), math.Signbit(wantLo), math.Signbit(wantHi))
+			}
+		})
+	}
+}
+
 // TestRunningMinMax_Strings exercises the Ordered constraint on a non-numeric
 // type to confirm the generic bound is satisfied.
 func TestRunningMinMax_Strings(t *testing.T) {

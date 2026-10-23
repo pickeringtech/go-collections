@@ -237,6 +237,111 @@ func TestConcurrentListFilterInPlacePreservesConcurrentWrite(t *testing.T) {
 	}
 }
 
+// TestConcurrentListFilterInPlacePreservesWritesThroughTwoMethods extends the
+// issue #153 contract to two writes through different methods in the same
+// predicate window. FilterInPlace detects a concurrent write by comparing a
+// write counter before and after the predicate runs, so every mutating method
+// must move that counter the same way: a method that moved it backwards would
+// cancel a companion method's write (an ABA on the counter), the list would
+// look untouched, and the apply phase would overwrite both writes with the
+// stale filtered snapshot [1 3]. Each case pairs the method under test with a
+// PushInPlace(4) companion (EnqueueInPlace(5) when PushInPlace is the method
+// under test); a nested FilterInPlace covers the counter bump FilterInPlace
+// makes itself.
+func TestConcurrentListFilterInPlacePreservesWritesThroughTwoMethods(t *testing.T) {
+	pushFour := func(l lists.MutableList[int]) { l.PushInPlace(4) }
+	type args struct {
+		write     func(l lists.MutableList[int])
+		companion func(l lists.MutableList[int])
+	}
+	tests := []struct {
+		name string
+		args args
+		want []int
+	}{
+		{
+			name: "PushInPlace then EnqueueInPlace keeps both elements",
+			args: args{
+				write:     func(l lists.MutableList[int]) { l.PushInPlace(4) },
+				companion: func(l lists.MutableList[int]) { l.EnqueueInPlace(5) },
+			},
+			want: []int{1, 3, 4, 5},
+		},
+		{
+			name: "EnqueueInPlace then PushInPlace keeps both elements",
+			args: args{write: func(l lists.MutableList[int]) { l.EnqueueInPlace(5) }, companion: pushFour},
+			want: []int{1, 3, 5, 4},
+		},
+		{
+			name: "InsertInPlace then PushInPlace keeps both elements",
+			args: args{write: func(l lists.MutableList[int]) { l.InsertInPlace(0, 9) }, companion: pushFour},
+			want: []int{9, 1, 3, 4},
+		},
+		{
+			name: "PopInPlace then PushInPlace keeps the pop and the push",
+			args: args{write: func(l lists.MutableList[int]) { l.PopInPlace() }, companion: pushFour},
+			want: []int{1, 4},
+		},
+		{
+			name: "DequeueInPlace then PushInPlace keeps the dequeue and the push",
+			args: args{write: func(l lists.MutableList[int]) { l.DequeueInPlace() }, companion: pushFour},
+			want: []int{3, 4},
+		},
+		{
+			name: "RemoveAtInPlace then PushInPlace keeps the removal and the push",
+			args: args{write: func(l lists.MutableList[int]) { l.RemoveAtInPlace(0) }, companion: pushFour},
+			want: []int{3, 4},
+		},
+		{
+			name: "RemoveInPlace then PushInPlace keeps the removal and the push",
+			args: args{write: func(l lists.MutableList[int]) { l.RemoveInPlace(3) }, companion: pushFour},
+			want: []int{1, 4},
+		},
+		{
+			name: "Clear then PushInPlace keeps only the pushed element",
+			args: args{write: func(l lists.MutableList[int]) { l.Clear() }, companion: pushFour},
+			want: []int{4},
+		},
+		{
+			name: "SortInPlace then PushInPlace keeps the new order and the push",
+			args: args{
+				write:     func(l lists.MutableList[int]) { l.SortInPlace(func(a, b int) bool { return a > b }) },
+				companion: pushFour,
+			},
+			want: []int{3, 1, 4},
+		},
+		{
+			name: "a nested FilterInPlace then PushInPlace keeps both writes",
+			args: args{
+				write:     func(l lists.MutableList[int]) { l.FilterInPlace(func(e int) bool { return e < 3 }) },
+				companion: pushFour,
+			},
+			want: []int{1, 4},
+		},
+	}
+	for _, tt := range tests {
+		for _, f := range concurrentWriteFactories() {
+			t.Run(tt.name+"/"+f.name, func(t *testing.T) {
+				l := f.make(1, 2, 3)
+				wrote := false
+				l.FilterInPlace(func(e int) bool {
+					if !wrote {
+						wrote = true
+						tt.args.write(l) // both racing writes land in the evaluation window
+						tt.args.companion(l)
+					}
+					return e != 2
+				})
+
+				got := l.AsSlice()
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("FilterInPlace() with two concurrent writes = %v, want %v", got, tt.want)
+				}
+			})
+		}
+	}
+}
+
 // concurrentWriteFactories builds every concurrent list, including the
 // circular constructors.
 func concurrentWriteFactories() []struct {

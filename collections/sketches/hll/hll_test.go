@@ -45,6 +45,28 @@ func TestNew_InvalidPrecision(t *testing.T) {
 	}
 }
 
+func TestNew_PrecisionBoundsAreInclusive(t *testing.T) {
+	tests := []struct {
+		name          string
+		p             int
+		wantRegisters int
+	}{
+		{name: "minimum precision is accepted", p: hll.MinPrecision, wantRegisters: 16},
+		{name: "maximum precision is accepted", p: hll.MaxPrecision, wantRegisters: 262144},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, err := hll.New[int](hll.WithPrecision[int](tt.p))
+			if err != nil {
+				t.Fatalf("New(WithPrecision(%d)) error = %v, want nil", tt.p, err)
+			}
+			if s.RegisterCount() != tt.wantRegisters {
+				t.Errorf("RegisterCount() = %d, want %d", s.RegisterCount(), tt.wantRegisters)
+			}
+		})
+	}
+}
+
 func TestSketch_Defaults(t *testing.T) {
 	s := mustNew[int](t)
 	if got := s.Precision(); got != hll.DefaultPrecision {
@@ -292,5 +314,123 @@ func TestSketch_InterfaceKeysCountedByType(t *testing.T) {
 	e := relErr(got, 4000)
 	if e > tolerance {
 		t.Errorf("Count() = %d for 4000 distinct any keys, relative error %.4f exceeds %.4f", got, e, tolerance)
+	}
+}
+
+// identityHasher feeds a value straight through as its own hash, so a test can
+// choose exactly which register an element lands in and with what rank.
+func identityHasher(_ uint64, v uint64) uint64 { return v }
+
+// hashWithRank returns a hash that a precision-p sketch files under register
+// idx with rank r: the top p bits are the index and the remaining 64-p bits
+// hold r-1 leading zeros then a one. r = 65-p is the all-zero remainder, whose
+// rank is capped by the guard bit at 64-p leading zeros plus one.
+func hashWithRank(p int, idx uint64, r int) uint64 {
+	h := idx << (64 - p)
+	if r < 65-p {
+		h |= 1 << (64 - p - r)
+	}
+	return h
+}
+
+// sketchWithRanks builds a precision-p sketch whose register i holds ranks[i]
+// (0 leaves the register empty).
+func sketchWithRanks(t *testing.T, p int, ranks []int) *hll.Sketch[uint64] {
+	t.Helper()
+	if len(ranks) != 1<<p {
+		t.Fatalf("got %d ranks for precision %d, want %d", len(ranks), p, 1<<p)
+	}
+	s := mustNew[uint64](t, hll.WithPrecision[uint64](p), hll.WithHasher[uint64](identityHasher))
+	for idx, r := range ranks {
+		if r > 0 {
+			s.Add(hashWithRank(p, uint64(idx), r))
+		}
+	}
+	return s
+}
+
+// repeatRank returns n copies of rank r.
+func repeatRank(n, r int) []int {
+	out := make([]int, n)
+	for i := range out {
+		out[i] = r
+	}
+	return out
+}
+
+// rawEstimate is the textbook HyperLogLog estimate alpha·m²/Σ2^-r over the
+// given register ranks.
+func rawEstimate(alpha float64, ranks []int) float64 {
+	m := float64(len(ranks))
+	sum := 0.0
+	for _, r := range ranks {
+		sum += math.Ldexp(1, -r)
+	}
+	return alpha * m * m / sum
+}
+
+// TestSketch_CountUsesRawEstimateWhenNoRegisterIsEmpty pins Count against the
+// textbook estimator on hand-built registers: with no empty register linear
+// counting does not apply, so Count is exactly alpha_m·m²/Σ2^-r with the bias
+// constant alpha_m of Flajolet et al. (0.673, 0.697 and 0.709 for m = 16, 32,
+// 64; 0.7213/(1+1.079/m) beyond). It also pins the rank of an all-zero hash
+// remainder at 65-p, the cap the guard bit sets.
+func TestSketch_CountUsesRawEstimateWhenNoRegisterIsEmpty(t *testing.T) {
+	tests := []struct {
+		name  string
+		p     int
+		ranks []int
+		alpha float64
+	}{
+		{name: "sixteen registers use alpha 0.673", p: 4, ranks: repeatRank(16, 10), alpha: 0.673},
+		{name: "thirty-two registers use alpha 0.697", p: 5, ranks: repeatRank(32, 10), alpha: 0.697},
+		{name: "sixty-four registers use alpha 0.709", p: 6, ranks: repeatRank(64, 10), alpha: 0.709},
+		{name: "128 registers use the asymptotic alpha", p: 7, ranks: repeatRank(128, 10), alpha: 0.7213 / (1 + 1.079/128)},
+		{name: "1024 registers use the asymptotic alpha", p: 10, ranks: repeatRank(1024, 10), alpha: 0.7213 / (1 + 1.079/1024)},
+		// Every register at rank 1 estimates 21.536, below the 2.5m = 40
+		// linear-counting threshold, but with no empty register linear
+		// counting (m·ln(m/0)) is undefined and must not be used.
+		{name: "a small estimate with no empty register is not linear-counted", p: 4, ranks: repeatRank(16, 1), alpha: 0.673},
+		{
+			name: "an all-zero hash remainder takes the capped rank 65-p",
+			p:    4,
+			// Register 15 gets the all-zero remainder (rank 61); the others sit
+			// at rank 55 so that its 2^-61 term moves the estimate visibly.
+			ranks: append(repeatRank(15, 55), 61),
+			alpha: 0.673,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := sketchWithRanks(t, tt.p, tt.ranks)
+			got := s.Count()
+			want := uint64(rawEstimate(tt.alpha, tt.ranks) + 0.5)
+			if got != want {
+				t.Errorf("Count() = %d, want %d", got, want)
+			}
+		})
+	}
+}
+
+// TestSketch_CountLinearCountsAtTheThreshold pins the small-range switch at
+// its boundary: linear counting applies while the raw estimate is at most
+// 2.5m (inclusive) and some register is empty. The ranks below make the raw
+// estimate exactly 160 = 2.5·64 in float64 with one empty register, so Count
+// must be the linear-counting m·ln(m/zeros) = 64·ln 64 ≈ 266.17, not 160.
+func TestSketch_CountLinearCountsAtTheThreshold(t *testing.T) {
+	ranks := []int{
+		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+		2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+		3, 6, 7, 9, 17, 20, 21, 22, 24, 26, 29, 32, 34, 36, 40, 41, 47,
+		0, // the one empty register
+	}
+	raw := rawEstimate(0.709, ranks)
+	if raw != 160 {
+		t.Fatalf("fixture raw estimate = %v, want exactly 2.5m = 160", raw)
+	}
+	s := sketchWithRanks(t, 6, ranks)
+	got := s.Count()
+	if got != 266 {
+		t.Errorf("Count() = %d at a raw estimate of exactly 2.5m, want linear counting's 266", got)
 	}
 }

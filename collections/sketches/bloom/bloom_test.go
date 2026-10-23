@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/collections/sketches/bloom"
@@ -24,23 +26,73 @@ func TestNew_InvalidConfig(t *testing.T) {
 		name string
 		n    int
 		p    float64
+		// wantMsg is a fragment the error must carry, so the caller is told
+		// which argument is wrong rather than only that something is.
+		wantMsg string
 	}{
-		{"zero items", 0, 0.01},
-		{"negative items", -5, 0.01},
-		{"zero rate", 100, 0},
-		{"one rate", 100, 1},
-		{"negative rate", 100, -0.1},
-		{"rate above one", 100, 1.5},
+		{"zero items", 0, 0.01, "expectedItems must be positive"},
+		{"negative items", -5, 0.01, "expectedItems must be positive"},
+		// A zero rate would also be caught by the size cap (it needs infinitely
+		// many bits), but it must be reported as an out-of-range rate.
+		{"zero rate", 100, 0, "falsePositiveRate must be in (0,1)"},
+		{"one rate", 100, 1, "falsePositiveRate must be in (0,1)"},
+		{"negative rate", 100, -0.1, "falsePositiveRate must be in (0,1)"},
+		{"rate above one", 100, 1.5, "falsePositiveRate must be in (0,1)"},
 		// Absurd capacity: the optimal bit count exceeds the allocation cap, so
 		// New rejects it instead of overflowing or panicking on allocation.
 		// (Inputs stay within a 32-bit int so the test builds on all GOARCHes.)
-		{"astronomically large", 1_000_000_000, 1e-300},
+		{"astronomically large", 1_000_000_000, 1e-300, "bit limit"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := bloom.New[string](tc.n, tc.p)
 			if !errors.Is(err, bloom.ErrInvalidConfig) {
-				t.Errorf("New(%d, %v) error = %v, want ErrInvalidConfig", tc.n, tc.p, err)
+				t.Fatalf("New(%d, %v) error = %v, want ErrInvalidConfig", tc.n, tc.p, err)
+			}
+			if !strings.Contains(err.Error(), tc.wantMsg) {
+				t.Errorf("New(%d, %v) error = %q, want it to contain %q", tc.n, tc.p, err, tc.wantMsg)
+			}
+		})
+	}
+}
+
+// TestNew_AllocatesOnlyTheWholeWordBitArray pins the documented memory
+// footprint: the bit array is BitSize() bits rounded up to whole 64-bit words.
+// The bytes New allocates are measured directly, with headroom for the Filter
+// header and allocator size-class rounding but not for an array sized as
+// anything other than ceil(m/64) words.
+func TestNew_AllocatesOnlyTheWholeWordBitArray(t *testing.T) {
+	type args struct {
+		n int
+		p float64
+	}
+	tests := []struct {
+		name      string
+		args      args
+		wantWords uint64
+	}{
+		// m = ceil(-1000·ln(0.01)/ln²2) = 9586 bits → 150 words.
+		{name: "a thousand items at one percent needs 150 words", args: args{n: 1000, p: 0.01}, wantWords: 150},
+		// m = 2 bits still occupies one whole word.
+		{name: "a two-bit filter needs one word", args: args{n: 1, p: 0.5}, wantWords: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var before, after runtime.MemStats
+			runtime.ReadMemStats(&before)
+			f, err := bloom.New[int](tt.args.n, tt.args.p)
+			runtime.ReadMemStats(&after)
+			if err != nil {
+				t.Fatalf("New(%d, %v): unexpected error %v", tt.args.n, tt.args.p, err)
+			}
+			words := (f.BitSize() + 63) / 64
+			if words != tt.wantWords {
+				t.Errorf("BitSize() = %d needs %d words, want %d", f.BitSize(), words, tt.wantWords)
+			}
+			allocated := after.TotalAlloc - before.TotalAlloc
+			limit := 2*tt.wantWords*8 + 4096
+			if allocated > limit {
+				t.Errorf("New allocated %d bytes, want at most %d for a %d-word bit array", allocated, limit, tt.wantWords)
 			}
 		})
 	}

@@ -177,6 +177,7 @@ func TestMultimap_PutAllInPlace(t *testing.T) {
 			m.PutAllInPlace("a", 1, 2, 3)
 			m.PutAllInPlace("a") // no values: no-op
 			m.PutAllInPlace("b", 4)
+			m.PutAllInPlace("c") // no values for an absent key: still a no-op
 
 			if m.Length() != 4 {
 				t.Errorf("Length() = %d, want 4", m.Length())
@@ -188,6 +189,9 @@ func TestMultimap_PutAllInPlace(t *testing.T) {
 			}
 			if m.ContainsKey("c") {
 				t.Errorf("empty PutAllInPlace must not create a key")
+			}
+			if m.KeyCount() != 2 {
+				t.Errorf("KeyCount() = %d, want 2", m.KeyCount())
 			}
 		})
 	}
@@ -307,6 +311,13 @@ func TestMultimap_PutAllImmutableNoValues(t *testing.T) {
 			result := m.PutAll("a") // no values
 			if result.Length() != 1 {
 				t.Errorf("PutAll() with no values Length() = %d, want 1", result.Length())
+			}
+			absent := m.PutAll("b") // no values for an absent key
+			if absent.ContainsKey("b") {
+				t.Errorf("PutAll() with no values for an absent key created the key")
+			}
+			if absent.KeyCount() != 1 {
+				t.Errorf("PutAll() with no values for an absent key KeyCount() = %d, want 1", absent.KeyCount())
 			}
 		})
 	}
