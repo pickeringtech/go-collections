@@ -167,7 +167,7 @@ sliding := channels.SlidingWindow(ctx, channels.FromSlice(ctx, []int{1, 2, 3, 4,
 // [1 2 3], [2 3 4], [3 4 5]
 ```
 
-`SlidingWindow`'s step selects the regime: `step == size` tumbles, `step > size` skips elements between windows, `step < size` overlaps them. Both verbs emit full windows only and align with `slices.Chunk` / `slices.Window`.
+`SlidingWindow`'s step selects the regime: `step == size` tumbles, `step > size` skips elements between windows, `step < size` overlaps them. Both verbs emit full windows only, so a trailing partial window is dropped: `TumblingWindow` therefore matches `slices.Chunk` minus its final partial chunk (which `slices.Chunk` keeps), and `SlidingWindow` with step 1 matches `slices.Window`.
 
 ### SessionWindow
 
