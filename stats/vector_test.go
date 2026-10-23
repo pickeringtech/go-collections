@@ -85,6 +85,32 @@ func TestDotNaNPropagates(t *testing.T) {
 	}
 }
 
+// TestVectorOpsInfinityPropagates guards the compensated accumulator: an
+// infinite running sum must stay infinite (not turn into NaN through the
+// compensation term), while opposite infinities still cancel to NaN.
+func TestVectorOpsInfinityPropagates(t *testing.T) {
+	inf := math.Inf(1)
+	tests := []struct {
+		name string
+		fn   func() (float64, bool)
+		want float64
+	}{
+		{name: "Dot with a positive infinite product", fn: func() (float64, bool) { return stats.Dot([]float64{inf, 1}, []float64{1, 1}) }, want: inf},
+		{name: "Dot with a negative infinite product", fn: func() (float64, bool) { return stats.Dot([]float64{-inf, 1, 2}, []float64{1, 1, 1}) }, want: -inf},
+		{name: "Dot with opposite infinite products", fn: func() (float64, bool) { return stats.Dot([]float64{inf, -inf}, []float64{1, 1}) }, want: math.NaN()},
+		{name: "Norm with an infinite element", fn: func() (float64, bool) { return stats.Norm([]float64{inf, 0}) }, want: inf},
+		{name: "Norm with a negative infinite element", fn: func() (float64, bool) { return stats.Norm([]float64{0, -inf, 3}) }, want: inf},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := tt.fn()
+			if !ok || !floatsClose(got, tt.want) {
+				t.Errorf("got %v, %v; want %v, true", got, ok, tt.want)
+			}
+		})
+	}
+}
+
 func TestDotWithIntegers(t *testing.T) {
 	a := []int{1, 2, 3}
 	b := []int{4, 5, 6}

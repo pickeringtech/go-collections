@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/pickeringtech/go-collections/constraints"
+	"github.com/pickeringtech/go-collections/internal/kahan"
 )
 
 // Dot returns the dot product of the vectors a and b — Σ aᵢ·bᵢ — together with
@@ -18,11 +19,11 @@ func Dot[T constraints.Numeric](a, b []T) (float64, bool) {
 	if len(a) != len(b) || len(a) == 0 {
 		return 0, false
 	}
-	var sum kahan
+	var sum kahan.Sum
 	for i := range a {
-		sum.add(float64(a[i]) * float64(b[i]))
+		sum.Add(float64(a[i]) * float64(b[i]))
 	}
-	return sum.sum, true
+	return sum.Total(), true
 }
 
 // Norm returns the Euclidean (L2) norm of the vector a — √(Σ aᵢ²), the length
@@ -36,12 +37,12 @@ func Norm[T constraints.Numeric](a []T) (float64, bool) {
 	if len(a) == 0 {
 		return 0, false
 	}
-	var sum kahan
+	var sum kahan.Sum
 	for _, v := range a {
 		f := float64(v)
-		sum.add(f * f)
+		sum.Add(f * f)
 	}
-	return math.Sqrt(sum.sum), true
+	return math.Sqrt(sum.Total()), true
 }
 
 // EuclideanDistance returns the straight-line distance between the points a and
@@ -82,12 +83,12 @@ func EuclideanDistance[T constraints.Numeric](a, b []T) (float64, bool) {
 		return 0, true
 	}
 	// Second pass: Kahan-sum the scaled squares, then undo the scaling.
-	var sum kahan
+	var sum kahan.Sum
 	for i := range a {
 		d := (float64(a[i]) - float64(b[i])) / scale
-		sum.add(d * d)
+		sum.Add(d * d)
 	}
-	return scale * math.Sqrt(sum.sum), true
+	return scale * math.Sqrt(sum.Total()), true
 }
 
 // CosineSimilarity returns the cosine of the angle between the vectors a and b —
@@ -105,20 +106,20 @@ func CosineSimilarity[T constraints.Numeric](a, b []T) (float64, bool) {
 	if len(a) != len(b) || len(a) == 0 {
 		return 0, false
 	}
-	var dot, sumA, sumB kahan
+	var dot, sumA, sumB kahan.Sum
 	for i := range a {
 		fa := float64(a[i])
 		fb := float64(b[i])
-		dot.add(fa * fb)
-		sumA.add(fa * fa)
-		sumB.add(fb * fb)
+		dot.Add(fa * fb)
+		sumA.Add(fa * fa)
+		sumB.Add(fb * fb)
 	}
-	denom := math.Sqrt(sumA.sum) * math.Sqrt(sumB.sum)
+	denom := math.Sqrt(sumA.Total()) * math.Sqrt(sumB.Total())
 	if denom == 0 {
 		// A zero vector has no orientation, so the cosine is 0/0 — undefined
 		// rather than zero. NaN/Inf inputs make denom non-finite (not zero) and
 		// so fall through to propagate as documented.
 		return 0, false
 	}
-	return dot.sum / denom, true
+	return dot.Total() / denom, true
 }

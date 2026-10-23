@@ -1,6 +1,10 @@
 package stats
 
-import "math"
+import (
+	"math"
+
+	"github.com/pickeringtech/go-collections/internal/kahan"
+)
 
 // frequencies tallies how often each distinct value occurs in input. It returns
 // the per-value counts and the total element count. A non-finite floating-point
@@ -41,15 +45,15 @@ func Entropy[T comparable](input []T) (float64, bool) {
 		return 0, false
 	}
 	n := float64(total)
-	var h kahan
+	var h kahan.Sum
 	for _, c := range counts {
 		p := float64(c) / n
-		h.add(p * math.Log2(p))
+		h.Add(p * math.Log2(p))
 	}
 	// −Σ p·log2(p); negate the accumulated sum. The +0 guards against returning
 	// a signed negative zero when every element is identical (a single term
 	// p=1, log2(1)=0).
-	return -h.sum + 0, true
+	return -h.Total() + 0, true
 }
 
 // Gini returns the Gini impurity of input's value distribution:
@@ -71,10 +75,10 @@ func Gini[T comparable](input []T) (float64, bool) {
 		return 0, false
 	}
 	n := float64(total)
-	var sumSq kahan
+	var sumSq kahan.Sum
 	for _, c := range counts {
 		p := float64(c) / n
-		sumSq.add(p * p)
+		sumSq.Add(p * p)
 	}
-	return 1 - sumSq.sum, true
+	return 1 - sumSq.Total(), true
 }

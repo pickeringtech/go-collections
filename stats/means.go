@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/pickeringtech/go-collections/constraints"
+	"github.com/pickeringtech/go-collections/internal/kahan"
 )
 
 // Mean returns the arithmetic mean (average) of input together with an ok flag.
@@ -21,15 +22,15 @@ func Mean[T constraints.Numeric](input []T) (float64, bool) {
 		return 0, false
 	}
 
-	var total kahan
+	var total kahan.Sum
 	for _, v := range input {
 		x := float64(v)
 		if nonFinite(x) {
 			return 0, false
 		}
-		total.add(x)
+		total.Add(x)
 	}
-	return total.sum / float64(len(input)), true
+	return total.Total() / float64(len(input)), true
 }
 
 // WeightedMean returns the weighted arithmetic mean of values, i.e.
@@ -50,21 +51,21 @@ func WeightedMean[T constraints.Numeric](values, weights []T) (float64, bool) {
 		return 0, false
 	}
 
-	var weighted, total kahan
+	var weighted, total kahan.Sum
 	for i, v := range values {
 		x := float64(v)
 		w := float64(weights[i])
 		if w < 0 || nonFinite(x) || nonFinite(w) {
 			return 0, false
 		}
-		weighted.add(w * x)
-		total.add(w)
+		weighted.Add(w * x)
+		total.Add(w)
 	}
 
-	if total.sum == 0 {
+	if total.Total() == 0 {
 		return 0, false
 	}
-	return weighted.sum / total.sum, true
+	return weighted.Total() / total.Total(), true
 }
 
 // GeometricMean returns the geometric mean of values — the nth root of their
@@ -85,16 +86,16 @@ func GeometricMean[T constraints.Numeric](values []T) (float64, bool) {
 		return 0, false
 	}
 
-	var logSum kahan
+	var logSum kahan.Sum
 	for _, v := range values {
 		x := float64(v)
 		if !(x > 0) || math.IsInf(x, 1) {
 			return 0, false
 		}
-		logSum.add(math.Log(x))
+		logSum.Add(math.Log(x))
 	}
 
-	return math.Exp(logSum.sum / float64(len(values))), true
+	return math.Exp(logSum.Total() / float64(len(values))), true
 }
 
 // HarmonicMean returns the harmonic mean of values — n divided by the sum of
@@ -114,16 +115,16 @@ func HarmonicMean[T constraints.Numeric](values []T) (float64, bool) {
 		return 0, false
 	}
 
-	var recipSum kahan
+	var recipSum kahan.Sum
 	for _, v := range values {
 		x := float64(v)
 		if !(x > 0) || math.IsInf(x, 1) {
 			return 0, false
 		}
-		recipSum.add(1 / x)
+		recipSum.Add(1 / x)
 	}
 
 	// Every value is positive and finite, so each reciprocal is positive and
 	// the sum is strictly greater than zero — no divide-by-zero guard needed.
-	return float64(len(values)) / recipSum.sum, true
+	return float64(len(values)) / recipSum.Total(), true
 }

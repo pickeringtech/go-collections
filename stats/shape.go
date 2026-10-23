@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/pickeringtech/go-collections/constraints"
+	"github.com/pickeringtech/go-collections/internal/kahan"
 )
 
 // centralMoments returns the element count and the 2nd, 3rd and 4th central
@@ -23,22 +24,22 @@ func centralMoments[T constraints.Numeric](input []T) (n int, m2, m3, m4 float64
 		return 0, 0, 0, 0
 	}
 
-	var meanSum kahan
+	var meanSum kahan.Sum
 	for _, v := range input {
-		meanSum.add(float64(v))
+		meanSum.Add(float64(v))
 	}
-	mean := meanSum.sum / float64(count)
+	mean := meanSum.Total() / float64(count)
 
-	var s2, s3, s4 kahan
+	var s2, s3, s4 kahan.Sum
 	for _, v := range input {
 		d := float64(v) - mean
 		d2 := d * d
-		s2.add(d2)
-		s3.add(d2 * d)
-		s4.add(d2 * d2)
+		s2.Add(d2)
+		s3.Add(d2 * d)
+		s4.Add(d2 * d2)
 	}
 	fn := float64(count)
-	return count, s2.sum / fn, s3.sum / fn, s4.sum / fn
+	return count, s2.Total() / fn, s3.Total() / fn, s4.Total() / fn
 }
 
 // Skewness returns the population skewness of input — the Fisher–Pearson
