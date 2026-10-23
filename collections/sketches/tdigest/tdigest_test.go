@@ -622,7 +622,8 @@ func assertFiniteQueries(t *testing.T, d *tdigest.Digest) {
 			t.Errorf("Quantile(%v) = (%v, %v), want a value in [%v, %v]", q, got, ok, lo, hi)
 		}
 	}
-	for _, x := range []float64{lo, (lo + hi) / 2, hi} {
+	// lo/2 + hi/2 rather than (lo+hi)/2, which overflows for extreme data.
+	for _, x := range []float64{lo, lo/2 + hi/2, hi} {
 		got, ok := d.CDF(x)
 		if !ok || math.IsNaN(got) || got < 0 || got > 1 {
 			t.Errorf("CDF(%v) = (%v, %v), want a fraction in [0, 1]", x, got, ok)
@@ -700,6 +701,83 @@ func TestDigest_MergeRejectsWeightOverflow(t *testing.T) {
 				t.Errorf("median after rejected Merge = %v, want %v (unchanged)", median, beforeMedian)
 			}
 			assertFiniteQueries(t, d)
+		})
+	}
+}
+
+// TestDigest_ExtremeFiniteValuesStayFinite checks that finite inputs near
+// ±math.MaxFloat64 never produce a non-finite estimate. The centroid-mean
+// update computed (next-cur)·w/W and the interpolation computed v0 + f·(v1-v0);
+// both overflow when the operands span more than math.MaxFloat64 (or when a
+// huge weight multiplies the gap), so {-1.7e308, 1.7e308} gave Quantile(0.5) =
+// +Inf and CDF(1e308) = NaN with ok=true, and compression could store a ±Inf
+// centroid mean.
+func TestDigest_ExtremeFiniteValuesStayFinite(t *testing.T) {
+	type args struct {
+		compression float64
+		values      []float64
+		weight      float64
+	}
+	repeated := func(n int, xs ...float64) []float64 {
+		out := make([]float64, 0, n*len(xs))
+		for i := 0; i < n; i++ {
+			out = append(out, xs...)
+		}
+		return out
+	}
+	tests := []struct {
+		name       string
+		args       args
+		wantMedian float64
+		medianTol  float64
+	}{
+		{
+			name:       "two opposite extremes",
+			args:       args{compression: 100, values: []float64{-1.7e308, 1.7e308}, weight: 1},
+			wantMedian: 0,
+		},
+		{
+			name:       "the float64 range end to end",
+			args:       args{compression: 100, values: []float64{-math.MaxFloat64, 0, math.MaxFloat64}, weight: 1},
+			wantMedian: 0,
+		},
+		{
+			name:       "many opposite extremes merged into centroids",
+			args:       args{compression: 100, values: repeated(500, -1.7e308, 1.7e308), weight: 1},
+			wantMedian: 0,
+			medianTol:  1.7e308,
+		},
+		{
+			// Halving a subnormal rank loses it entirely, so the overflow-safe
+			// path must only be taken when a span actually overflows.
+			name:       "subnormal weights",
+			args:       args{compression: 100, values: []float64{0, 1, 2, 3, 4}, weight: 5e-324},
+			wantMedian: 2,
+		},
+		{
+			name: "huge weights merged at low compression",
+			args: args{compression: 1, values: []float64{0, 10, 20, 30, 40}, weight: math.MaxFloat64 / 8},
+			// Every value carries the same weight, so the median is the middle value
+			// up to the digest's coarseness at compression 1.
+			wantMedian: 20,
+			medianTol:  20,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := buildDigest(t, tt.args.compression, nil)
+			for _, v := range tt.args.values {
+				d.AddWeighted(v, tt.args.weight)
+			}
+			assertFiniteQueries(t, d)
+			median, _ := d.Quantile(0.5)
+			if math.Abs(median-tt.wantMedian) > tt.medianTol {
+				t.Errorf("Quantile(0.5) = %v, want %v ± %v", median, tt.wantMedian, tt.medianTol)
+			}
+			c, ok := d.CDF(1e308)
+			if !ok || math.IsNaN(c) || c < 0 || c > 1 {
+				t.Errorf("CDF(1e308) = (%v, %v), want a fraction in [0, 1]", c, ok)
+			}
 		})
 	}
 }

@@ -158,9 +158,11 @@ func (d *Digest) compress() {
 		q := (soFar + cur.weight + next.weight) / totalWeight
 		limit := totalWeight * sizeBound(q, d.compression)
 		if cur.weight+next.weight <= limit {
-			// Absorb next into cur (weighted-mean update).
-			cur.mean += (next.mean - cur.mean) * next.weight / (cur.weight + next.weight)
+			// Absorb next into cur: the combined mean lies next.weight/W of the
+			// way from cur.mean to next.mean, where W is the combined weight.
+			// lerp keeps it finite even when the means sit near ±MaxFloat64.
 			cur.weight += next.weight
+			cur.mean = lerp(cur.mean, next.mean, next.weight/cur.weight)
 		} else {
 			out = append(out, cur)
 			soFar += cur.weight
@@ -226,9 +228,10 @@ type knot struct {
 
 // knots returns the rank/value control points used by Quantile and CDF: the
 // observed minimum at rank 0, each centroid's mean at the cumulative weight of
-// its centre, and the observed maximum at rank count. The ranks are strictly
-// increasing, so any interpolation between adjacent knots is well defined. The
-// caller must ensure at least one centroid exists.
+// its centre, and the observed maximum at rank count. The ranks are
+// non-decreasing (strictly increasing unless subnormal weights round a
+// half-weight away; interpolate tolerates the resulting zero-width segments).
+// The caller must ensure at least one centroid exists.
 func (d *Digest) knots() []knot {
 	ks := make([]knot, 0, len(d.centroids)+2)
 	ks = append(ks, knot{value: d.min, rank: 0})
@@ -242,15 +245,47 @@ func (d *Digest) knots() []knot {
 }
 
 // interpolate linearly maps target from the source interval [r0, r1] onto the
-// destination interval [v0, v1]. Every call site supplies r1 > r0 (consecutive
-// knot ranks, or values, are strictly increasing), so there is no
-// divide-by-zero to guard against. The fraction is formed (and clamped to a
-// finite ratio) before scaling by the destination span, so neither term can
-// overflow to ±Inf even when the operands approach math.MaxFloat64 (e.g. a
-// centroid carrying a weight near the float64 limit) — unlike the algebraically
-// equal (target-r0)*(v1-v0)/(r1-r0), whose product can overflow first.
+// destination interval [v0, v1]. Every call site supplies r1 >= r0 with target
+// in [r0, r1] (adjacent knot ranks, or values, that bracket target). Both steps
+// — the fraction along the source interval and the point along the destination
+// one — are computed without overflowing to ±Inf even when an interval spans
+// more than math.MaxFloat64 (e.g. -1.7e308 to 1.7e308): see fraction and lerp.
 func interpolate(target, r0, v0, r1, v1 float64) float64 {
-	return v0 + (target-r0)/(r1-r0)*(v1-v0)
+	return lerp(v0, v1, fraction(target, r0, r1))
+}
+
+// fraction returns how far target lies along [r0, r1] (r1 >= r0), clamped to
+// [0, 1]. A zero-width interval yields 0: knot ranks can coincide when weights
+// are so small (subnormal) that halving one rounds it away, and q·Count can then
+// underflow onto that shared rank, which would otherwise divide 0 by 0. When the
+// span r1-r0 overflows to +Inf, the ratio is formed from halved operands
+// instead, which cannot overflow (both endpoints are then far from the
+// subnormal range, so halving loses nothing).
+func fraction(target, r0, r1 float64) float64 {
+	span := r1 - r0
+	if span == 0 {
+		return 0
+	}
+	f := (target - r0) / span
+	if math.IsInf(span, 0) {
+		f = (target/2 - r0/2) / (r1/2 - r0/2)
+	}
+	return min(max(f, 0), 1)
+}
+
+// lerp returns the point a fraction frac in [0, 1] of the way from v0 to v1:
+// v0 + frac·(v1-v0). When the span v1-v0 overflows to ±Inf (v0 and v1 near
+// ±math.MaxFloat64 with opposite signs) it is evaluated on halved operands
+// instead, as 2·(v0/2 + frac·(v1/2 - v0/2)), which cannot overflow. The result
+// is clamped into the closed interval between v0 and v1, so rounding can never
+// step outside it; in particular lerp(v, v, f) is exactly v.
+func lerp(v0, v1, frac float64) float64 {
+	span := v1 - v0
+	point := v0 + frac*span
+	if math.IsInf(span, 0) {
+		point = 2 * (v0/2 + frac*(v1/2-v0/2))
+	}
+	return min(max(point, min(v0, v1)), max(v0, v1))
 }
 
 // Percentile returns the estimated p-th percentile for p in [0, 100]. It is
