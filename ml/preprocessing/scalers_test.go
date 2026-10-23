@@ -36,6 +36,29 @@ func TestStandardScaler(t *testing.T) {
 	}
 }
 
+// TestStandardScalerMatchesStandardize guards the doc's promise that the
+// scaler mirrors stats.Standardize: an uncompensated Σx/n mean drifts on many
+// large values (by 0.02σ here), shifting every z-score. Both now share the
+// same mean and standard deviation, so the results agree exactly.
+func TestStandardScalerMatchesStandardize(t *testing.T) {
+	data := make([]float64, 1_000_000)
+	for i := range data {
+		data[i] = 1e9 + float64(i%3) + 0.1
+	}
+	got, ok := preprocessing.NewStandardScaler().FitTransform(data)
+	want, _ := stats.Standardize(data)
+	if !ok {
+		t.Fatalf("ok = false, want true")
+	}
+	worst := 0.0
+	for i := range got {
+		worst = math.Max(worst, math.Abs(got[i]-want[i]))
+	}
+	if worst != 0 {
+		t.Errorf("max |scaler − stats.Standardize| = %v, want 0", worst)
+	}
+}
+
 func TestStandardScalerUnfitted(t *testing.T) {
 	got, ok := preprocessing.NewStandardScaler().Transform([]float64{1, 2, 3})
 	if ok || got != nil {

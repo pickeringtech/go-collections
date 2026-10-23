@@ -10,9 +10,11 @@ import (
 // z-score (x − mean) / stddev, where mean and the population standard deviation
 // are learned at Fit time and frozen for every subsequent Transform.
 //
-// It mirrors stats.Standardize's semantics: a feature with zero spread in the
-// training data transforms to all zeros (every value sits at the mean), and
-// non-finite values (NaN/Inf) PROPAGATE rather than being rejected.
+// It mirrors stats.Standardize exactly — the same mean and population standard
+// deviation, so FitTransform(x) equals stats.Standardize(x) — including its
+// semantics: a feature with zero spread in the training data transforms to all
+// zeros (every value sits at the mean), and non-finite values (NaN/Inf)
+// PROPAGATE rather than being rejected.
 type StandardScaler struct {
 	mean   float64
 	stdDev float64
@@ -27,18 +29,27 @@ func NewStandardScaler() *StandardScaler {
 
 // Fit learns the mean and population standard deviation from data and returns
 // the receiver so calls can be chained. Empty input leaves the scaler unfitted.
-// Non-finite training data is not rejected — it propagates into the learned
-// parameters and therefore into later Transform output.
+//
+// The mean is stats.Mean (compensated and overflow-safe) and the standard
+// deviation stats.PopulationStdDev (Welford) — the same parameters
+// stats.Standardize uses. Non-finite training data is not rejected —
+// it propagates into the learned parameters and therefore into later
+// Transform output.
 func (s *StandardScaler) Fit(data []float64) *StandardScaler {
-	sum, ok := stats.Sum(data)
+	stdDev, ok := stats.PopulationStdDev(data)
 	if !ok {
 		return s
 	}
-	// stats.Sum/PopulationStdDev propagate non-finite values, matching
-	// stats.Standardize; we deliberately avoid stats.Mean here because it
-	// rejects them.
-	s.mean = sum / float64(len(data))
-	s.stdDev, _ = stats.PopulationStdDev(data)
+	mean, finite := stats.Mean(data)
+	if !finite {
+		// stats.Mean rejects non-finite data, but this scaler propagates it
+		// like stats.Standardize, so let the IEEE sum carry the NaN/Inf into
+		// the learned mean instead.
+		sum, _ := stats.Sum(data)
+		mean = sum / float64(len(data))
+	}
+	s.mean = mean
+	s.stdDev = stdDev
 	s.fitted = true
 	return s
 }
