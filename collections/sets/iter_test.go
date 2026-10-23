@@ -201,3 +201,46 @@ func TestSet_RemovingDuringIterationVisitsEveryElement(t *testing.T) {
 		}
 	}
 }
+
+// TestSet_IteratorSnapshotsWhenRangingBegins verifies that every iterator reads
+// the set when a range over it begins, not when the iterator is created: an
+// element added between creating the iterator and ranging it is seen. The
+// concurrent sets used to copy their elements when All/Backward/RangeAll was
+// called, so a stored iterator was stale.
+func TestSet_IteratorSnapshotsWhenRangingBegins(t *testing.T) {
+	iterators := []struct {
+		name   string
+		sorted bool
+		create func(s sets.MutableSet[int]) func(yield func(int) bool)
+	}{
+		{name: "All", create: func(s sets.MutableSet[int]) func(func(int) bool) { return s.All() }},
+		{name: "Backward", sorted: true, create: func(s sets.MutableSet[int]) func(func(int) bool) {
+			return s.(sets.SortedSet[int]).Backward()
+		}},
+		{name: "RangeAll", sorted: true, create: func(s sets.MutableSet[int]) func(func(int) bool) {
+			return s.(sets.SortedSet[int]).RangeAll(1, 7)
+		}},
+	}
+	for _, it := range iterators {
+		for _, ctor := range mutableSetConstructors() {
+			if it.sorted && !ctor.sorted {
+				continue
+			}
+			t.Run(it.name+"/"+ctor.name, func(t *testing.T) {
+				s := ctor.make(1, 2)
+				seq := it.create(s)
+				s.AddInPlace(3) // added after the iterator was created
+
+				var visited []int
+				for e := range seq {
+					visited = append(visited, e)
+				}
+
+				sort.Ints(visited)
+				if want := []int{1, 2, 3}; !reflect.DeepEqual(visited, want) {
+					t.Errorf("%s() created before AddInPlace then ranged = %v, want %v", it.name, visited, want)
+				}
+			})
+		}
+	}
+}

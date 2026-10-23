@@ -98,6 +98,25 @@
 //
 //	set := sets.FromSeq(other.All())
 //
+// Every iterator follows one rule: it reads the set when a range over it
+// begins, never when All, Backward or RangeAll is called. A stored iterator is
+// therefore never stale — each range sees the elements as they are at that
+// moment:
+//
+//	seq := set.All()
+//	set.AddInPlace("new")
+//	for v := range seq { ... }                // includes "new"
+//
+// TreeSet and the concurrent sets take a snapshot of the elements at that moment
+// (the concurrent types under their lock) and yield from it, so the loop body
+// may add or remove elements, or call back into a concurrent set, and is still
+// handed every element that was present exactly once. Hash ranges over its live
+// Go map, so in-loop mutation follows Go's map iteration rules: an element
+// removed before it is reached is not produced, and one added during the loop
+// may or may not be. The callback methods (ForEach, Filter, FilterInPlace,
+// AllMatch, AnyMatch, NoneMatch, Find) behave the same way, taking their
+// snapshot when the call begins.
+//
 // # Thread Safety
 //
 // Choose the right concurrent implementation:
@@ -109,10 +128,11 @@
 //	permissions := sets.NewConcurrentHashRW[string]()
 //
 // Callbacks passed to the traversal and predicate methods — ForEach, Filter,
-// AllMatch, AnyMatch, Find and the iterator methods (All, Backward) — run after
-// the lock is released, against a point-in-time snapshot taken under the lock.
-// They may therefore safely re-enter the same set (read it, or mutate it)
-// without deadlocking.
+// FilterInPlace, AllMatch, AnyMatch, NoneMatch, Find — and the bodies of range
+// loops over the iterator methods (All, and on the sorted sets Backward and
+// RangeAll) run after the lock is released, against a point-in-time snapshot
+// taken under the lock. They may therefore safely re-enter the same set (read
+// it, or mutate it) without deadlocking.
 //
 // # Common Patterns
 //

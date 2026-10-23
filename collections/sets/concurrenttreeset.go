@@ -435,51 +435,23 @@ func (ch *ConcurrentTreeSet[T]) Range(lo, hi T) []T {
 	return ch.set.Range(lo, hi)
 }
 
-// All returns an iterator over all elements in ascending order. The elements are
-// snapshotted under the lock, so iteration is safe against concurrent mutation
-// and never holds the lock while calling the consumer.
+// All returns an iterator over all elements in ascending order. Each range over
+// it snapshots the elements under the lock when it begins — not when All is
+// called — and yields them after releasing it, so it is safe against
+// concurrent mutation and the loop body may call back into the set.
 func (ch *ConcurrentTreeSet[T]) All() iter.Seq[T] {
-	ch.lock.Lock()
-	elements := ch.set.AsSlice()
-	ch.lock.Unlock()
-	return seqFromSlice(elements)
+	return elementsSeq(ch.AsSlice)
 }
 
-// Backward returns an iterator over all elements in descending order, snapshotted under the lock.
+// Backward returns an iterator over all elements in descending order,
+// snapshotted under the lock when a range over it begins (see All).
 func (ch *ConcurrentTreeSet[T]) Backward() iter.Seq[T] {
-	ch.lock.Lock()
-	elements := ch.set.AsSlice()
-	ch.lock.Unlock()
-	return seqFromSliceReverse(elements)
+	return reverseElementsSeq(ch.AsSlice)
 }
 
 // RangeAll returns an iterator over the elements within the inclusive range
-// [lo, hi], in ascending order, snapshotted under the lock.
+// [lo, hi], in ascending order, snapshotted under the lock when a range over
+// it begins (see All).
 func (ch *ConcurrentTreeSet[T]) RangeAll(lo, hi T) iter.Seq[T] {
-	ch.lock.Lock()
-	elements := ch.set.Range(lo, hi)
-	ch.lock.Unlock()
-	return seqFromSlice(elements)
-}
-
-// seqFromSlice returns an iterator that yields the given elements in order.
-func seqFromSlice[T constraints.Ordered](elements []T) iter.Seq[T] {
-	return func(yield func(T) bool) {
-		for _, element := range elements {
-			if !yield(element) {
-				return
-			}
-		}
-	}
-}
-
-// seqFromSliceReverse returns an iterator that yields the given elements in reverse order.
-func seqFromSliceReverse[T constraints.Ordered](elements []T) iter.Seq[T] {
-	return func(yield func(T) bool) {
-		for i := len(elements) - 1; i >= 0; i-- {
-			if !yield(elements[i]) {
-				return
-			}
-		}
-	}
+	return elementsSeq(func() []T { return ch.Range(lo, hi) })
 }

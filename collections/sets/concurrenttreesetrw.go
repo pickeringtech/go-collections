@@ -435,29 +435,23 @@ func (ch *ConcurrentTreeSetRW[T]) Range(lo, hi T) []T {
 	return ch.set.Range(lo, hi)
 }
 
-// All returns an iterator over all elements in ascending order. The elements are
-// snapshotted under the read lock, so iteration is safe against concurrent
-// mutation and never holds the lock while calling the consumer.
+// All returns an iterator over all elements in ascending order. Each range over
+// it snapshots the elements under the read lock when it begins — not when All is
+// called — and yields them after releasing it, so it is safe against
+// concurrent mutation and the loop body may call back into the set.
 func (ch *ConcurrentTreeSetRW[T]) All() iter.Seq[T] {
-	ch.lock.RLock()
-	elements := ch.set.AsSlice()
-	ch.lock.RUnlock()
-	return seqFromSlice(elements)
+	return elementsSeq(ch.AsSlice)
 }
 
-// Backward returns an iterator over all elements in descending order, snapshotted under the read lock.
+// Backward returns an iterator over all elements in descending order,
+// snapshotted under the read lock when a range over it begins (see All).
 func (ch *ConcurrentTreeSetRW[T]) Backward() iter.Seq[T] {
-	ch.lock.RLock()
-	elements := ch.set.AsSlice()
-	ch.lock.RUnlock()
-	return seqFromSliceReverse(elements)
+	return reverseElementsSeq(ch.AsSlice)
 }
 
 // RangeAll returns an iterator over the elements within the inclusive range
-// [lo, hi], in ascending order, snapshotted under the read lock.
+// [lo, hi], in ascending order, snapshotted under the read lock when a range over
+// it begins (see All).
 func (ch *ConcurrentTreeSetRW[T]) RangeAll(lo, hi T) iter.Seq[T] {
-	ch.lock.RLock()
-	elements := ch.set.Range(lo, hi)
-	ch.lock.RUnlock()
-	return seqFromSlice(elements)
+	return elementsSeq(func() []T { return ch.Range(lo, hi) })
 }
