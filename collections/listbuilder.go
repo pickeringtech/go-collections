@@ -1,6 +1,9 @@
 package collections
 
-import "github.com/pickeringtech/go-collections/collections/lists"
+import (
+	"github.com/pickeringtech/go-collections/collections/lists"
+	"github.com/pickeringtech/go-collections/slices"
+)
 
 // ListBuilder fluently configures and constructs a List, allowing the
 // concurrency characteristics and initial values to be chosen before building.
@@ -21,15 +24,21 @@ func (b ListBuilder[T]) Concurrent() ListBuilder[T] {
 	return b
 }
 
-// RW marks the builder to favour concurrent reads (read-write locking), returning the updated builder.
+// RW selects the read-optimised (RWMutex-guarded) concurrent variant, returning the updated builder.
+// It takes effect only together with Concurrent: without Concurrent, Build
+// returns the plain, unsynchronised List whether or not RW was called.
 func (b ListBuilder[T]) RW() ListBuilder[T] {
 	b.isRW = true
 	return b
 }
 
 // Add appends the given values to those the built List will contain, returning the updated builder.
+// The result is independent of the receiver: builders branched from a common
+// base by separate Add calls never share or overwrite each other's values.
 func (b ListBuilder[T]) Add(values ...T) ListBuilder[T] {
-	b.values = append(b.values, values...)
+	// PushCopy never appends into the receiver's spare capacity, which a sibling
+	// builder branched from the same base may also be using.
+	b.values = slices.PushCopy(b.values, values...)
 	return b
 }
 

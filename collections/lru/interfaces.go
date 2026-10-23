@@ -60,7 +60,8 @@ type Insertable[K comparable, V any] interface {
 	// Put returns a new cache with key set to value and promoted to
 	// most-recently-used. If adding the entry exceeds the capacity, the new
 	// cache's least-recently-used entry is evicted (and any eviction callback
-	// fires for it). The receiver is not modified.
+	// fires for it). The receiver is not modified. Building the new cache
+	// copies every entry, so Put is O(n); PutInPlace is the O(1) form.
 	Put(key K, value V) Cache[K, V]
 }
 
@@ -88,7 +89,8 @@ type Accessible[K comparable, V any] interface {
 type Removable[K comparable, V any] interface {
 	// Remove returns a new cache with key absent. The remaining entries keep
 	// their relative recency order. The receiver is not modified. Explicit
-	// removal never triggers the eviction callback.
+	// removal never triggers the eviction callback. Building the new cache
+	// copies every entry, so Remove is O(n); RemoveInPlace is the O(1) form.
 	Remove(key K) Cache[K, V]
 }
 

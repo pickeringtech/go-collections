@@ -33,12 +33,14 @@ type Insertable[T any] interface {
 	// PushFront returns a new deque with element added at the front, without
 	// modifying the receiver. For a full bounded deque the result depends on the
 	// overflow policy: OverwriteOldest drops the back element, RejectWhenFull
-	// returns an unchanged copy.
+	// returns an unchanged copy. A zero-capacity deque always returns an
+	// unchanged (empty) copy, whatever its policy.
 	PushFront(element T) Deque[T]
 	// PushBack returns a new deque with element added at the back, without
 	// modifying the receiver. For a full bounded deque the result depends on the
 	// overflow policy: OverwriteOldest drops the front element, RejectWhenFull
-	// returns an unchanged copy.
+	// returns an unchanged copy. A zero-capacity deque always returns an
+	// unchanged (empty) copy, whatever its policy.
 	PushBack(element T) Deque[T]
 }
 
@@ -47,8 +49,10 @@ type Insertable[T any] interface {
 type MutableInsertable[T any] interface {
 	// PushFrontInPlace adds element at the front, reporting whether it was
 	// accepted. It is always accepted for unbounded deques and for bounded deques
-	// using OverwriteOldest; it is rejected (false, receiver unchanged) only when
-	// a bounded RejectWhenFull deque is full.
+	// using OverwriteOldest with a capacity of at least one. It is rejected
+	// (false, receiver unchanged) when a bounded RejectWhenFull deque is full, and
+	// always by a bounded deque of capacity zero, which can hold nothing under
+	// either policy.
 	PushFrontInPlace(element T) bool
 	// PushBackInPlace adds element at the back, reporting whether it was accepted.
 	// See PushFrontInPlace for the acceptance rules.

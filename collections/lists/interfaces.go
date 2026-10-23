@@ -57,6 +57,12 @@ type MutableInsertable[T any] interface {
 
 // Iterable is implemented by collections that can be iterated over, with or
 // without element indices, via callbacks or range-over-func iterators.
+//
+// The iterators (All, Values, Backward) range over a snapshot of the list taken
+// when ranging begins, so the list may be modified during the range — by the
+// loop body or, for the concurrent types, by another goroutine — without
+// affecting the elements yielded, and an iterator stored and ranged later sees
+// the list as it is at that point.
 type Iterable[T any] interface {
 	ForEach(fn EachFunc[T])
 	ForEachWithIndex(fn IndexedEachFunc[T])
@@ -149,12 +155,15 @@ type Searchable[T any] interface {
 }
 
 // Sortable is implemented by collections that can be sorted into a new List,
-// without modifying the receiver, using a less-than comparison.
+// without modifying the receiver, using a less-than comparison. The sort is
+// stable: elements that compare equal keep their original relative order, so
+// every implementation orders the same input identically.
 type Sortable[T any] interface {
 	Sort(fn func(T, T) bool) List[T]
 }
 
-// MutableSortable is implemented by collections that can be sorted in place.
+// MutableSortable is implemented by collections that can be sorted in place
+// using a less-than comparison. As with Sortable, the sort is stable.
 type MutableSortable[T any] interface {
 	SortInPlace(fn func(T, T) bool)
 }

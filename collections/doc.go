@@ -42,14 +42,18 @@
 //	// Create a task queue
 //	tasks := collections.NewList("design", "implement", "test")
 //
-//	// Stack operations (LIFO). The facade list is immutable: Push returns a new
-//	// list, and Pop hands back the popped value with the remaining list.
-//	withDeploy := tasks.Push("deploy")
-//	lastTask, found, remaining := withDeploy.Pop()
+//	// Stack operations (LIFO). The facade returns a MutableList, so the
+//	// InPlace forms modify it directly.
+//	tasks.PushInPlace("deploy")
+//	lastTask, found := tasks.PopInPlace() // "deploy"
 //
 //	// Queue operations (FIFO).
-//	queued := tasks.Enqueue("monitor")
-//	firstTask, ok, rest := queued.Dequeue()
+//	tasks.EnqueueInPlace("monitor")
+//	firstTask, ok := tasks.DequeueInPlace() // "design"
+//
+//	// The immutable forms return a new list and leave tasks untouched.
+//	withDeploy := tasks.Push("deploy")
+//	last, popped, remaining := withDeploy.Pop()
 //
 //	// Rich operations
 //	longTasks := tasks.Filter(func(task string) bool {
@@ -61,11 +65,12 @@
 // Multimaps map a single key to many values, replacing hand-rolled
 // map[K][]V plumbing:
 //
-//	// Group orders by customer (ordered, duplicates kept). The facade multimap
-//	// is immutable, so Put returns a new multimap rather than mutating in place.
+//	// Group orders by customer (ordered, duplicates kept). The facade returns a
+//	// MutableMultimap, so PutInPlace adds to it directly (Put would instead
+//	// return a new multimap).
 //	orders := collections.NewListMultimap[string, string]()
-//	orders = orders.Put("alice", "book")
-//	orders = orders.Put("alice", "pen")
+//	orders.PutInPlace("alice", "book")
+//	orders.PutInPlace("alice", "pen")
 //	alice := orders.Get("alice") // [book pen]
 //
 //	// Tag documents (duplicates collapsed)
@@ -76,20 +81,20 @@
 // Deques push and pop at both ends in O(1), backed by a ring buffer, and can be
 // bounded to act as a fixed-capacity circular buffer:
 //
-//	// Unbounded, growable at both ends. The facade deque is immutable, so
-//	// PushBack/PushFront return a new deque and PopFront hands back the popped
-//	// value, an ok flag, and the remaining deque.
+//	// Unbounded, growable at both ends. The facade returns a MutableDeque, so
+//	// the InPlace forms modify it directly; PushFront/PushBack/PopFront would
+//	// instead return a new deque.
 //	dq := collections.NewDeque(1, 2, 3)
-//	dq = dq.PushFront(0)            // front: 0 1 2 3
-//	first, ok, rest := dq.PopFront() // first == 0, ok == true
+//	dq.PushFrontInPlace(0)            // front: 0 1 2 3
+//	first, ok := dq.PopFrontInPlace() // first == 0, ok == true
 //
 //	// Bounded: keep at most the last N elements. With OverwriteOldest a push
 //	// onto a full deque drops the element at the opposite end (a sliding window);
 //	// RejectWhenFull makes the push a no-op instead.
 //	window := collections.NewBoundedDeque[int](2, deques.OverwriteOldest)
-//	window = window.PushBack(1)
-//	window = window.PushBack(2)
-//	window = window.PushBack(3) // drops 1; window holds 2 3
+//	window.PushBackInPlace(1)
+//	window.PushBackInPlace(2)
+//	window.PushBackInPlace(3) // drops 1; window holds 2 3
 //
 // # Heaps - Priority Queues
 //
@@ -97,14 +102,15 @@
 //
 //	// Smallest-first (min-heap) over an ordered type
 //	pq := collections.NewMinHeap(5, 1, 3)
-//	next, ok, rest := pq.Pop() // next == 1, ok == true; rest is pq without it
+//	pq.PushInPlace(0)
+//	next, ok := pq.PopInPlace() // next == 0, ok == true
 //
 //	// Or order by any comparator, e.g. a struct field
 //	tasks := collections.NewHeap(func(a, b Task) bool { return a.Priority > b.Priority })
 //
-// The facade constructors return the immutable heaps.Heap interface (Push/Pop
-// return a new heap). For the in-place mutating API (PushInPlace/PopInPlace),
-// reach for the heaps subpackage directly.
+// The facade constructors return heaps.MutableHeap, so the O(log n) in-place
+// PushInPlace/PopInPlace are reachable directly. The immutable Push/Pop are
+// still available; they return a new heap, copying the receiver (O(n)).
 //
 // # LRU - Bounded Caches
 //

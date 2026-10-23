@@ -17,7 +17,9 @@ const (
 	// OverwriteOldest makes a push onto a full bounded deque succeed by evicting
 	// the element at the opposite end: PushBack drops the current front, PushFront
 	// drops the current back. This is the classic ring-buffer behaviour — a push
-	// never fails and never blocks.
+	// never blocks, and never fails unless the capacity is zero: a zero-capacity
+	// deque has no slot to overwrite, so it rejects every push whatever its
+	// policy.
 	OverwriteOldest OverflowPolicy = iota
 
 	// RejectWhenFull makes a push onto a full bounded deque a no-op: the deque is

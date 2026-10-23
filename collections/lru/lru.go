@@ -17,8 +17,9 @@ type node[K comparable, V any] struct {
 // Capacity entries; inserting beyond that evicts the least-recently-used one.
 //
 // The implementation pairs a map (key -> node) with an intrusive doubly-linked
-// list ordered most- to least-recently-used, giving O(1) Get, Peek, Put and
-// Remove. head and tail are sentinel nodes that never hold data, so the list is
+// list ordered most- to least-recently-used, giving O(1) Get, Peek, PutInPlace
+// and RemoveInPlace (the immutable Put and Remove clone the cache first, so they
+// are O(n)). head and tail are sentinel nodes that never hold data, so the list is
 // never empty and link/unlink code needs no nil checks at the ends:
 //
 //	head <-> (MRU) <-> ... <-> (LRU) <-> tail

@@ -101,33 +101,27 @@ Use when you always need the most- (or least-) extreme item next. See the
 [`heaps` package](./heaps/README.md).
 
 ```go
-import (
-    "github.com/pickeringtech/go-collections/collections"
-    "github.com/pickeringtech/go-collections/collections/heaps" // for the in-place API
-)
+import "github.com/pickeringtech/go-collections/collections"
 
 // Smallest-first by default — reachable straight from the facade.
-// Pop is immutable: it returns the element, an ok flag, and the remaining heap.
 pq := collections.NewMinHeap(5, 1, 3)
-next, ok, rest := pq.Pop() // next == 1, ok == true; rest is pq without it
+pq.PushInPlace(0)
+top, ok := pq.PopInPlace() // top == 0, ok == true
+
+// The immutable Pop returns the element, an ok flag, and a new heap
+next, ok, rest := pq.Pop() // next == 1; pq is unchanged, rest is pq without it
 
 // Or order by any comparator
 tasks := collections.NewHeap(func(a, b Task) bool { return a.Priority > b.Priority })
-
-// The heaps subpackage adds the in-place, mutating API
-mpq := heaps.NewMin(5, 1, 3)
-mpq.PushInPlace(0)
-top, _ := mpq.PopInPlace() // 0
 ```
 
-**Facade constructors** (return the immutable `heaps.Heap` interface):
+**Facade constructors** (return the `heaps.MutableHeap` interface, so both the
+O(log n) in-place `PushInPlace`/`PopInPlace` and the copying immutable
+`Push`/`Pop` are available):
 - `collections.NewMinHeap()` / `collections.NewMaxHeap()` - Min / max binary heap
 - `collections.NewHeap(less, ...)` - Comparator-driven binary heap
 - `collections.NewConcurrentMinHeap()` / `…MaxHeap()` / `…Heap(less, ...)` - Thread-safe (mutex)
 - `collections.NewConcurrentRWMinHeap()` / `…RWMaxHeap()` / `…RWHeap(less, ...)` - Read-optimized thread-safe
-
-For the in-place mutating API (`PushInPlace`/`PopInPlace`), use the
-[`heaps` package](./heaps/README.md) constructors directly.
 
 ### LRU - Bounded Caches
 Use when you need a fixed-memory cache that evicts the least-recently-used
@@ -170,12 +164,14 @@ dict := collections.NewDict(
 
 // Immutable - returns new collection
 newDict := dict.Put("count", 2)
-fmt.Printf("Original: %d, New: %d\n",
-    dict.Get("count", 0), newDict.Get("count", 0)) // Original: 1, New: 2
+original, _ := dict.Get("count", 0)
+updated, _ := newDict.Get("count", 0)
+fmt.Printf("Original: %d, New: %d\n", original, updated) // Original: 1, New: 2
 
 // Mutable - modifies in place
 dict.PutInPlace("count", 3)
-fmt.Printf("Modified: %d\n", dict.Get("count", 0)) // Modified: 3
+modified, _ := dict.Get("count", 0)
+fmt.Printf("Modified: %d\n", modified) // Modified: 3
 ```
 
 ### Functional Programming Style
@@ -272,10 +268,10 @@ func getPage(url string) []byte {
 
 ### Permission System
 ```go
-// Role-based permissions
+// Role-based permissions (sets is ".../collections/sets")
 type Role struct {
     Name        string
-    Permissions collections.Set[string]
+    Permissions sets.Set[string]
 }
 
 admin := Role{

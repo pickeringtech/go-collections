@@ -36,8 +36,9 @@ cache.PutInPlace(key, fetch(key)) // the coldest entry is dropped at capacity
 ```
 
 Under the hood it pairs a map (for O(1) lookup) with an intrusive doubly-linked
-list (for O(1) recency updates), so every `Get`, `Peek`, `Put` and `Remove` is
-constant-time regardless of size.
+list (for O(1) recency updates), so `Get`, `Peek`, `PutInPlace` and
+`RemoveInPlace` are constant-time regardless of size. The immutable `Put` and
+`Remove` clone the cache first, so they are O(n).
 
 ## Recency: `Get` vs `Peek`
 
@@ -127,7 +128,7 @@ for key, value := range cache.All() {
 | Operation         | Cost                                          |
 |-------------------|-----------------------------------------------|
 | `Get` / `Peek`    | O(1)                                          |
-| `Put` / `PutInPlace` | O(1)                                       |
+| `Put`             | O(1) in place, O(n) for the immutable copy    |
 | `Remove`          | O(1) in place, O(n) for the immutable copy    |
 | `Keys`/`Values`/… | O(n)                                          |
 
