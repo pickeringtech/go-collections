@@ -2,6 +2,7 @@ package streaming_test
 
 import (
 	"math"
+	"math/rand/v2"
 	"reflect"
 	"sort"
 	"testing"
@@ -46,6 +47,51 @@ func TestReservoir_RetainsAllWhenStreamAtMostK(t *testing.T) {
 			got := drainReservoir(tt.args.values, tt.args.k, 0)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("sample = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestReservoir_NonPositiveKLeavesGeneratorUntouched pins "Add is a no-op when
+// k <= 0" down to the caller's generator: a reservoir that retains nothing must
+// not draw from the rng it was given, so a generator shared with other code
+// produces exactly the sequence it would have without the reservoir. k == 0 is
+// the boundary — treating it as a sampling reservoir still retains nothing but
+// consumes one draw per Add.
+func TestReservoir_NonPositiveKLeavesGeneratorUntouched(t *testing.T) {
+	type args struct {
+		k   int
+		add func(k int, rng *rand.Rand)
+	}
+	addUniform := func(k int, rng *rand.Rand) {
+		r := streaming.NewReservoir[int](k, rng)
+		for v := 0; v < 5; v++ {
+			r.Add(v)
+		}
+	}
+	addWeighted := func(k int, rng *rand.Rand) {
+		r := streaming.NewWeightedReservoir[int](k, rng)
+		for v := 0; v < 5; v++ {
+			r.Add(v, 1)
+		}
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "a uniform reservoir with k of zero draws nothing", args: args{k: 0, add: addUniform}},
+		{name: "a uniform reservoir with negative k draws nothing", args: args{k: -2, add: addUniform}},
+		{name: "a weighted reservoir with k of zero draws nothing", args: args{k: 0, add: addWeighted}},
+		{name: "a weighted reservoir with negative k draws nothing", args: args{k: -2, add: addWeighted}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rng := streaming.NewRand(42)
+			tt.args.add(tt.args.k, rng)
+			got := rng.Uint64()
+			want := streaming.NewRand(42).Uint64()
+			if got != want {
+				t.Errorf("next draw after Add with k=%d = %d, want %d (the generator's first draw)", tt.args.k, got, want)
 			}
 		})
 	}
