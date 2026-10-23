@@ -2,7 +2,6 @@ package dicts
 
 import (
 	"iter"
-	"reflect"
 	"sync"
 
 	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
@@ -26,7 +25,11 @@ import (
 type ConcurrentTreeRW[K constraints.Ordered, V any] struct {
 	_    nocopy.NoCopy
 	tree *Tree[K, V]
-	lock sync.RWMutex
+	// version counts writes to tree. Every mutating method increments it
+	// under the write lock, so FilterInPlace can tell whether anything wrote
+	// to the dictionary while its predicate ran outside the lock.
+	version uint64
+	lock    sync.RWMutex
 }
 
 // NewConcurrentTreeRW creates a new ConcurrentTreeRW dictionary with the given key-value pairs.
@@ -133,35 +136,30 @@ func (ch *ConcurrentTreeRW[K, V]) Filter(fn func(key K, value V) bool) Dict[K, V
 }
 
 // FilterInPlace removes all key-value pairs that do not satisfy the given
-// predicate, modifying the dictionary in place. The predicate is evaluated
-// after the lock is released, against a point-in-time snapshot taken under the
-// lock, so it may safely call back into the collection.
+// predicate, modifying the dictionary in place. The predicate is called once
+// per entry, in ascending key order, after the lock is released, against a
+// point-in-time snapshot taken under the lock, so it may safely call back into
+// the collection.
 //
-// Removal is applied conditionally: a rejected key is deleted only if its
-// current value still equals (reflect.DeepEqual) the value the predicate saw,
-// so a concurrent write that changes or replaces the value in the evaluation
-// window is preserved rather than silently discarded.
+// If nothing wrote to the dictionary while the predicate ran, exactly the
+// rejected keys are deleted — the same result as Tree.FilterInPlace. If a write
+// did land in that window (from another goroutine, or from the predicate
+// itself), removal falls back to compare-before-delete: a rejected key is
+// deleted only if its current value still equals (reflect.DeepEqual) the value
+// the predicate saw, so the concurrent write is preserved rather than silently
+// discarded. In that fallback a rejected entry whose value is not DeepEqual to
+// itself (NaN, or a struct holding one) is kept.
 func (ch *ConcurrentTreeRW[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	ch.lock.RLock()
 	items := ch.tree.Items()
+	version := ch.version
 	ch.lock.RUnlock()
 
-	var toRemove []Pair[K, V]
-	for _, item := range items {
-		if !fn(item.Key, item.Value) {
-			toRemove = append(toRemove, item)
-		}
-	}
+	rejected := rejectedPairs(items, fn)
 
 	ch.lock.Lock()
-	var keys []K
-	for _, item := range toRemove {
-		current, exists := ch.tree.Get(item.Key, item.Value)
-		if exists && reflect.DeepEqual(current, item.Value) {
-			keys = append(keys, item.Key)
-		}
-	}
-	ch.tree.RemoveManyInPlace(keys...)
+	removeRejected(ch.tree, rejected, ch.version == version)
+	ch.version++
 	ch.lock.Unlock()
 }
 
@@ -329,6 +327,7 @@ func (ch *ConcurrentTreeRW[K, V]) PutMany(pairs ...Pair[K, V]) Dict[K, V] {
 func (ch *ConcurrentTreeRW[K, V]) PutInPlace(key K, value V) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	ch.tree.PutInPlace(key, value)
 }
 
@@ -336,6 +335,7 @@ func (ch *ConcurrentTreeRW[K, V]) PutInPlace(key K, value V) {
 func (ch *ConcurrentTreeRW[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	ch.tree.PutManyInPlace(pairs...)
 }
 
@@ -348,6 +348,7 @@ func (ch *ConcurrentTreeRW[K, V]) PutManyInPlace(pairs ...Pair[K, V]) {
 func (ch *ConcurrentTreeRW[K, V]) UpdateInPlace(key K, fn func(old V, existed bool) V) V {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	return ch.tree.UpdateInPlace(key, fn)
 }
 
@@ -372,6 +373,7 @@ func (ch *ConcurrentTreeRW[K, V]) RemoveMany(keys ...K) Dict[K, V] {
 func (ch *ConcurrentTreeRW[K, V]) RemoveInPlace(key K) (V, bool) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	return ch.tree.RemoveInPlace(key)
 }
 
@@ -379,6 +381,7 @@ func (ch *ConcurrentTreeRW[K, V]) RemoveInPlace(key K) (V, bool) {
 func (ch *ConcurrentTreeRW[K, V]) RemoveManyInPlace(keys ...K) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	ch.tree.RemoveManyInPlace(keys...)
 }
 
@@ -386,6 +389,7 @@ func (ch *ConcurrentTreeRW[K, V]) RemoveManyInPlace(keys ...K) {
 func (ch *ConcurrentTreeRW[K, V]) Clear() {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
+	ch.version++
 	ch.tree.Clear()
 }
 
