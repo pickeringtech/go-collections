@@ -204,7 +204,8 @@ func FuzzConcurrentListRace(f *testing.F) {
 		// the read-only PeekEnd, so it must not inflate the bound.
 		var adds int
 		for i := 0; i+1 < len(program); i += 2 {
-			if m := program[i] % 5; m == 0 || m == 1 {
+			opcode := program[i] % 5
+			if opcode == 0 || opcode == 1 {
 				adds++
 			}
 		}
@@ -238,7 +239,8 @@ func FuzzConcurrentListRace(f *testing.F) {
 			}
 			wg.Wait()
 
-			if got := l.Length(); got < 0 || got > adds*workers {
+			got := l.Length()
+			if got < 0 || got > adds*workers {
 				t.Fatalf("%s: final Length %d outside [0, %d]", factory.name, got, adds*workers)
 			}
 		}
