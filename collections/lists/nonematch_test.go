@@ -6,9 +6,10 @@ import (
 	"github.com/pickeringtech/go-collections/collections/lists"
 )
 
-// listBuilders enumerates every concrete List implementation so the shared
-// Searchable contract (here, NoneMatch and AllMatch) is exercised uniformly
-// across them.
+// listBuilders enumerates every concrete List implementation, linear and
+// circular, so the shared Searchable contract (NoneMatch, AllMatch and
+// FindIndex) is exercised uniformly across them. The circular lists matter: a
+// search walk there must stop only once it wraps back to the head.
 var listBuilders = []struct {
 	name  string
 	build func(elements ...int) lists.List[int]
@@ -22,6 +23,16 @@ var listBuilders = []struct {
 	{"ConcurrentDoublyLinked", func(e ...int) lists.List[int] { return lists.NewConcurrentDoublyLinked(e...) }},
 	{"ConcurrentRWLinked", func(e ...int) lists.List[int] { return lists.NewConcurrentRWLinked(e...) }},
 	{"ConcurrentRWDoublyLinked", func(e ...int) lists.List[int] { return lists.NewConcurrentRWDoublyLinked(e...) }},
+	{"LinkedCircular", func(e ...int) lists.List[int] { return lists.NewLinkedCircular(e...) }},
+	{"DoublyLinkedCircular", func(e ...int) lists.List[int] { return lists.NewDoublyLinkedCircular(e...) }},
+	{"ConcurrentLinkedCircular", func(e ...int) lists.List[int] { return lists.NewConcurrentLinkedCircular(e...) }},
+	{"ConcurrentDoublyLinkedCircular", func(e ...int) lists.List[int] {
+		return lists.NewConcurrentDoublyLinkedCircular(e...)
+	}},
+	{"ConcurrentRWLinkedCircular", func(e ...int) lists.List[int] { return lists.NewConcurrentRWLinkedCircular(e...) }},
+	{"ConcurrentRWDoublyLinkedCircular", func(e ...int) lists.List[int] {
+		return lists.NewConcurrentRWDoublyLinkedCircular(e...)
+	}},
 }
 
 func TestList_NoneMatch(t *testing.T) {
@@ -76,6 +87,38 @@ func TestList_AllMatch(t *testing.T) {
 				got := list.AllMatch(tc.fn)
 				if got != tc.want {
 					t.Errorf("AllMatch() = %v, want %v", got, tc.want)
+				}
+			})
+		}
+	}
+}
+
+// TestList_FindIndex pins that every implementation reports the index of the
+// first matching element wherever it sits — including past the head of a
+// circular list — and -1 when nothing matches.
+func TestList_FindIndex(t *testing.T) {
+	type args struct {
+		elements []int
+		fn       func(int) bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+	}{
+		{name: "a match at the head is index zero", args: args{elements: []int{4, 5, 6}, fn: func(i int) bool { return i == 4 }}, want: 0},
+		{name: "a match past the head reports its index", args: args{elements: []int{4, 5, 6}, fn: func(i int) bool { return i == 5 }}, want: 1},
+		{name: "a match at the tail reports the last index", args: args{elements: []int{4, 5, 6}, fn: func(i int) bool { return i == 6 }}, want: 2},
+		{name: "the first of several matches wins", args: args{elements: []int{4, 5, 6}, fn: func(i int) bool { return i > 4 }}, want: 1},
+		{name: "no match reports minus one", args: args{elements: []int{4, 5, 6}, fn: func(i int) bool { return i > 6 }}, want: -1},
+		{name: "an empty list reports minus one", args: args{elements: nil, fn: func(int) bool { return true }}, want: -1},
+	}
+	for _, builder := range listBuilders {
+		for _, tt := range tests {
+			t.Run(builder.name+"/"+tt.name, func(t *testing.T) {
+				got := builder.build(tt.args.elements...).FindIndex(tt.args.fn)
+				if got != tt.want {
+					t.Errorf("FindIndex() = %d, want %d", got, tt.want)
 				}
 			})
 		}

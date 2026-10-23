@@ -128,9 +128,20 @@ func TestMutableList_RemoveAt(t *testing.T) {
 		t.Run(ctor.name, func(t *testing.T) {
 			l := ctor.make(10, 20, 30)
 
-			got := l.RemoveAt(1)
-			if !reflect.DeepEqual(got.AsSlice(), []int{10, 30}) {
-				t.Errorf("RemoveAt(1) = %v, want [10 30]", got)
+			// Every in-range index removes exactly that element, the ends included.
+			inRange := []struct {
+				index int
+				want  []int
+			}{
+				{index: 0, want: []int{20, 30}},
+				{index: 1, want: []int{10, 30}},
+				{index: 2, want: []int{10, 20}},
+			}
+			for _, tc := range inRange {
+				got := l.RemoveAt(tc.index)
+				if !reflect.DeepEqual(got.AsSlice(), tc.want) {
+					t.Errorf("RemoveAt(%d) = %v, want %v", tc.index, got, tc.want)
+				}
 			}
 			// Immutable: the receiver is untouched.
 			if l.Length() != 3 {
@@ -154,6 +165,37 @@ func TestMutableList_RemoveAt(t *testing.T) {
 				t.Errorf("RemoveAt result leaked backing array; list now %v", got)
 			}
 		})
+	}
+}
+
+// TestMutableList_Get pins Get's bounds on every implementation, linear and
+// circular: indices 0 through Length()-1 return their element, while -1 and
+// Length() are out of range and return the default with false.
+func TestMutableList_Get(t *testing.T) {
+	type args struct {
+		index int
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      int
+		wantFound bool
+	}{
+		{name: "the first index returns the head", args: args{index: 0}, want: 10, wantFound: true},
+		{name: "a middle index returns its element", args: args{index: 2}, want: 30, wantFound: true},
+		{name: "the last index returns the tail", args: args{index: 4}, want: 50, wantFound: true},
+		{name: "an index equal to the length is out of range", args: args{index: 5}, want: -1, wantFound: false},
+		{name: "a negative index is out of range", args: args{index: -1}, want: -1, wantFound: false},
+	}
+	for _, ctor := range everyMutableListConstructor() {
+		for _, tt := range tests {
+			t.Run(ctor.name+"/"+tt.name, func(t *testing.T) {
+				got, found := ctor.make(10, 20, 30, 40, 50).Get(tt.args.index, -1)
+				if got != tt.want || found != tt.wantFound {
+					t.Errorf("Get(%d) = (%d, %v), want (%d, %v)", tt.args.index, got, found, tt.want, tt.wantFound)
+				}
+			})
+		}
 	}
 }
 
@@ -413,6 +455,32 @@ func TestComparable_ContainsAndIndexOf(t *testing.T) {
 	l.PushInPlace(40)
 	if !l.Contains(40) {
 		t.Errorf("Contains(40) = false after PushInPlace, want true")
+	}
+}
+
+// TestComparable_Contains pins Contains at every position, so an element at
+// index 0 — where IndexOf returns 0, not a positive index — is still found.
+func TestComparable_Contains(t *testing.T) {
+	type args struct {
+		element int
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{name: "the first element is contained", args: args{element: 10}, want: true},
+		{name: "a middle element is contained", args: args{element: 20}, want: true},
+		{name: "the last element is contained", args: args{element: 30}, want: true},
+		{name: "an absent element is not contained", args: args{element: 99}, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := lists.NewComparable(10, 20, 30).Contains(tt.args.element)
+			if got != tt.want {
+				t.Errorf("Contains(%d) = %v, want %v", tt.args.element, got, tt.want)
+			}
+		})
 	}
 }
 
