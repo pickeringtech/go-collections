@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/pickeringtech/go-collections/channels"
 	"reflect"
-	"runtime"
 	"testing"
 	"time"
 )
@@ -109,11 +108,11 @@ func TestMapCancellationWhileSending(t *testing.T) {
 
 	output := channels.Map(ctx, input, func(i int) int { return i * 2 })
 
-	// Yield generously so the goroutine consumes the input (context still live, so
-	// the read wins the select) and parks in the blocked send before we cancel.
-	for i := 0; i < 1000; i++ {
-		runtime.Gosched()
-	}
+	// Wait until the goroutine has consumed the input (context still live) and
+	// parked in the blocked send before we cancel. Cancelling earlier would race
+	// the read below: a select with both a ready receiver and a closed Done picks
+	// either, so the value could legitimately be delivered.
+	channels.WaitUntilParkedIn(t, "channels.Map[", "channels.send[")
 	cancel()
 
 	select {

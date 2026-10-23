@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"reflect"
-	"runtime"
 	"testing"
 	"time"
 
@@ -392,9 +391,7 @@ func TestTumblingWindowCancellationWhileSending(t *testing.T) {
 
 	out := channels.TumblingWindow(ctx, input, 2)
 
-	for i := 0; i < 1000; i++ {
-		runtime.Gosched()
-	}
+	channels.WaitUntilParkedIn(t, "channels.TumblingWindow[", "channels.send[")
 	cancel()
 
 	assertChannelCloses(t, out, "TumblingWindow")
@@ -411,9 +408,7 @@ func TestSlidingWindowCancellationWhileSending(t *testing.T) {
 
 	out := channels.SlidingWindow(ctx, input, 2, 1)
 
-	for i := 0; i < 1000; i++ {
-		runtime.Gosched()
-	}
+	channels.WaitUntilParkedIn(t, "channels.SlidingWindow[", "channels.send[")
 	cancel()
 
 	assertChannelCloses(t, out, "SlidingWindow")
@@ -432,9 +427,7 @@ func TestSessionWindowCancellationWhileSending(t *testing.T) {
 	gap := func(prev, next int) bool { return next-prev <= 5 }
 	out := channels.SessionWindow(ctx, input, gap)
 
-	for i := 0; i < 1000; i++ {
-		runtime.Gosched()
-	}
+	channels.WaitUntilParkedIn(t, "channels.SessionWindow[", "channels.send[")
 	cancel()
 
 	assertChannelCloses(t, out, "SessionWindow")
@@ -453,9 +446,7 @@ func TestWindowedReduceCancellationWhileSending(t *testing.T) {
 	}
 	out := channels.WindowedReduce(ctx, input, windower, func(w []int) int { return len(w) })
 
-	for i := 0; i < 1000; i++ {
-		runtime.Gosched()
-	}
+	channels.WaitUntilParkedIn(t, "channels.WindowedReduce[", "channels.send[")
 	cancel()
 
 	assertChannelCloses(t, out, "WindowedReduce")
