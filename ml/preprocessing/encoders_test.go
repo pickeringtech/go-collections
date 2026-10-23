@@ -65,11 +65,21 @@ func TestLabelEncoderInverseRoundTrip(t *testing.T) {
 
 func TestLabelEncoderInverseRejectsOutOfRange(t *testing.T) {
 	enc := preprocessing.NewLabelEncoder[string]().Fit([]string{"a", "b"})
-	if _, ok := enc.InverseTransform([]int{0, 5}); ok {
-		t.Fatalf("InverseTransform accepted out-of-range code")
+	tests := []struct {
+		name  string
+		codes []int
+	}{
+		{name: "a code one past the last category", codes: []int{2}},
+		{name: "a code far beyond the categories", codes: []int{0, 5}},
+		{name: "a negative code", codes: []int{-1}},
 	}
-	if _, ok := enc.InverseTransform([]int{-1}); ok {
-		t.Fatalf("InverseTransform accepted -1")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := enc.InverseTransform(tt.codes)
+			if ok {
+				t.Errorf("InverseTransform(%v) = (%v, true), want ok == false", tt.codes, got)
+			}
+		})
 	}
 }
 
