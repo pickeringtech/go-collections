@@ -1,6 +1,9 @@
 package slices
 
-// Paginate returns a sub-slice of the input slice based on the page index and page size.
+// Paginate returns the page of the input slice selected by the page index and page size: the elements from
+// pageIndex*pageSize up to (but excluding) the next page's start, or to the end of the slice for a partial last page.
+// The page is a new slice holding copies of those elements, so it never shares the input's backing array: writing to
+// or appending to it cannot affect the input.
 //
 // A non-positive pageSize (pageSize <= 0) has no meaningful page to return, so
 // Paginate returns nil. Likewise, a negative pageIndex returns nil, as does a
@@ -23,5 +26,5 @@ func Paginate[T any](slice []T, pageIndex, pageSize int) []T {
 	fromIdx := pageIndex * pageSize
 	toIdx := fromIdx + min(pageSize, len(slice)-fromIdx)
 
-	return slice[fromIdx:toIdx]
+	return Copy(slice[fromIdx:toIdx])
 }

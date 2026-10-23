@@ -146,7 +146,8 @@ func PeekFront[T any](input []T) (firstElement T, ok bool) {
 }
 
 // SubSlice provides a new slice containing the entries between the two indexes of the input slice (from is inclusive,
-// to is exclusive).
+// to is exclusive). The entries are copied, so the result never shares the input's backing array: writing to or
+// appending to it cannot affect the input.
 func SubSlice[T any](input []T, fromIndex, toIndex int) []T {
 	l := len(input)
 	if l == 0 {
@@ -170,5 +171,5 @@ func SubSlice[T any](input []T, fromIndex, toIndex int) []T {
 	if fromIndex < 0 {
 		fromIndex = 0
 	}
-	return input[fromIndex:toIndex]
+	return Copy(input[fromIndex:toIndex])
 }
