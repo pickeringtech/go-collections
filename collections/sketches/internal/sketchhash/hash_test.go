@@ -1,6 +1,10 @@
-package sketchhash
+package sketchhash_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/pickeringtech/go-collections/collections/sketches/internal/sketchhash"
+)
 
 // TestHash64_Deterministic checks that the fast-path key types hash to the same
 // value on repeated calls with the same seed — the property Merge and the
@@ -10,14 +14,14 @@ func TestHash64_Deterministic(t *testing.T) {
 		name string
 		fn   func() (uint64, uint64)
 	}{
-		{"string", func() (uint64, uint64) { return Hash64(7, "hello"), Hash64(7, "hello") }},
-		{"int", func() (uint64, uint64) { return Hash64(7, 42), Hash64(7, 42) }},
-		{"int64", func() (uint64, uint64) { return Hash64(7, int64(42)), Hash64(7, int64(42)) }},
-		{"uint64", func() (uint64, uint64) { return Hash64(7, uint64(42)), Hash64(7, uint64(42)) }},
-		{"float64", func() (uint64, uint64) { return Hash64(7, 3.14), Hash64(7, 3.14) }},
+		{"string", func() (uint64, uint64) { return sketchhash.Hash64(7, "hello"), sketchhash.Hash64(7, "hello") }},
+		{"int", func() (uint64, uint64) { return sketchhash.Hash64(7, 42), sketchhash.Hash64(7, 42) }},
+		{"int64", func() (uint64, uint64) { return sketchhash.Hash64(7, int64(42)), sketchhash.Hash64(7, int64(42)) }},
+		{"uint64", func() (uint64, uint64) { return sketchhash.Hash64(7, uint64(42)), sketchhash.Hash64(7, uint64(42)) }},
+		{"float64", func() (uint64, uint64) { return sketchhash.Hash64(7, 3.14), sketchhash.Hash64(7, 3.14) }},
 		{"struct", func() (uint64, uint64) {
 			type pt struct{ X, Y int }
-			return Hash64(7, pt{1, 2}), Hash64(7, pt{1, 2})
+			return sketchhash.Hash64(7, pt{1, 2}), sketchhash.Hash64(7, pt{1, 2})
 		}},
 	}
 	for _, tc := range tests {
@@ -38,23 +42,23 @@ func TestHash64_AllKindFastPaths(t *testing.T) {
 		name string
 		fn   func(uint64) uint64
 	}{
-		{"int8", func(s uint64) uint64 { return Hash64(s, int8(-7)) }},
-		{"int16", func(s uint64) uint64 { return Hash64(s, int16(-7)) }},
-		{"int32", func(s uint64) uint64 { return Hash64(s, int32(-7)) }},
-		{"int64", func(s uint64) uint64 { return Hash64(s, int64(-7)) }},
-		{"int", func(s uint64) uint64 { return Hash64(s, -7) }},
-		{"uint", func(s uint64) uint64 { return Hash64(s, uint(7)) }},
-		{"uint8", func(s uint64) uint64 { return Hash64(s, uint8(7)) }},
-		{"uint16", func(s uint64) uint64 { return Hash64(s, uint16(7)) }},
-		{"uint32", func(s uint64) uint64 { return Hash64(s, uint32(7)) }},
-		{"uint64", func(s uint64) uint64 { return Hash64(s, uint64(7)) }},
-		{"uintptr", func(s uint64) uint64 { return Hash64(s, uintptr(7)) }},
-		{"float32", func(s uint64) uint64 { return Hash64(s, float32(1.5)) }},
-		{"float64", func(s uint64) uint64 { return Hash64(s, 1.5) }},
-		{"string", func(s uint64) uint64 { return Hash64(s, "x") }},
+		{"int8", func(s uint64) uint64 { return sketchhash.Hash64(s, int8(-7)) }},
+		{"int16", func(s uint64) uint64 { return sketchhash.Hash64(s, int16(-7)) }},
+		{"int32", func(s uint64) uint64 { return sketchhash.Hash64(s, int32(-7)) }},
+		{"int64", func(s uint64) uint64 { return sketchhash.Hash64(s, int64(-7)) }},
+		{"int", func(s uint64) uint64 { return sketchhash.Hash64(s, -7) }},
+		{"uint", func(s uint64) uint64 { return sketchhash.Hash64(s, uint(7)) }},
+		{"uint8", func(s uint64) uint64 { return sketchhash.Hash64(s, uint8(7)) }},
+		{"uint16", func(s uint64) uint64 { return sketchhash.Hash64(s, uint16(7)) }},
+		{"uint32", func(s uint64) uint64 { return sketchhash.Hash64(s, uint32(7)) }},
+		{"uint64", func(s uint64) uint64 { return sketchhash.Hash64(s, uint64(7)) }},
+		{"uintptr", func(s uint64) uint64 { return sketchhash.Hash64(s, uintptr(7)) }},
+		{"float32", func(s uint64) uint64 { return sketchhash.Hash64(s, float32(1.5)) }},
+		{"float64", func(s uint64) uint64 { return sketchhash.Hash64(s, 1.5) }},
+		{"string", func(s uint64) uint64 { return sketchhash.Hash64(s, "x") }},
 		{"comparable-fallback", func(s uint64) uint64 {
 			type pt struct{ X, Y int }
-			return Hash64(s, pt{1, 2})
+			return sketchhash.Hash64(s, pt{1, 2})
 		}},
 	}
 	for _, tc := range tests {
@@ -71,7 +75,7 @@ func TestHash64_AllKindFastPaths(t *testing.T) {
 // TestHash64_SeedSensitivity checks that changing the seed changes the hash, so
 // distinct seeds give distinct sketches.
 func TestHash64_SeedSensitivity(t *testing.T) {
-	if Hash64(1, "x") == Hash64(2, "x") {
+	if sketchhash.Hash64(1, "x") == sketchhash.Hash64(2, "x") {
 		t.Error("different seeds produced the same hash for the same value")
 	}
 }
@@ -80,10 +84,10 @@ func TestHash64_SeedSensitivity(t *testing.T) {
 // apart. (A collision here would still be valid, but for these inputs none is
 // expected.)
 func TestHash64_ValueSensitivity(t *testing.T) {
-	if Hash64(1, "a") == Hash64(1, "b") {
+	if sketchhash.Hash64(1, "a") == sketchhash.Hash64(1, "b") {
 		t.Error("distinct values collided unexpectedly")
 	}
-	if Hash64(1, 1) == Hash64(1, 2) {
+	if sketchhash.Hash64(1, 1) == sketchhash.Hash64(1, 2) {
 		t.Error("distinct ints collided unexpectedly")
 	}
 }
@@ -92,7 +96,7 @@ func TestHash64_ValueSensitivity(t *testing.T) {
 // always odd (hence non-zero), so it can step through every table slot.
 func TestPair_SecondLaneOdd(t *testing.T) {
 	for i := 0; i < 1000; i++ {
-		_, h2 := Pair(uint64(i), i)
+		_, h2 := sketchhash.Pair(uint64(i), i)
 		if h2&1 == 0 {
 			t.Fatalf("second lane not odd for i=%d: %d", i, h2)
 		}
@@ -103,7 +107,7 @@ func TestPair_SecondLaneOdd(t *testing.T) {
 func TestPair_LanesDiffer(t *testing.T) {
 	collisions := 0
 	for i := 0; i < 1000; i++ {
-		h1, h2 := Pair(0, i)
+		h1, h2 := sketchhash.Pair(0, i)
 		if h1 == h2 {
 			collisions++
 		}
@@ -120,7 +124,7 @@ func TestHash64_Distribution(t *testing.T) {
 	const n = 100000
 	counts := make([]int, buckets)
 	for i := 0; i < n; i++ {
-		counts[Hash64(0, i)%buckets]++
+		counts[sketchhash.Hash64(0, i)%buckets]++
 	}
 	expected := n / buckets
 	for b, c := range counts {
