@@ -114,6 +114,8 @@ func TestMovingAverage(t *testing.T) {
 		{name: "window of three", input: []float64{1, 2, 3, 4, 5}, window: 3, want: []float64{2, 3, 4}, ok: true},
 		{name: "window of one is identity", input: []float64{1, 2, 3}, window: 1, want: []float64{1, 2, 3}, ok: true},
 		{name: "window spanning whole input", input: []float64{2, 4, 6}, window: 3, want: []float64{4}, ok: true},
+		{name: "a large value leaving the window does not erase later windows", input: []float64{1e17, 1, 2, 3, 4}, window: 2, want: []float64{5e16, 1.5, 2.5, 3.5}, ok: true},
+		{name: "small values survive cancelling large values", input: []float64{1e17, -1e17, 1, 2}, window: 2, want: []float64{0, -5e16, 1.5}, ok: true},
 		{name: "window larger than input is undefined", input: []float64{1, 2, 3}, window: 4, want: nil, ok: false},
 		{name: "zero window is invalid", input: []float64{1, 2, 3}, window: 0, want: nil, ok: false},
 		{name: "negative window is invalid", input: []float64{1, 2, 3}, window: -1, want: nil, ok: false},

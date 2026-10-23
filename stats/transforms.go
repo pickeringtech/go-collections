@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/pickeringtech/go-collections/constraints"
+	"github.com/pickeringtech/go-collections/internal/kahan"
 )
 
 // Normalize rescales input to the range [0, 1] using min-max scaling:
@@ -102,10 +103,13 @@ func Standardize[T constraints.Numeric](input []T) ([]float64, bool) {
 //   - window == len(input) yields a single element: the mean of the whole input.
 //
 // The mean is computed with an incremental running sum, so the whole transform
-// is O(len(input)) regardless of window size. A consequence of the running sum
-// is that a non-finite input value (NaN/Inf) propagates to its own window and
-// to every subsequent window; clean non-finite values beforehand if you need
-// strict per-window locality.
+// is O(len(input)) regardless of window size. The running sum is compensated
+// (Kahan summation in Neumaier's form), so the round-off from adding and later
+// removing a large value is carried in the compensation term rather than lost:
+// MovingAverage({1e17, 1, 2, 3, 4}, 2) is exactly [5e16 1.5 2.5 3.5], where a
+// naive running sum would give [5e16 0 1 2]. A consequence of the running sum is that a non-finite input value (NaN/Inf)
+// propagates to its own window and to every subsequent window; clean
+// non-finite values beforehand if you need strict per-window locality.
 func MovingAverage[T constraints.Numeric](input []T, window int) ([]float64, bool) {
 	if window < 1 || window > len(input) {
 		return nil, false
@@ -114,16 +118,19 @@ func MovingAverage[T constraints.Numeric](input []T, window int) ([]float64, boo
 	out := make([]float64, len(input)-window+1)
 	w := float64(window)
 
-	var sum float64
+	var sum kahan.Sum
 	for i := 0; i < window; i++ {
-		sum += float64(input[i])
+		sum.Add(float64(input[i]))
 	}
-	out[0] = sum / w
+	out[0] = sum.Total() / w
 
 	for i := window; i < len(input); i++ {
 		// Slide the window: add the entering element, drop the leaving one.
-		sum += float64(input[i]) - float64(input[i-window])
-		out[i-window+1] = sum / w
+		// Both go through the compensated sum separately — folding them into
+		// one difference first would round away the small entering value.
+		sum.Add(float64(input[i]))
+		sum.Add(-float64(input[i-window]))
+		out[i-window+1] = sum.Total() / w
 	}
 	return out, true
 }
