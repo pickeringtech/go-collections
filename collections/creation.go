@@ -81,9 +81,9 @@ func NewConcurrentRWStack[T any](values ...T) lists.MutableStack[T] {
 
 // NewDeque creates an unbounded Deque (double-ended queue) backed by a ring
 // buffer with the given values (values[0] becomes the front). It returns the
-// MutableDeque interface so the in-place operations (InsertInPlace,
-// RemoveAtInPlace, ...) are reachable; MutableDeque embeds Deque, so the
-// immutable API remains available too.
+// MutableDeque interface so the in-place operations (PushFrontInPlace,
+// PushBackInPlace, PopFrontInPlace, PopBackInPlace, Clear) are reachable;
+// MutableDeque embeds Deque, so the immutable API remains available too.
 func NewDeque[T any](values ...T) deques.MutableDeque[T] {
 	return deques.NewRingBuffer[T](values...)
 }

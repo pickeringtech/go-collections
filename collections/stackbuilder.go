@@ -24,7 +24,9 @@ func (b StackBuilder[T]) Concurrent() StackBuilder[T] {
 	return b
 }
 
-// RW marks the builder to favour concurrent reads (read-write locking), returning the updated builder.
+// RW selects the read-optimised (RWMutex-guarded) concurrent variant, returning the updated builder.
+// It takes effect only together with Concurrent: without Concurrent, Build
+// returns the plain, unsynchronised Stack whether or not RW was called.
 func (b StackBuilder[T]) RW() StackBuilder[T] {
 	b.isRW = true
 	return b

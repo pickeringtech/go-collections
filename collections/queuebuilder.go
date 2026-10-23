@@ -24,7 +24,9 @@ func (b QueueBuilder[T]) Concurrent() QueueBuilder[T] {
 	return b
 }
 
-// RW marks the builder to favour concurrent reads (read-write locking), returning the updated builder.
+// RW selects the read-optimised (RWMutex-guarded) concurrent variant, returning the updated builder.
+// It takes effect only together with Concurrent: without Concurrent, Build
+// returns the plain, unsynchronised Queue whether or not RW was called.
 func (b QueueBuilder[T]) RW() QueueBuilder[T] {
 	b.isRW = true
 	return b
