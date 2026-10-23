@@ -12,9 +12,7 @@ sketches** each live in their own sub-package:
 | [`bloom`](./bloom)       | "Have I seen this before?" (membership)   | items × target rate  |
 | [`countmin`](./countmin) | "How often have I seen this?" (frequency) | target accuracy only |
 | [`hll`](./hll)           | "How many distinct things?" (cardinality) | precision only       |
-
-> A streaming-quantiles sketch (t-digest) is co-designed with the `stats`
-> quantile work and lives with that package, not here.
+| [`tdigest`](./tdigest)   | "What's the p99?" (quantiles)             | compression × log(n) |
 
 The streaming sketches share a common design: bounded, configurable accuracy
 with documented error bounds; seeded, pluggable hashing (`WithSeed`/`WithHasher`)

@@ -19,15 +19,17 @@ var ErrInvalidConfig = errors.New("tdigest: invalid configuration")
 var ErrWeightOverflow = errors.New("tdigest: total weight would overflow float64")
 
 // DefaultCompression is the compression used when WithCompression is not given.
-// It sets the rough upper bound on the number of retained centroids and so
-// trades memory for accuracy; 100 is the value recommended by Dunning's
-// reference implementation as a good default.
+// It scales the number of retained centroids, and so trades memory for
+// accuracy; 100 is the value recommended by Dunning's reference implementation
+// as a good default. At this compression a digest holds roughly 280 centroids
+// after 1e3 values, 450 after 1e4 and 900 after 1e7 (see WithCompression).
 const DefaultCompression = 100
 
 // Digest is a t-digest: a streaming, mergeable sketch that estimates quantiles
 // of a distribution of float64 values in space that scales with the compression
-// parameter and is independent of the number of values seen. It is the
-// approximate, bounded-memory counterpart of [stats.Quantile]: where the latter
+// parameter and grows only logarithmically with the number of values seen (see
+// WithCompression). It is the approximate, small-memory counterpart of
+// [stats.Quantile]: where the latter
 // sorts the whole sample exactly, a Digest keeps only a small set of weighted
 // centroids whose density follows a scale function, so error is smallest at the
 // tails (q near 0 or 1) and largest in the middle.
@@ -51,7 +53,7 @@ type Digest struct {
 	count       float64    // total weight across all centroids (and the buffer)
 	min         float64    // smallest value ever added (+Inf when empty)
 	max         float64    // largest value ever added (-Inf when empty)
-	compression float64    // the delta parameter bounding centroid count
+	compression float64    // the delta parameter scaling the centroid count
 }
 
 // centroid is a single cluster in the digest: the weighted mean of the points
@@ -94,10 +96,16 @@ func New(opts ...Option) (*Digest, error) {
 // Option configures a Digest at construction time.
 type Option func(*Digest)
 
-// WithCompression sets the compression parameter (delta), which bounds the
-// number of retained centroids to roughly proportional to c: larger c keeps
-// more centroids, costing memory but tightening the quantile estimates. c must
-// be strictly positive.
+// WithCompression sets the compression parameter (delta), which scales the
+// number of retained centroids: larger c keeps more centroids, costing memory
+// but tightening the quantile estimates. c must be strictly positive.
+//
+// The centroid count is proportional to c but not independent of the stream
+// length: the q(1-q) scale function keeps tail centroids small however long the
+// stream runs, so the count grows logarithmically with the number of values n —
+// each tenfold increase in n adds about 1.5·c centroids (at c = 100, roughly 280
+// after 1e3 values and 900 after 1e7). On top of that, up to 5·c values are
+// buffered between compressions.
 func WithCompression(c float64) Option {
 	return func(d *Digest) { d.compression = c }
 }

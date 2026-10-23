@@ -13,7 +13,8 @@
 //   - [hll] — approximate cardinality. "How many distinct things have I seen?"
 //     in a few kilobytes, even for billions of distinct items.
 //   - [tdigest] — approximate quantiles. "What's the 99th-percentile latency?"
-//     over an unbounded stream, in memory set by a compression parameter.
+//     over an unbounded stream, in memory scaled by a compression parameter
+//     and growing only logarithmically with the stream length.
 //
 // The streaming sketches share a common design: bounded, configurable accuracy
 // with documented error bounds; mergeability (Merge) for parallel and
