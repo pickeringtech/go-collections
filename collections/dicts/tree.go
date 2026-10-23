@@ -36,6 +36,16 @@ type node[K constraints.Ordered, V any] struct {
 // the tree better behaved than a native Go map, where a NaN key can be stored
 // but never read back and accumulates a fresh entry on every insert.
 //
+// Iteration works on a snapshot: every method that hands entries to a callback
+// (ForEach, ForEachKey, ForEachValue, Filter, FilterInPlace, AllMatch,
+// AnyMatch, NoneMatch, Find, FindKey, FindValue) copies the entries when it
+// begins, and every iterator (All, KeysSeq, ValuesSeq, Backward, RangeAll)
+// copies them when a range over it begins. The callback or loop body may
+// therefore insert or remove entries: it is handed every entry present at that
+// moment exactly once, in key order, unaffected by its own mutations. The copy
+// costs O(n) per traversal (O(k) for a RangeAll matching k entries); the point
+// lookups — Get, Contains, Min, Max, Floor, Ceiling — do not allocate.
+//
 // Zero value: a &Tree{} is a valid, empty tree ready for use (its root is nil
 // and grows on the first PutInPlace). NewTree remains the recommended way to
 // construct one, especially when seeding initial entries.
@@ -272,25 +282,36 @@ func (t *Tree[K, V]) copyNode(n *node[K, V]) *node[K, V] {
 }
 
 // ForEach executes the given function for each key-value pair in sorted order.
+// fn is called on a snapshot of the entries taken when ForEach begins, so it
+// may safely mutate the tree: every entry present at that moment is visited
+// exactly once, and entries fn adds or removes do not change the iteration.
 func (t *Tree[K, V]) ForEach(fn func(key K, value V)) {
-	t.inOrderTraversal(t.root, fn)
+	for _, item := range t.Items() {
+		fn(item.Key, item.Value)
+	}
 }
 
-// ForEachKey executes the given function for each key in sorted order.
+// ForEachKey executes the given function for each key in sorted order, on a
+// snapshot of the keys taken when ForEachKey begins (see ForEach).
 func (t *Tree[K, V]) ForEachKey(fn func(key K)) {
-	t.inOrderTraversal(t.root, func(key K, _ V) {
+	for _, key := range t.Keys() {
 		fn(key)
-	})
+	}
 }
 
-// ForEachValue executes the given function for each value in key-sorted order.
+// ForEachValue executes the given function for each value in key-sorted order,
+// on a snapshot of the values taken when ForEachValue begins (see ForEach).
 func (t *Tree[K, V]) ForEachValue(fn func(value V)) {
-	t.inOrderTraversal(t.root, func(_ K, value V) {
+	for _, value := range t.Values() {
 		fn(value)
-	})
+	}
 }
 
-// inOrderTraversal performs an in-order traversal of the tree.
+// inOrderTraversal performs an in-order traversal of the live tree. It is for
+// internal callbacks that never mutate the tree; user callbacks go through a
+// snapshot instead, because an AVL rotation or a two-child deletion (which
+// copies the successor into the deleted node) under a live traversal would
+// skip or repeat entries.
 func (t *Tree[K, V]) inOrderTraversal(n *node[K, V], fn func(key K, value V)) {
 	if n != nil {
 		t.inOrderTraversal(n.Left, fn)
@@ -300,49 +321,64 @@ func (t *Tree[K, V]) inOrderTraversal(n *node[K, V], fn func(key K, value V)) {
 }
 
 // Filter returns a new dictionary containing only the key-value pairs
-// that satisfy the given predicate function.
+// that satisfy the given predicate function. The predicate is called in sorted
+// order on a snapshot taken when Filter begins, so it may safely mutate the
+// tree.
 func (t *Tree[K, V]) Filter(fn func(key K, value V) bool) Dict[K, V] {
 	result := NewTree[K, V]()
-	t.ForEach(func(key K, value V) {
-		if fn(key, value) {
-			result.PutInPlace(key, value)
+	for _, item := range t.Items() {
+		if fn(item.Key, item.Value) {
+			result.PutInPlace(item.Key, item.Value)
 		}
-	})
+	}
 	return result
 }
 
 // FilterInPlace removes all key-value pairs that do not satisfy
-// the given predicate function, modifying the dictionary in place.
+// the given predicate function, modifying the dictionary in place. The
+// predicate is called once per entry, in sorted order, on a snapshot taken when
+// FilterInPlace begins; the rejected keys are removed once it has seen every
+// entry.
 func (t *Tree[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 	var toRemove []K
-	t.ForEach(func(key K, value V) {
-		if !fn(key, value) {
-			toRemove = append(toRemove, key)
+	for _, item := range t.Items() {
+		if !fn(item.Key, item.Value) {
+			toRemove = append(toRemove, item.Key)
 		}
-	})
-	for _, key := range toRemove {
-		t.RemoveInPlace(key)
 	}
+	t.RemoveManyInPlace(toRemove...)
 }
 
 // AllMatch returns true if every key-value pair satisfies the given predicate.
 // It is vacuously true for an empty dictionary. It short-circuits on the first
-// pair that fails the predicate.
+// pair that fails the predicate. The predicate is called in sorted order on a
+// snapshot taken when AllMatch begins, so it may safely mutate the tree.
 func (t *Tree[K, V]) AllMatch(fn func(key K, value V) bool) bool {
-	return !t.anyInOrder(t.root, func(key K, value V) bool {
-		return !fn(key, value)
-	})
+	for _, item := range t.Items() {
+		if !fn(item.Key, item.Value) {
+			return false
+		}
+	}
+	return true
 }
 
 // AnyMatch returns true if at least one key-value pair satisfies the given
 // predicate. It is false for an empty dictionary. It short-circuits on the
-// first matching pair.
+// first matching pair. The predicate is called in sorted order on a snapshot
+// taken when AnyMatch begins, so it may safely mutate the tree.
 func (t *Tree[K, V]) AnyMatch(fn func(key K, value V) bool) bool {
-	return t.anyInOrder(t.root, fn)
+	for _, item := range t.Items() {
+		if fn(item.Key, item.Value) {
+			return true
+		}
+	}
+	return false
 }
 
 // anyInOrder reports whether any key-value pair in the subtree rooted at n
-// satisfies fn, traversing in order and returning as soon as a match is found.
+// satisfies fn, traversing the live tree in order and returning as soon as a
+// match is found. Like inOrderTraversal it is for internal callbacks that never
+// mutate the tree.
 func (t *Tree[K, V]) anyInOrder(n *node[K, V], fn func(key K, value V) bool) bool {
 	if n == nil {
 		return false
@@ -362,64 +398,44 @@ func (t *Tree[K, V]) NoneMatch(fn func(key K, value V) bool) bool {
 	return !t.AnyMatch(fn)
 }
 
-// Find returns the first key-value pair that satisfies the given predicate.
-// Returns the key, value, and true if found; zero values and false otherwise.
+// Find returns the first key-value pair (in sorted order) that satisfies the
+// given predicate. Returns the key, value, and true if found; zero values and
+// false otherwise. The predicate is called on a snapshot taken when Find
+// begins, so it may safely mutate the tree.
 func (t *Tree[K, V]) Find(fn func(key K, value V) bool) (K, V, bool) {
-	var foundKey K
-	var foundValue V
-	found := false
-
-	t.ForEach(func(key K, value V) {
-		if !found && fn(key, value) {
-			foundKey = key
-			foundValue = value
-			found = true
+	for _, item := range t.Items() {
+		if fn(item.Key, item.Value) {
+			return item.Key, item.Value, true
 		}
-	})
-
-	if found {
-		return foundKey, foundValue, true
 	}
 	var zeroK K
 	var zeroV V
 	return zeroK, zeroV, false
 }
 
-// FindKey returns the first key that satisfies the given predicate.
-// Returns the key and true if found; zero value and false otherwise.
+// FindKey returns the first key (in sorted order) that satisfies the given
+// predicate. Returns the key and true if found; zero value and false otherwise.
+// The predicate is called on a snapshot taken when FindKey begins, so it may
+// safely mutate the tree.
 func (t *Tree[K, V]) FindKey(fn func(key K) bool) (K, bool) {
-	var foundKey K
-	found := false
-
-	t.ForEach(func(key K, _ V) {
-		if !found && fn(key) {
-			foundKey = key
-			found = true
+	for _, key := range t.Keys() {
+		if fn(key) {
+			return key, true
 		}
-	})
-
-	if found {
-		return foundKey, true
 	}
 	var zeroK K
 	return zeroK, false
 }
 
-// FindValue returns the first value that satisfies the given predicate.
-// Returns the value and true if found; zero value and false otherwise.
+// FindValue returns the first value (in key-sorted order) that satisfies the
+// given predicate. Returns the value and true if found; zero value and false
+// otherwise. The predicate is called on a snapshot taken when FindValue begins,
+// so it may safely mutate the tree.
 func (t *Tree[K, V]) FindValue(fn func(value V) bool) (V, bool) {
-	var foundValue V
-	found := false
-
-	t.ForEach(func(_ K, value V) {
-		if !found && fn(value) {
-			foundValue = value
-			found = true
+	for _, value := range t.Values() {
+		if fn(value) {
+			return value, true
 		}
-	})
-
-	if found {
-		return foundValue, true
 	}
 	var zeroV V
 	return zeroV, false
@@ -435,7 +451,7 @@ func (t *Tree[K, V]) FindValue(fn func(value V) bool) (V, bool) {
 // requires a comparable V: dicts trades that speed for the ability to compare
 // nested and non-comparable values structurally.
 func (t *Tree[K, V]) ContainsValue(value V) bool {
-	return t.AnyMatch(func(_ K, v V) bool {
+	return t.anyInOrder(t.root, func(_ K, v V) bool {
 		return reflect.DeepEqual(v, value)
 	})
 }
@@ -443,7 +459,7 @@ func (t *Tree[K, V]) ContainsValue(value V) bool {
 // Keys returns a slice containing all keys in sorted order.
 func (t *Tree[K, V]) Keys() []K {
 	keys := make([]K, 0, t.size)
-	t.ForEach(func(key K, _ V) {
+	t.inOrderTraversal(t.root, func(key K, _ V) {
 		keys = append(keys, key)
 	})
 	return keys
@@ -452,7 +468,7 @@ func (t *Tree[K, V]) Keys() []K {
 // Values returns a slice containing all values in key-sorted order.
 func (t *Tree[K, V]) Values() []V {
 	values := make([]V, 0, t.size)
-	t.ForEach(func(_ K, value V) {
+	t.inOrderTraversal(t.root, func(_ K, value V) {
 		values = append(values, value)
 	})
 	return values
@@ -461,7 +477,7 @@ func (t *Tree[K, V]) Values() []V {
 // Items returns a slice containing all key-value pairs as Pair structs in sorted order.
 func (t *Tree[K, V]) Items() []Pair[K, V] {
 	items := make([]Pair[K, V], 0, t.size)
-	t.ForEach(func(key K, value V) {
+	t.inOrderTraversal(t.root, func(key K, value V) {
 		items = append(items, Pair[K, V]{Key: key, Value: value})
 	})
 	return items
@@ -470,7 +486,7 @@ func (t *Tree[K, V]) Items() []Pair[K, V] {
 // AsMap returns the dictionary as a native Go map.
 func (t *Tree[K, V]) AsMap() map[K]V {
 	result := make(map[K]V, t.size)
-	t.ForEach(func(key K, value V) {
+	t.inOrderTraversal(t.root, func(key K, value V) {
 		result[key] = value
 	})
 	return result

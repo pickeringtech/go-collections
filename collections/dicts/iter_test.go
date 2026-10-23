@@ -183,3 +183,116 @@ func ExampleFromSeq2() {
 	fmt.Println(d.Length())
 	// Output: 2
 }
+
+// mutatingTraversal drives one callback or iterator method of d, calling visit
+// with each key it is handed (every dictionary under test maps key to key, so a
+// value doubles as its key).
+type mutatingTraversal struct {
+	name   string
+	sorted bool // only SortedDict implementations have this method
+	run    func(d dicts.MutableDict[int, int], visit func(key int))
+}
+
+func mutatingTraversals() []mutatingTraversal {
+	return []mutatingTraversal{
+		{name: "ForEach", run: func(d dicts.MutableDict[int, int], visit func(int)) { d.ForEach(func(k, _ int) { visit(k) }) }},
+		{name: "ForEachKey", run: func(d dicts.MutableDict[int, int], visit func(int)) { d.ForEachKey(visit) }},
+		{name: "ForEachValue", run: func(d dicts.MutableDict[int, int], visit func(int)) { d.ForEachValue(visit) }},
+		{name: "Filter", run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			d.Filter(func(k, _ int) bool { visit(k); return true })
+		}},
+		{name: "FilterInPlace", run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			d.FilterInPlace(func(k, _ int) bool { visit(k); return true })
+		}},
+		{name: "AllMatch", run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			d.AllMatch(func(k, _ int) bool { visit(k); return true })
+		}},
+		{name: "AnyMatch", run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			d.AnyMatch(func(k, _ int) bool { visit(k); return false })
+		}},
+		{name: "NoneMatch", run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			d.NoneMatch(func(k, _ int) bool { visit(k); return false })
+		}},
+		{name: "Find", run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			d.Find(func(k, _ int) bool { visit(k); return false })
+		}},
+		{name: "FindKey", run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			d.FindKey(func(k int) bool { visit(k); return false })
+		}},
+		{name: "FindValue", run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			d.FindValue(func(v int) bool { visit(v); return false })
+		}},
+		{name: "All", run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			for k := range d.All() {
+				visit(k)
+			}
+		}},
+		{name: "KeysSeq", run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			for k := range d.KeysSeq() {
+				visit(k)
+			}
+		}},
+		{name: "ValuesSeq", run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			for v := range d.ValuesSeq() {
+				visit(v)
+			}
+		}},
+		{name: "Backward", sorted: true, run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			for k := range d.(dicts.SortedDict[int, int]).Backward() {
+				visit(k)
+			}
+		}},
+		{name: "RangeAll", sorted: true, run: func(d dicts.MutableDict[int, int], visit func(int)) {
+			for k := range d.(dicts.SortedDict[int, int]).RangeAll(1, 7) {
+				visit(k)
+			}
+		}},
+	}
+}
+
+// TestDict_RemovingDuringIterationVisitsEveryEntry verifies that removing each
+// visited entry from inside a callback or range loop still visits every entry
+// exactly once and leaves the dictionary empty. Tree used to traverse its live
+// nodes, so the AVL rebalancing and the successor copy of a two-child deletion
+// made it skip entries: removing each key of 1..7 from ForEach left [6 7].
+func TestDict_RemovingDuringIterationVisitsEveryEntry(t *testing.T) {
+	seed := make([]dicts.Pair[int, int], 0, 7)
+	for key := 1; key <= 7; key++ {
+		seed = append(seed, dicts.Pair[int, int]{Key: key, Value: key})
+	}
+	implementations := []struct {
+		name   string
+		sorted bool
+		make   func() dicts.MutableDict[int, int]
+	}{
+		{"Hash", false, func() dicts.MutableDict[int, int] { return dicts.NewHash(seed...) }},
+		{"ConcurrentHash", false, func() dicts.MutableDict[int, int] { return dicts.NewConcurrentHash(seed...) }},
+		{"ConcurrentHashRW", false, func() dicts.MutableDict[int, int] { return dicts.NewConcurrentHashRW(seed...) }},
+		{"Tree", true, func() dicts.MutableDict[int, int] { return dicts.NewTree(seed...) }},
+		{"ConcurrentTree", true, func() dicts.MutableDict[int, int] { return dicts.NewConcurrentTree(seed...) }},
+		{"ConcurrentTreeRW", true, func() dicts.MutableDict[int, int] { return dicts.NewConcurrentTreeRW(seed...) }},
+	}
+	for _, traversal := range mutatingTraversals() {
+		for _, impl := range implementations {
+			if traversal.sorted && !impl.sorted {
+				continue
+			}
+			t.Run(traversal.name+"/"+impl.name, func(t *testing.T) {
+				d := impl.make()
+				var visited []int
+				traversal.run(d, func(key int) {
+					visited = append(visited, key)
+					d.RemoveInPlace(key)
+				})
+
+				sort.Ints(visited)
+				if want := []int{1, 2, 3, 4, 5, 6, 7}; !reflect.DeepEqual(visited, want) {
+					t.Errorf("%s() removing as it goes visited %v, want %v", traversal.name, visited, want)
+				}
+				if d.Length() != 0 {
+					t.Errorf("%s() removing as it goes left %v", traversal.name, d.Keys())
+				}
+			})
+		}
+	}
+}

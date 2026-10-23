@@ -114,77 +114,23 @@ func (t *Tree[K, V]) rangeInto(n *node[K, V], lo, hi K, out *[]Pair[K, V]) {
 	}
 }
 
-// All returns an iterator over all entries in ascending key order.
+// All returns an iterator over all entries in ascending key order. The entries
+// are snapshotted when a range over the iterator begins — not when All is
+// called — so the loop body may safely mutate the tree: every entry present at
+// that moment is yielded exactly once.
 func (t *Tree[K, V]) All() iter.Seq2[K, V] {
-	return func(yield func(K, V) bool) {
-		t.ascend(t.root, yield)
-	}
+	return pairsSeq(t.Items)
 }
 
-// ascend performs an in-order traversal of the subtree rooted at n, yielding each
-// entry. It returns false as soon as yield returns false so iteration stops early.
-func (t *Tree[K, V]) ascend(n *node[K, V], yield func(K, V) bool) bool {
-	if n == nil {
-		return true
-	}
-	if !t.ascend(n.Left, yield) {
-		return false
-	}
-	if !yield(n.Key, n.Value) {
-		return false
-	}
-	return t.ascend(n.Right, yield)
-}
-
-// Backward returns an iterator over all entries in descending key order.
+// Backward returns an iterator over all entries in descending key order,
+// snapshotted when a range over it begins (see All).
 func (t *Tree[K, V]) Backward() iter.Seq2[K, V] {
-	return func(yield func(K, V) bool) {
-		t.descend(t.root, yield)
-	}
-}
-
-// descend performs a reverse in-order traversal of the subtree rooted at n,
-// yielding each entry. It returns false as soon as yield returns false.
-func (t *Tree[K, V]) descend(n *node[K, V], yield func(K, V) bool) bool {
-	if n == nil {
-		return true
-	}
-	if !t.descend(n.Right, yield) {
-		return false
-	}
-	if !yield(n.Key, n.Value) {
-		return false
-	}
-	return t.descend(n.Left, yield)
+	return reversePairsSeq(t.Items)
 }
 
 // RangeAll returns an iterator over the entries whose key is within the inclusive
-// range [lo, hi], in ascending key order.
+// range [lo, hi], in ascending key order, snapshotted when a range over it
+// begins (see All).
 func (t *Tree[K, V]) RangeAll(lo, hi K) iter.Seq2[K, V] {
-	return func(yield func(K, V) bool) {
-		t.rangeAscend(t.root, lo, hi, yield)
-	}
-}
-
-// rangeAscend yields, in ascending order, the in-range entries of the subtree
-// rooted at n, pruning subtrees that cannot contain in-range keys. It returns
-// false as soon as yield returns false so iteration stops early.
-func (t *Tree[K, V]) rangeAscend(n *node[K, V], lo, hi K, yield func(K, V) bool) bool {
-	if n == nil {
-		return true
-	}
-	if cmp.Compare(lo, n.Key) < 0 {
-		if !t.rangeAscend(n.Left, lo, hi, yield) {
-			return false
-		}
-	}
-	if cmp.Compare(lo, n.Key) <= 0 && cmp.Compare(n.Key, hi) <= 0 {
-		if !yield(n.Key, n.Value) {
-			return false
-		}
-	}
-	if cmp.Compare(hi, n.Key) > 0 {
-		return t.rangeAscend(n.Right, lo, hi, yield)
-	}
-	return true
+	return pairsSeq(func() []Pair[K, V] { return t.Range(lo, hi) })
 }
