@@ -347,7 +347,8 @@ func (ch *ConcurrentHashRW[T]) RemoveMany(elements ...T) Set[T] {
 
 	result := NewConcurrentHashRW[T]()
 	for e := range ch.data {
-		if _, shouldRemove := toRemove[e]; !shouldRemove {
+		_, shouldRemove := toRemove[e]
+		if !shouldRemove {
 			result.data[e] = struct{}{}
 		}
 	}
@@ -373,7 +374,8 @@ func (ch *ConcurrentHashRW[T]) RemoveInPlace(element T) bool {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
-	if _, exists := ch.data[element]; exists {
+	_, exists := ch.data[element]
+	if exists {
 		delete(ch.data, element)
 		return true
 	}

@@ -119,7 +119,8 @@ func (t *Tree[K, V]) PutInPlace(key K, value V) {
 func (t *Tree[K, V]) UpdateInPlace(key K, fn func(old V, existed bool) V) V {
 	var old V
 	existed := false
-	if node := t.findNode(key); node != nil {
+	node := t.findNode(key)
+	if node != nil {
 		old, existed = node.Value, true
 	}
 	newValue := fn(old, existed)

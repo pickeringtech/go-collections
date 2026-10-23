@@ -287,10 +287,11 @@
 //	cache := dicts.NewConcurrentHashRW[string, []byte]()
 //
 //	func getPage(url string) []byte {
-//		if content, found := cache.Get(url, nil); found {
+//		content, found := cache.Get(url, nil)
+//		if found {
 //			return content
 //		}
-//		content := fetchFromNetwork(url)
+//		content = fetchFromNetwork(url)
 //		cache.PutInPlace(url, content)
 //		return content
 //	}

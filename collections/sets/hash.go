@@ -241,7 +241,8 @@ func (h Hash[T]) RemoveMany(elements ...T) Set[T] {
 
 	result := make(Hash[T], len(h))
 	for e := range h {
-		if _, shouldRemove := toRemove[e]; !shouldRemove {
+		_, shouldRemove := toRemove[e]
+		if !shouldRemove {
 			result[e] = struct{}{}
 		}
 	}
@@ -262,7 +263,8 @@ func (h Hash[T]) Difference(other Set[T]) Set[T] {
 // RemoveInPlace removes the given element from the set.
 // Returns true if the element was present and removed; false otherwise.
 func (h Hash[T]) RemoveInPlace(element T) bool {
-	if _, exists := h[element]; exists {
+	_, exists := h[element]
+	if exists {
 		delete(h, element)
 		return true
 	}

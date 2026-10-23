@@ -49,7 +49,8 @@ func (ch *ConcurrentHash[K, V]) Get(key K, defaultValue V) (V, bool) {
 	ch.lock.Lock()
 	defer ch.lock.Unlock()
 
-	if value, exists := ch.data[key]; exists {
+	value, exists := ch.data[key]
+	if exists {
 		return value, true
 	}
 	return defaultValue, false
@@ -473,7 +474,8 @@ func (ch *ConcurrentHash[K, V]) RemoveMany(keys ...K) Dict[K, V] {
 
 	result := NewConcurrentHash[K, V]()
 	for k, v := range ch.data {
-		if _, shouldRemove := toRemove[k]; !shouldRemove {
+		_, shouldRemove := toRemove[k]
+		if !shouldRemove {
 			result.data[k] = v
 		}
 	}

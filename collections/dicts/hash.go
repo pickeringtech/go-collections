@@ -79,7 +79,8 @@ var _ MutableDict[string, int] = Hash[string, int]{}
 //	name, found = users.Get(999, "Unknown")
 //	fmt.Printf("User: %s, Found: %t\n", name, found)  // User: Unknown, Found: false
 func (h Hash[K, V]) Get(key K, defaultValue V) (V, bool) {
-	if value, exists := h[key]; exists {
+	value, exists := h[key]
+	if exists {
 		return value, true
 	}
 	return defaultValue, false
@@ -332,7 +333,8 @@ func (h Hash[K, V]) RemoveMany(keys ...K) Dict[K, V] {
 
 	result := make(Hash[K, V], len(h))
 	for k, v := range h {
-		if _, shouldRemove := toRemove[k]; !shouldRemove {
+		_, shouldRemove := toRemove[k]
+		if !shouldRemove {
 			result[k] = v
 		}
 	}
@@ -342,7 +344,8 @@ func (h Hash[K, V]) RemoveMany(keys ...K) Dict[K, V] {
 // RemoveInPlace removes the given key from the dictionary.
 // Returns the removed value and true if the key existed; zero value and false otherwise.
 func (h Hash[K, V]) RemoveInPlace(key K) (V, bool) {
-	if value, exists := h[key]; exists {
+	value, exists := h[key]
+	if exists {
 		delete(h, key)
 		return value, true
 	}
