@@ -313,17 +313,7 @@ func (l *Linked[T]) removeFirst(match func(index int, value T) bool) (T, bool) {
 	}
 
 	if match(0, l.head.value) {
-		value := l.head.value
-		if l.head == l.tail {
-			l.head = nil
-			l.tail = nil
-		} else {
-			l.head = l.head.next
-			if l.isCircular {
-				l.tail.next = l.head
-			}
-		}
-		return value, true
+		return l.removeHead(), true
 	}
 
 	prev := l.head
@@ -346,6 +336,26 @@ func (l *Linked[T]) removeFirst(match func(index int, value T) bool) (T, bool) {
 		index++
 	}
 	return zero, false
+}
+
+// removeHead unlinks the head node and returns its value, maintaining the
+// circular invariant when the list is circular. The caller must ensure the list
+// is non-empty. The lone-node case is detected by identity (head == tail)
+// rather than by a nil next pointer, because in a circular list the only node's
+// next points back at itself.
+func (l *Linked[T]) removeHead() T {
+	value := l.head.value
+	if l.head == l.tail {
+		l.head = nil
+		l.tail = nil
+		return value
+	}
+
+	l.head = l.head.next
+	if l.isCircular {
+		l.tail.next = l.head
+	}
+	return value
 }
 
 // Clear removes all elements from the list.
@@ -578,11 +588,8 @@ func (l *Linked[T]) PopInPlace() (T, bool) {
 	}
 
 	if l.head == l.tail {
-		// Only one element
-		value := l.head.value
-		l.head = nil
-		l.tail = nil
-		return value, true
+		// The only element is also the head.
+		return l.removeHead(), true
 	}
 
 	// Find second to last node
@@ -629,21 +636,14 @@ func (l *Linked[T]) Dequeue() (T, bool, List[T]) {
 	return slice[0], true, NewArray(slice[1:]...)
 }
 
-// DequeueInPlace removes and returns the first element.
+// DequeueInPlace removes and returns the first element, reporting whether one
+// was present, modifying the receiver. It runs in O(1).
 func (l *Linked[T]) DequeueInPlace() (T, bool) {
 	if l.head == nil {
 		var zero T
 		return zero, false
 	}
-
-	value := l.head.value
-	l.head = l.head.next
-	if l.head == nil {
-		l.tail = nil
-	} else if l.isCircular {
-		l.tail.next = l.head
-	}
-	return value, true
+	return l.removeHead(), true
 }
 
 // PeekFront returns the first element without removing it.
