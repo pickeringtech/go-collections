@@ -669,3 +669,77 @@ func TestSetMultimap_Dedupes(t *testing.T) {
 		t.Errorf("Get(a) = %v, want %v (deduped)", got, want)
 	}
 }
+
+// TestListMultimap_MutationDuringIterationKeepsIterationConsistent verifies
+// that removing a binding while ForEach or All is ranging over a key's values
+// does not corrupt the in-flight iteration. RemoveInPlace used to compact the
+// key's values in place, shifting the shared backing array under the live range
+// so it visited [1 3 3] instead of [1 2 3]; a following PutInPlace then wrote
+// into that same array.
+func TestListMultimap_MutationDuringIterationKeepsIterationConsistent(t *testing.T) {
+	type args struct {
+		mutate func(m multimaps.MutableMultimap[string, int])
+	}
+	tests := []struct {
+		name        string
+		args        args
+		wantVisited []int
+		wantValues  []int
+	}{
+		{
+			name:        "removing a visited value",
+			args:        args{mutate: func(m multimaps.MutableMultimap[string, int]) { m.RemoveInPlace("k", 1) }},
+			wantVisited: []int{1, 2, 3},
+			wantValues:  []int{2, 3},
+		},
+		{
+			name: "removing a visited value then adding one",
+			args: args{mutate: func(m multimaps.MutableMultimap[string, int]) {
+				m.RemoveInPlace("k", 1)
+				m.PutInPlace("k", 9)
+			}},
+			wantVisited: []int{1, 2, 3},
+			wantValues:  []int{2, 3, 9},
+		},
+	}
+	iterators := []struct {
+		name    string
+		iterate func(m multimaps.MutableMultimap[string, int], visit func(key string, value int))
+	}{
+		{"ForEach", func(m multimaps.MutableMultimap[string, int], visit func(string, int)) { m.ForEach(visit) }},
+		{"All", func(m multimaps.MutableMultimap[string, int], visit func(string, int)) {
+			for key, value := range m.All() {
+				visit(key, value)
+			}
+		}},
+	}
+	for _, tt := range tests {
+		for _, it := range iterators {
+			for _, f := range factories() {
+				if f.dedupe {
+					continue // set-backed values follow Go map iteration rules
+				}
+				t.Run(tt.name+"/"+it.name+"/"+f.name, func(t *testing.T) {
+					m := f.make()
+					m.PutAllInPlace("k", 1, 2, 3)
+
+					var visited []int
+					it.iterate(m, func(_ string, value int) {
+						visited = append(visited, value)
+						if value == 1 {
+							tt.args.mutate(m)
+						}
+					})
+
+					if !reflect.DeepEqual(visited, tt.wantVisited) {
+						t.Errorf("%s() visited %v, want %v", it.name, visited, tt.wantVisited)
+					}
+					got := m.Get("k")
+					if !reflect.DeepEqual(got, tt.wantValues) {
+						t.Errorf("Get() after iteration = %v, want %v", got, tt.wantValues)
+					}
+				})
+			}
+		}
+	}
+}

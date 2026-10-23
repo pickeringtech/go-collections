@@ -303,6 +303,10 @@ func (m ListMultimap[K, V]) RemoveAll(key K) Multimap[K, V] {
 
 // RemoveInPlace removes a single (first) binding of the given value to the given
 // key. Returns true if a binding was removed.
+//
+// The key's remaining values are copied into a new slice rather than compacted
+// in place, so a ForEach or All that is ranging over the key's values when the
+// removal happens keeps seeing the values as they were when it reached the key.
 func (m ListMultimap[K, V]) RemoveInPlace(key K, value V) bool {
 	values, exists := m[key]
 	if !exists {
@@ -312,7 +316,9 @@ func (m ListMultimap[K, V]) RemoveInPlace(key K, value V) bool {
 		if !reflect.DeepEqual(existing, value) {
 			continue
 		}
-		remaining := append(values[:index], values[index+1:]...)
+		remaining := make([]V, 0, len(values)-1)
+		remaining = append(remaining, values[:index]...)
+		remaining = append(remaining, values[index+1:]...)
 		if len(remaining) == 0 {
 			delete(m, key)
 		} else {
