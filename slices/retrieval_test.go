@@ -1341,7 +1341,8 @@ func TestGet(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := slices.Get(tt.args.input, tt.args.index, tt.args.defaultValue); !reflect.DeepEqual(got, tt.want) {
+			got := slices.Get(tt.args.input, tt.args.index, tt.args.defaultValue)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Get() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1690,7 +1691,8 @@ func TestIsEmpty(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := slices.IsEmpty(tt.args.input); got != tt.want {
+			got := slices.IsEmpty(tt.args.input)
+			if got != tt.want {
 				t.Errorf("IsEmpty() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1805,7 +1807,8 @@ func TestLength(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := slices.Length(tt.args.input); got != tt.want {
+			got := slices.Length(tt.args.input)
+			if got != tt.want {
 				t.Errorf("Length() = %v, want %v", got, tt.want)
 			}
 		})
