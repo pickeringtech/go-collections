@@ -261,7 +261,7 @@ _Headline numbers are from the controlled **Reference — Framework Desktop** ba
 
 Reference — Framework Desktop: `31d657d` · 2026-06-16 · linux/amd64 · Go go1.25.5
 
-CI — GitHub-hosted runner (ubuntu-latest): `d0023ae` · 2026-10-23 · linux/amd64 · Go go1.24.13
+CI — GitHub-hosted runner (ubuntu-latest): `9812ded` · 2026-10-23 · linux/amd64 · Go go1.24.13
 
 Full report → [BENCHMARKS.md](BENCHMARKS.md)
 
