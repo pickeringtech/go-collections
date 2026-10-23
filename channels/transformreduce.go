@@ -9,23 +9,22 @@ type ReduceFunc[I, O any] func(accumulator O, element I) O
 // The accumulated value is emitted on the output channel once the input channel is closed.
 //
 // The supplied context governs the lifetime of the reducing goroutine: when ctx is cancelled the goroutine
-// abandons the partial accumulation, closes the output channel without emitting, and returns.
+// abandons the partial accumulation, closes the output channel without emitting, and returns. As in Map,
+// cancellation takes priority over a ready input, so fn never runs on an element taken after cancellation.
 func Reduce[I, O any](ctx context.Context, input <-chan I, fn ReduceFunc[I, O]) <-chan O {
 	output := make(chan O)
 	go func() {
 		defer close(output)
 		var accumulator O
 		for {
-			select {
-			case <-ctx.Done():
+			element, ok := receive(ctx, input)
+			if !ok {
+				// The input closed - or ctx was cancelled, in which case send
+				// declines and the partial accumulation is abandoned unsent.
+				send(ctx, output, accumulator)
 				return
-			case element, ok := <-input:
-				if !ok {
-					send(ctx, output, accumulator)
-					return
-				}
-				accumulator = fn(accumulator, element)
 			}
+			accumulator = fn(accumulator, element)
 		}
 	}()
 	return output

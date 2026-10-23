@@ -53,20 +53,16 @@ func TumblingWindow[T any](ctx context.Context, input <-chan T, size int) <-chan
 		defer close(output)
 		buf := make([]T, 0, min(size, maxWindowPrealloc))
 		for {
-			select {
-			case <-ctx.Done():
-				return
-			case val, ok := <-input:
-				if !ok {
-					return // drop the trailing partial window
+			val, ok := receive(ctx, input)
+			if !ok {
+				return // input closed or ctx cancelled: drop the trailing partial window
+			}
+			buf = append(buf, val)
+			if len(buf) == size {
+				if !send(ctx, output, copyWindow(buf)) {
+					return
 				}
-				buf = append(buf, val)
-				if len(buf) == size {
-					if !send(ctx, output, copyWindow(buf)) {
-						return
-					}
-					buf = buf[:0]
-				}
+				buf = buf[:0]
 			}
 		}
 	}()
@@ -102,18 +98,14 @@ func SlidingWindow[T any](ctx context.Context, input <-chan T, size, step int) <
 		buf := make([]T, 0, min(size, maxWindowPrealloc))
 		skip := 0
 		for {
-			select {
-			case <-ctx.Done():
+			val, ok := receive(ctx, input)
+			if !ok {
+				return // input closed or ctx cancelled: drop any trailing partial window
+			}
+			var done bool
+			buf, skip, done = slideStep(ctx, output, buf, skip, size, step, val)
+			if done {
 				return
-			case val, ok := <-input:
-				if !ok {
-					return // drop any trailing partial window
-				}
-				var done bool
-				buf, skip, done = slideStep(ctx, output, buf, skip, size, step, val)
-				if done {
-					return
-				}
 			}
 		}
 	}()
@@ -174,21 +166,19 @@ func SessionWindow[T any](ctx context.Context, input <-chan T, gap SessionGapFun
 		defer close(output)
 		var buf []T
 		for {
-			select {
-			case <-ctx.Done():
+			val, ok := receive(ctx, input)
+			if !ok {
+				// Flush the open session if the input closed; if ctx was
+				// cancelled instead, send declines and nothing is delivered.
+				if len(buf) > 0 {
+					send(ctx, output, copyWindow(buf))
+				}
 				return
-			case val, ok := <-input:
-				if !ok {
-					if len(buf) > 0 {
-						send(ctx, output, copyWindow(buf)) // flush the open session
-					}
-					return
-				}
-				var done bool
-				buf, done = sessionStep(ctx, output, buf, gap, val)
-				if done {
-					return
-				}
+			}
+			var done bool
+			buf, done = sessionStep(ctx, output, buf, gap, val)
+			if done {
+				return
 			}
 		}
 	}()
@@ -232,16 +222,12 @@ func WindowedReduce[I, O any](ctx context.Context, input <-chan I, windower Wind
 	go func() {
 		defer close(output)
 		for {
-			select {
-			case <-ctx.Done():
+			window, ok := receive(ctx, windows)
+			if !ok {
 				return
-			case window, ok := <-windows:
-				if !ok {
-					return
-				}
-				if !send(ctx, output, fn(window)) {
-					return
-				}
+			}
+			if !send(ctx, output, fn(window)) {
+				return
 			}
 		}
 	}()
