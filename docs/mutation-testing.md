@@ -96,17 +96,28 @@ quality and should fail.
 
 ## Baseline
 
-First complete full-module run (gremlins v0.6.0, October 2026, with the guards
-above — earlier scheduled runs never finished):
+All runs below are full-module gremlins v0.6.0 runs with the guards above.
 
-- **1,679 mutants**: 1,460 killed, 202 lived, 9 timed out, 8 not covered.
-- **Mutator coverage ≈ 99.5%** — nearly all mutated code is exercised.
-- **Efficacy ≈ 87.9%** — the surviving mutants cluster in the probabilistic
-  sketches (`tdigest`, `countmin`, `hll`), the linked lists and
-  `slices/retrieval.go`; they are the triage queue below.
+| When | Mutants | Killed | Lived | Efficacy | Mutator coverage |
+|---|---|---|---|---|---|
+| First complete run (Oct 2026; earlier scheduled runs never finished) | 1,679 | 1,460 | 202 | 87.9% | 99.5% |
+| After the v0.1.0 hardening pass added code (version counters, overflow-safe numerics) | 1,887 | 1,555 | 301 | 83.8% | 99.0% |
+| **v0.1.0**, after the triage pass (#280, #281) | 1,887 | **1,743** | **113** | **93.9%** | **99.0%** |
 
-Record the floor here (just under the triaged baseline) before flipping on
-gating.
+**Every one of the 113 surviving mutants is triaged** in the tables below:
+equivalent (no observable change), unspecified (behaviour the API
+deliberately leaves open, such as tie order), or untestable (it would need,
+for example, an 8 TiB allocation). So a new `LIVED` mutant in a scheduled run
+is a real regression in test quality, not noise.
+
+**Floors (step 1 of the gating policy):** `MUTATION_EFFICACY_MIN = 92` and
+`MUTATION_MCOVER_MIN = 98`, just under this baseline. Both jobs stay
+`continue-on-error`, so a drop below a floor is reported (the gremlins step
+fails, the job stays green) without blocking anything yet. Once the floors
+have held across a few weekly runs, remove `continue-on-error` from the
+`full` job to enforce them. The per-merge `scoped` job scores only the
+changed lines, so its efficacy is noisier on small diffs; keep it
+report-only.
 
 ## Known-equivalent / non-actionable mutants
 

@@ -43,10 +43,13 @@ env:
   # (>= 1.25 for v0.6.0), auto-fetched by the toolchain; the *project's* tests
   # still run under the go.mod version (1.24) — see the install step.
   GREMLINS_VERSION: "v0.6.0"
-  # Mutation-score floors. 0 == report-only (gremlins does not enforce). Raise
-  # these as the suite improves; this is the single ratchet knob for both jobs.
-  MUTATION_EFFICACY_MIN: "0"   # % of (KILLED) / (KILLED + LIVED)
-  MUTATION_MCOVER_MIN: "0"     # % of (KILLED + LIVED) / (all mutants)
+  # Mutation-score floors (0 disables a floor). Raise them as the suite
+  # improves, never lower them; this is the single ratchet knob for both jobs.
+  # Set just under the v0.1.0 triaged baseline (efficacy 93.9%, mutator
+  # coverage 99.0%; see docs/mutation-testing.md). Still report-only: the jobs
+  # keep continue-on-error, so a drop is flagged without blocking anything.
+  MUTATION_EFFICACY_MIN: "92"  # % of (KILLED) / (KILLED + LIVED)
+  MUTATION_MCOVER_MIN: "98"    # % of (KILLED + LIVED) / (all mutants)
   # Applied to every `go test` gremlins runs (coverage pass + one per mutant):
   #   -count=1  defeats the test-result cache that setup-go restores. gremlins
   #             derives each mutant's timeout from how long the coverage pass

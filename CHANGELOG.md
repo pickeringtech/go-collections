@@ -15,9 +15,9 @@ instead. The API freezes at v1.0.0 (#54), from which point the
 
 The first release since v0.0.2 (January 2024). Over that time the library grew
 from five utility packages into a full collections, statistics and
-data-engineering toolkit. The release ends with a hardening pass: an
-independent audit of every package confirmed around 60 defects, each fixed with
-a regression test that failed beforehand.
+data-engineering toolkit. The release ends with a hardening pass: an audit of
+every package confirmed more than 50 defects, each fixed with a regression test
+that failed beforehand.
 
 **Requirements:** Go 1.24 or later. Zero dependencies.
 
@@ -54,7 +54,7 @@ a regression test that failed beforehand.
   - 100% statement coverage;
   - `-race` tests on Linux, macOS and Windows;
   - Go 1.24 and the latest stable Go;
-  - cross-architecture builds (386, arm64 and big-endian s390x);
+  - tests on 386, arm64 and big-endian s390x as well as amd64;
   - fuzzing;
   - golangci-lint and gosec;
   - doc examples that compile;
@@ -275,15 +275,24 @@ This release's hardening pass. Each fix ships with a regression test.
   cancellation (#234).
 - The linked lists, deques, LRU and builders document their real complexities
   and contracts.
+- New package guides: `collections/streaming` (#263), `concurrency` (#262)
+  and `ml/preprocessing` (#264).
 
 ### CI and tooling
 
 - The test matrix covers both ends of the supported range: the Go 1.24 floor
   and the latest stable Go. The old "Go 1.23" cell never actually ran 1.23.
+- The cross-architecture job now runs the test suite on arm64 and s390x as
+  well as 386, instead of only building and vetting them. arm64 runs natively
+  and catches fused multiply-add differences; big-endian s390x runs under qemu
+  user-mode emulation.
 - Every pinned tool installs under `setup-go`'s `GOTOOLCHAIN=local`, and the
   GitHub Actions moved to their Node 24 majors.
 - Weekly mutation testing now completes, with a per-test memory cap and
-  calibrated timeouts. Baseline efficacy is 87.8% and mutator coverage 99.5%.
+  calibrated timeouts. A triage pass then killed 188 surviving mutants with
+  new assertions and documented the remaining 113 as equivalent, unspecified
+  or untestable. Efficacy rose from 87.9% to 93.9% at 99.0% mutator coverage,
+  and report-only score floors are set just under it.
 - New weekly deep-fuzz job with a persisted corpus.
 - govulncheck runs against stable Go.
 - The local `make ci` mirror ignores agent worktrees, and golangci-lint is
