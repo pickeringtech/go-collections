@@ -4,7 +4,7 @@ name: Scheduled maintenance (time-driven checks)
 # verdict changes with the passage of time or upstream state, not with a PR's
 # code diff, so running them per-push is pure waste — a per-PR pass can't catch a
 # CVE disclosed after it ran, nor a toolchain change that hasn't shipped yet.
-# Both run on `main` on a schedule (and on demand):
+# All run on `main` on a schedule (and on demand):
 #
 #   - govulncheck (daily). Its verdict tracks the Go vuln advisory DB, which
 #     drifts independently of this code; a daily scan on main is what actually
@@ -16,9 +16,17 @@ name: Scheduled maintenance (time-driven checks)
 #   - Go tip (weekly). An early warning about an upcoming Go toolchain, fully
 #     independent of the PR's code. Report-only — tip is a moving target, so a
 #     failure is a heads-up, not a gate. (Moved off ci.yml's push/merge path.)
+#   - Deep fuzz (weekly, issue #151). PRs only smoke-run each fuzz target for a
+#     fixed 2000 iterations (ci.yml `fuzz`): enough to catch a regression, not
+#     to discover deep edge cases. This job gives every target a wall-clock
+#     budget and PERSISTS the generated corpus between runs (it lives in
+#     $GOCACHE/fuzz), so interesting inputs accumulate week over week and seed
+#     the next run. GATING: a crasher fails the scheduled run (notifying
+#     maintainers) and is uploaded as an artifact — commit it under the target's
+#     testdata/fuzz/ as a permanent regression seed when fixing it.
 #
 # A schedule fires the whole workflow, so each job gates on the cron line that is
-# its cadence via `github.event.schedule`; workflow_dispatch runs both for an
+# its cadence via `github.event.schedule`; workflow_dispatch runs them all for an
 # on-demand check. Scheduled workflows only run on the default branch (main),
 # which is exactly the target we want for these.
 
@@ -26,12 +34,16 @@ on:
   schedule:
     - cron: "0 5 * * *"   # daily 05:00 UTC — govulncheck (advisory DB drifts over time)
     - cron: "0 3 * * 1"   # Mondays 03:00 UTC — Go tip early-warning (toolchain drifts)
-  workflow_dispatch:        # manual on-demand run of both checks
+    - cron: "0 2 * * 0"   # Sundays 02:00 UTC — deep fuzz with a persisted corpus
+  workflow_dispatch:        # manual on-demand run of every check
 
 permissions:
   contents: read
 
 env:
+  # Per-target wall-clock budget for the deep-fuzz job. Targets run $(nproc)-wide,
+  # so the job takes ≈ targets × FUZZ_TIME / nproc (~75 targets → ~20 min).
+  FUZZ_TIME: "60s"
   # Pin govulncheck so scheduled runs are reproducible; bump deliberately.
   GOVULNCHECK_VERSION: "v1.8.0"
 
@@ -94,3 +106,94 @@ jobs:
           gotip download
       - name: Run tests with race detector and shuffled order on tip
         run: gotip test -race -shuffle=on ./...
+
+  deep-fuzz:
+    name: Deep fuzz (scheduled — persisted corpus)
+    # Weekly tick or a manual run.
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 2 * * 0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          # The generated corpus lives inside GOCACHE ($GOCACHE/fuzz). setup-go's
+          # own build cache is keyed on go.mod and saved only on a miss, so it
+          # would never persist new corpus entries; the corpus is managed
+          # explicitly below instead.
+          cache: false
+      - name: Locate the fuzz corpus
+        id: corpus
+        run: echo "dir=$(go env GOCACHE)/fuzz" >> "$GITHUB_OUTPUT"
+      - name: Restore the accumulated fuzz corpus
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ steps.corpus.outputs.dir }}
+          # Every run saves under a fresh key (below); restore-keys picks up the
+          # most recent previous corpus, so discovered inputs accumulate.
+          key: ${{ runner.os }}-fuzz-corpus-${{ github.run_id }}
+          restore-keys: ${{ runner.os }}-fuzz-corpus-
+      - name: Fuzz every target for FUZZ_TIME
+        # Same target discovery as ci.yml's `fuzz` smoke job (see its comments
+        # for why the per-package grep swallows its no-match exit), but with a
+        # wall-clock -fuzztime instead of a fixed count. -parallel=1 keeps one
+        # fuzz worker per target, since $(nproc) targets already run at once.
+        run: |
+          set -uo pipefail
+          go test -run='^$' ./...   # build every test binary once, serially
+
+          jobs=$(for pkg in $(go list ./...); do
+            dir=$(go list -f '{{.Dir}}' "$pkg")
+            grep -rhoE '^func (Fuzz[A-Za-z0-9_]+)' "$dir"/*_test.go 2>/dev/null \
+              | awk -v p="$pkg" '{print p"\t"$2}' || true
+          done | sort -u)
+          count=$(printf '%s\n' "$jobs" | grep -c .)
+          echo "Deep-fuzzing $count target(s) for ${FUZZ_TIME} each, $(nproc) at a time."
+
+          logdir=$(mktemp -d)
+          printf '%s\n' "$jobs" | xargs -P "$(nproc)" -I{} bash -c '
+            set -- {}
+            pkg=$1; fn=$2
+            base="${pkg//\//_}.${fn}"
+            if ! go test -run="^$" -fuzz="^${fn}$" -fuzztime="$FUZZ_TIME" -parallel=1 "$pkg" >"$0/${base}.log" 2>&1; then
+              touch "$0/${base}.FAILED"
+            fi
+          ' "$logdir"
+
+          for log in "$logdir"/*.log; do
+            echo "::group::$(basename "$log" .log)"
+            cat "$log"
+            echo "::endgroup::"
+          done
+
+          failed=$(find "$logdir" -name '*.FAILED' -printf '%f\n' | sed 's/\.FAILED$//')
+          if [ -n "$failed" ]; then
+            echo "::error::Deep fuzzing found crasher(s); the failing inputs are in the fuzz-crashers artifact:"
+            echo "$failed"
+            exit 1
+          fi
+          echo "All $count fuzz target(s) survived ${FUZZ_TIME} of deep fuzzing ✔"
+      - name: Collect crashers
+        # A failing input is written to the target package's testdata/fuzz/ —
+        # untracked, since the repo commits no corpus yet. Gather just those.
+        if: failure()
+        run: |
+          mkdir -p build/fuzz-crashers
+          git ls-files --others --exclude-standard -- '*/testdata/fuzz/*' \
+            | xargs -r cp --parents -t build/fuzz-crashers
+      - name: Upload crashers
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-crashers
+          path: build/fuzz-crashers
+          if-no-files-found: ignore
+      - name: Save the accumulated fuzz corpus
+        # Save even when a target crashed, so the rest of the run's progress
+        # isn't lost (the crasher itself is in testdata/, not the corpus dir).
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ steps.corpus.outputs.dir }}
+          key: ${{ runner.os }}-fuzz-corpus-${{ github.run_id }}
