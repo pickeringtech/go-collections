@@ -175,7 +175,10 @@ the merge queue**:
 
 **Time/release-driven** (moved off the per-PR path in #150 — their verdict tracks
 time or external state, not your diff): **govulncheck** runs daily on `main`
-(`maintenance.yml`); **Go tip** runs weekly there (report-only); **API
+(`maintenance.yml`); **Go tip** runs weekly there (report-only), as does
+**deep fuzz** — every target for a wall-clock budget, with the generated corpus
+persisted between runs (a crasher fails the run and is uploaded as an
+artifact); **API
 compatibility** (`gorelease`, report-only pre-1.0) runs on release **tags**
 (`release.yml`). Scoped **mutation** testing runs once per merge in the queue
 (`mutation.yml`, report-only). **main-only:** `bench-report` regenerates
