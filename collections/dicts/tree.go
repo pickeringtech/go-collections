@@ -166,12 +166,11 @@ func (t *Tree[K, V]) updateHeight(n *node[K, V]) {
 	}
 }
 
-// balanceFactor returns left height minus right height for n (0 for nil). A
-// magnitude greater than 1 means the subtree violates the AVL invariant.
+// balanceFactor returns left height minus right height for n. A magnitude
+// greater than 1 means the subtree violates the AVL invariant. n must be
+// non-nil: rebalance only asks about a node it is rebalancing, or about the
+// child on its heavy side, which is at least two levels tall.
 func (t *Tree[K, V]) balanceFactor(n *node[K, V]) int {
-	if n == nil {
-		return 0
-	}
 	return t.height(n.Left) - t.height(n.Right)
 }
 
