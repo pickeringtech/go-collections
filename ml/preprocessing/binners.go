@@ -36,7 +36,12 @@ func NewFixedWidthBinner(nBins int) *FixedWidthBinner {
 // receiver so calls can be chained. It leaves the binner unfitted when nBins is
 // below 1 or data is empty. A degenerate range (min == max) yields a single
 // populated bin.
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the binner unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (b *FixedWidthBinner) Fit(data []float64) *FixedWidthBinner {
+	*b = FixedWidthBinner{nBins: b.nBins} // a rejected Fit leaves the binner unfitted
 	if b.nBins < 1 {
 		return b
 	}
@@ -111,7 +116,12 @@ func NewQuantileBinner(nBins int) *QuantileBinner {
 // Fit learns the quantile cut points from data and returns the receiver so calls
 // can be chained. It leaves the binner unfitted when nBins is below 1, data is
 // empty, or any value is non-finite.
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the binner unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (b *QuantileBinner) Fit(data []float64) *QuantileBinner {
+	*b = QuantileBinner{nBins: b.nBins} // a rejected Fit leaves the binner unfitted
 	if b.nBins < 1 {
 		return b
 	}

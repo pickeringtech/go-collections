@@ -35,7 +35,12 @@ func NewStandardScaler() *StandardScaler {
 // stats.Standardize uses. Non-finite training data is not rejected —
 // it propagates into the learned parameters and therefore into later
 // Transform output.
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the scaler unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (s *StandardScaler) Fit(data []float64) *StandardScaler {
+	*s = StandardScaler{} // a rejected Fit leaves the scaler unfitted
 	stdDev, ok := stats.PopulationStdDev(data)
 	if !ok {
 		return s
@@ -115,7 +120,12 @@ func NewMinMaxScaler() *MinMaxScaler {
 // the receiver so calls can be chained. Empty input leaves the scaler
 // unfitted. Data that is entirely NaN is not rejected: it learns a NaN range,
 // so every later Transform output is NaN (the propagate policy).
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the scaler unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (s *MinMaxScaler) Fit(data []float64) *MinMaxScaler {
+	*s = MinMaxScaler{} // a rejected Fit leaves the scaler unfitted
 	if len(data) == 0 {
 		return s
 	}
@@ -196,7 +206,12 @@ func NewRobustScaler() *RobustScaler {
 // Fit learns the median and interquartile range from data and returns the
 // receiver so calls can be chained. Empty input, or input containing any
 // non-finite value, leaves the scaler unfitted.
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the scaler unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (s *RobustScaler) Fit(data []float64) *RobustScaler {
+	*s = RobustScaler{} // a rejected Fit leaves the scaler unfitted
 	// Quartiles gives the median (Q2) and IQR (Q3-Q1) in a single rejection
 	// check, so there is no separate, unreachable failure path for the IQR.
 	qs, ok := stats.Quartiles(data)

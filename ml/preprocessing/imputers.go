@@ -53,7 +53,12 @@ func NewMeanImputer(isMissing MissingFunc[float64]) *MeanImputer {
 // Fit learns the mean of the non-missing values in data and returns the
 // receiver so calls can be chained. If every value is missing, or the
 // non-missing values are non-finite, the imputer is left unfitted.
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the imputer unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (im *MeanImputer) Fit(data []float64) *MeanImputer {
+	*im = MeanImputer{isMissing: im.isMissing} // a rejected Fit leaves it unfitted
 	fill, ok := stats.Mean(nonMissingFloats(data, im.isMissing))
 	if !ok {
 		return im
@@ -105,7 +110,12 @@ func NewMedianImputer(isMissing MissingFunc[float64]) *MedianImputer {
 // Fit learns the median of the non-missing values in data and returns the
 // receiver so calls can be chained. If every value is missing, or the
 // non-missing values are non-finite, the imputer is left unfitted.
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the imputer unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (im *MedianImputer) Fit(data []float64) *MedianImputer {
+	*im = MedianImputer{isMissing: im.isMissing} // a rejected Fit leaves it unfitted
 	fill, ok := stats.Median(nonMissingFloats(data, im.isMissing))
 	if !ok {
 		return im
@@ -173,7 +183,12 @@ func NewModeImputer[T comparable](isMissing MissingFunc[T]) *ModeImputer[T] {
 // Fit learns the modal non-missing value of data and returns the receiver so
 // calls can be chained. If every value is missing (or rejected by stats.Mode)
 // the imputer is left unfitted.
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the imputer unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (im *ModeImputer[T]) Fit(data []T) *ModeImputer[T] {
+	*im = ModeImputer[T]{isMissing: im.isMissing} // a rejected Fit leaves it unfitted
 	present := make([]T, 0, len(data))
 	for _, v := range data {
 		if im.isMissing != nil && im.isMissing(v) {

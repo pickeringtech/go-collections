@@ -64,7 +64,12 @@ func NewOneHotEncoder[C constraints.Ordered]() *OneHotEncoder[C] {
 
 // Fit learns the sorted set of distinct categories from data and returns the
 // receiver so calls can be chained. Empty input leaves the encoder unfitted.
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the encoder unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (e *OneHotEncoder[C]) Fit(data []C) *OneHotEncoder[C] {
+	*e = OneHotEncoder[C]{} // a rejected Fit leaves the encoder unfitted
 	if len(data) == 0 {
 		return e
 	}
@@ -123,7 +128,12 @@ func NewLabelEncoder[C constraints.Ordered]() *LabelEncoder[C] {
 
 // Fit learns the sorted set of distinct categories from data and returns the
 // receiver so calls can be chained. Empty input leaves the encoder unfitted.
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the encoder unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (e *LabelEncoder[C]) Fit(data []C) *LabelEncoder[C] {
+	*e = LabelEncoder[C]{} // a rejected Fit leaves the encoder unfitted
 	if len(data) == 0 {
 		return e
 	}
@@ -215,10 +225,16 @@ func NewOrdinalEncoder[C constraints.Ordered](categories ...C) *OrdinalEncoder[C
 // receiver so calls can be chained. When the encoder was constructed with an
 // explicit category order, Fit keeps that order and is a no-op. Empty input on
 // an encoder without an explicit order leaves it unfitted.
+//
+// Without an explicit order, fitting always starts from scratch: a rejected
+// Fit discards whatever an earlier Fit learned, leaving the encoder unfitted
+// (Transform reports ok == false) rather than transforming with stale
+// categories.
 func (e *OrdinalEncoder[C]) Fit(data []C) *OrdinalEncoder[C] {
 	if e.explicit {
 		return e
 	}
+	*e = OrdinalEncoder[C]{} // a rejected Fit leaves the encoder unfitted
 	if len(data) == 0 {
 		return e
 	}
@@ -291,7 +307,12 @@ func NewTargetEncoder[C constraints.Ordered]() *TargetEncoder[C] {
 // the receiver so calls can be chained. It leaves the encoder unfitted when
 // categories and target differ in length, when input is empty, or when the
 // target contains non-finite values (per the means family).
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the encoder unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (e *TargetEncoder[C]) Fit(categories []C, target []float64) *TargetEncoder[C] {
+	*e = TargetEncoder[C]{} // a rejected Fit leaves the encoder unfitted
 	if len(categories) != len(target) || len(categories) == 0 {
 		return e
 	}
