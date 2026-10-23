@@ -315,22 +315,27 @@ jobs:
     #     passed every PR-time check.
     #   - s390x: big-endian, the cheapest way to surface endianness assumptions
     #     at runtime rather than only at compile/vet time.
-    # arm64 and s390x test binaries run under qemu user-mode emulation via
-    # `go test -exec`, so no binfmt registration or third-party action is
-    # needed. Emulation is slow per instruction but this suite is small: each
-    # cell finishes in a couple of minutes. Deterministic (a fixed cross-compile
-    # and run, no runner-noise), so it gates.
+    # arm64 runs NATIVELY on GitHub's arm64 Linux runner (ubuntu-24.04-arm,
+    # free for public repositories): real FMA hardware, nothing to install.
+    # s390x has no hosted runner, so its test binaries run under qemu user-mode
+    # emulation via `go test -exec` (no binfmt registration or third-party
+    # action needed); this suite is small enough that it takes seconds per
+    # package. Deterministic (a fixed cross-compile and run, no runner-noise),
+    # so it gates.
     name: Cross-arch build/test — GOARCH=${{ matrix.goarch }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - goarch: "386"      # 32-bit word size; tests run natively on the amd64 host
+            runner: ubuntu-latest
             exec: ""
-          - goarch: arm64      # FMA contraction; tests run under qemu-user
-            exec: qemu-aarch64-static
+          - goarch: arm64      # FMA contraction; tests run natively on an arm64 runner
+            runner: ubuntu-24.04-arm
+            exec: ""
           - goarch: s390x      # big-endian; tests run under qemu-user
+            runner: ubuntu-latest
             exec: qemu-s390x-static
     steps:
       - uses: actions/checkout@v7
@@ -354,7 +359,7 @@ jobs:
         run: go vet ./...
       - name: Run tests (no -race; unsupported cross-arch)
         # -race needs a native amd64/arm64 host with cgo; -shuffle still
-        # surfaces order-dependence. EXEC is empty for 386 (runs natively).
+        # surfaces order-dependence. EXEC is empty where the binaries run natively.
         env:
           EXEC: ${{ matrix.exec }}
         run: go test -shuffle=on ${EXEC:+-exec "$EXEC"} ./...
