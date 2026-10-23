@@ -1,6 +1,9 @@
 package collections
 
-import "github.com/pickeringtech/go-collections/collections/lists"
+import (
+	"github.com/pickeringtech/go-collections/collections/lists"
+	"github.com/pickeringtech/go-collections/slices"
+)
 
 // QueueBuilder fluently configures and constructs a Queue, allowing the
 // concurrency characteristics and initial values to be chosen before building.
@@ -28,8 +31,12 @@ func (b QueueBuilder[T]) RW() QueueBuilder[T] {
 }
 
 // Add appends the given values to those the built Queue will contain, returning the updated builder.
+// The result is independent of the receiver: builders branched from a common
+// base by separate Add calls never share or overwrite each other's values.
 func (b QueueBuilder[T]) Add(values ...T) QueueBuilder[T] {
-	b.values = append(b.values, values...)
+	// PushCopy never appends into the receiver's spare capacity, which a sibling
+	// builder branched from the same base may also be using.
+	b.values = slices.PushCopy(b.values, values...)
 	return b
 }
 

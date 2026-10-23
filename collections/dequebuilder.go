@@ -1,6 +1,9 @@
 package collections
 
-import "github.com/pickeringtech/go-collections/collections/deques"
+import (
+	"github.com/pickeringtech/go-collections/collections/deques"
+	"github.com/pickeringtech/go-collections/slices"
+)
 
 // DequeBuilder fluently configures and constructs a Deque, allowing the
 // concurrency characteristics, optional bounded ring-buffer mode, and initial
@@ -40,8 +43,12 @@ func (b DequeBuilder[T]) Bounded(capacity int, policy deques.OverflowPolicy) Deq
 }
 
 // Add appends the given values to those the built Deque will contain (front to back), returning the updated builder.
+// The result is independent of the receiver: builders branched from a common
+// base by separate Add calls never share or overwrite each other's values.
 func (b DequeBuilder[T]) Add(values ...T) DequeBuilder[T] {
-	b.values = append(b.values, values...)
+	// PushCopy never appends into the receiver's spare capacity, which a sibling
+	// builder branched from the same base may also be using.
+	b.values = slices.PushCopy(b.values, values...)
 	return b
 }
 

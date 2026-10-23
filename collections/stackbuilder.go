@@ -1,6 +1,9 @@
 package collections
 
-import "github.com/pickeringtech/go-collections/collections/lists"
+import (
+	"github.com/pickeringtech/go-collections/collections/lists"
+	"github.com/pickeringtech/go-collections/slices"
+)
 
 // StackBuilder fluently configures and constructs a Stack, allowing the
 // concurrency characteristics and initial values to be chosen before building.
@@ -28,8 +31,12 @@ func (b StackBuilder[T]) RW() StackBuilder[T] {
 }
 
 // Add appends the given values to those the built Stack will contain, returning the updated builder.
+// The result is independent of the receiver: builders branched from a common
+// base by separate Add calls never share or overwrite each other's values.
 func (b StackBuilder[T]) Add(values ...T) StackBuilder[T] {
-	b.values = append(b.values, values...)
+	// PushCopy never appends into the receiver's spare capacity, which a sibling
+	// builder branched from the same base may also be using.
+	b.values = slices.PushCopy(b.values, values...)
 	return b
 }
 
