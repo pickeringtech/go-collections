@@ -40,9 +40,11 @@
 // TopK is exact: Result is precisely the k highest-ranked elements seen, never
 // an estimate. Reservoir and WeightedReservoir are exact in their sampling
 // probabilities — they are randomized, but the distribution they draw from is
-// the precise one specified, not an approximation. The online aggregates
-// (RunningMean, RunningVariance, EWMA, RunningMinMax) are exact too: each agrees
-// with the corresponding batch stats reduction over the same data. (Approximate
+// the precise one specified, not an approximation. The online aggregates are
+// exact too: RunningMean, RunningVariance and RunningMinMax agree with
+// stats.Mean, stats.SampleVariance/PopulationVariance and stats.MinMax over the
+// same data — including their (value, ok) contracts — RunningMean up to
+// floating-point rounding; EWMA has no batch counterpart. (Approximate
 // sketches — frequency, cardinality — are a separate concern and live
 // elsewhere.)
 //
@@ -79,7 +81,8 @@
 // (value, ok) contract, where ok reports whether enough data has been seen:
 //
 //   - RunningMean accumulates the arithmetic mean incrementally (no growing
-//     running total). Result is ok once at least one value is added.
+//     running total, so it stays finite for finite inputs). Like stats.Mean,
+//     Result is ok once at least one value is added and none was non-finite.
 //   - RunningVariance runs Welford's algorithm online, exposing the mean,
 //     SampleVariance (ok for n >= 2, Bessel-corrected) and PopulationVariance
 //     (ok for n >= 1). The recurrence and these contracts intentionally match

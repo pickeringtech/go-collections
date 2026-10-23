@@ -284,3 +284,99 @@ func TestRunningAggregates_CountIs64Bit(t *testing.T) {
 		})
 	}
 }
+
+// TestRunningMean_FollowsStatsMeanContract cross-checks RunningMean against
+// stats.Mean where the package doc promises agreement but RunningMean used to
+// diverge: a non-finite input makes the mean undefined, so stats.Mean reports
+// (0, false) — RunningMean returned (NaN, true) — and two finite values more
+// than math.MaxFloat64 apart overflowed RunningMean's x−mean step to +Inf where
+// stats.Mean gives their (finite) mean.
+func TestRunningMean_FollowsStatsMeanContract(t *testing.T) {
+	nan, inf := math.NaN(), math.Inf(1)
+	tests := []struct {
+		name   string
+		values []float64
+	}{
+		{"opposite extremes", []float64{-1.7e308, 1.7e308}},
+		{"opposite extremes then more", []float64{-1.7e308, 1.7e308, 1, -1.7e308}},
+		{"NaN after a value", []float64{1, nan}},
+		{"value after NaN", []float64{nan, 1}},
+		{"two infinities", []float64{inf, inf}},
+		{"opposite infinities", []float64{inf, -inf}},
+		{"negative infinity then values", []float64{-inf, 1, 2}},
+		{"ordinary values", []float64{1, 2, 3, 4}},
+		{"empty", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := streaming.NewRunningMean()
+			for _, v := range tt.values {
+				m.Add(v)
+			}
+			got, ok := m.Result()
+			want, wantOK := stats.Mean(tt.values)
+			if ok != wantOK || math.IsNaN(got) || math.Abs(got-want) > floatTolerance*(1+math.Abs(want)) {
+				t.Errorf("Result() = (%v, %v), stats.Mean = (%v, %v)", got, ok, want, wantOK)
+			}
+			if m.Count() != int64(len(tt.values)) {
+				t.Errorf("Count() = %d, want %d (every Add counts)", m.Count(), len(tt.values))
+			}
+		})
+	}
+}
+
+// TestRunningMean_FiniteNearMaxFloat64 checks that the running mean of finite
+// values stays finite and exact-in-range even when the values sit at the top of
+// the float64 range, where a running total would overflow.
+func TestRunningMean_FiniteNearMaxFloat64(t *testing.T) {
+	m := streaming.NewRunningMean()
+	for i := 0; i < 4; i++ {
+		m.Add(math.MaxFloat64)
+	}
+	got, ok := m.Result()
+	if !ok || got != math.MaxFloat64 {
+		t.Errorf("Result() of 4×MaxFloat64 = (%v, %v), want (MaxFloat64, true)", got, ok)
+	}
+}
+
+// TestEWMA_FiniteForFiniteInputs checks that blending two finite values more
+// than math.MaxFloat64 apart does not overflow: alpha·(x − avg) used to become
+// ±Inf. Non-finite inputs still propagate.
+func TestEWMA_FiniteForFiniteInputs(t *testing.T) {
+	tests := []struct {
+		name   string
+		alpha  float64
+		values []float64
+		want   float64
+	}{
+		{"half way between opposite extremes", 0.5, []float64{-1.7e308, 1.7e308}, 0},
+		{"alpha 1 jumps across the range", 1, []float64{-math.MaxFloat64, math.MaxFloat64}, math.MaxFloat64},
+		{"small alpha from the top of the range", 0.25, []float64{math.MaxFloat64, -math.MaxFloat64}, math.MaxFloat64 / 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := streaming.NewEWMA(tt.alpha)
+			for _, v := range tt.values {
+				e.Add(v)
+			}
+			got, ok := e.Result()
+			if !ok || math.IsInf(got, 0) || math.Abs(got-tt.want) > 1e-15*math.MaxFloat64 {
+				t.Errorf("Result() = (%v, %v), want (%v, true)", got, ok, tt.want)
+			}
+		})
+	}
+	nanAvg := streaming.NewEWMA(0.5)
+	nanAvg.Add(1)
+	nanAvg.Add(math.NaN())
+	got, ok := nanAvg.Result()
+	if !ok || !math.IsNaN(got) {
+		t.Errorf("Result() after a NaN = (%v, %v), want (NaN, true): non-finite inputs propagate", got, ok)
+	}
+	infAvg := streaming.NewEWMA(0.5)
+	infAvg.Add(math.Inf(1))
+	infAvg.Add(1)
+	got, ok = infAvg.Result()
+	if !ok || !(math.IsNaN(got) || math.IsInf(got, 0)) {
+		t.Errorf("Result() after +Inf then 1 = (%v, %v), want a non-finite average: non-finite inputs propagate", got, ok)
+	}
+}

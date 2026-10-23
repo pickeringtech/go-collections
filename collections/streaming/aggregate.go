@@ -1,6 +1,10 @@
 package streaming
 
-import "github.com/pickeringtech/go-collections/constraints"
+import (
+	"math"
+
+	"github.com/pickeringtech/go-collections/constraints"
+)
 
 // RunningMean maintains the arithmetic mean of an unbounded stream of float64
 // values in O(1) memory, updated one element at a time. It accumulates the mean
@@ -8,11 +12,21 @@ import "github.com/pickeringtech/go-collections/constraints"
 // never holds a large running total that could overflow or lose precision on a
 // long stream.
 //
+// It follows stats.Mean's contract over the same data: Result is (0, false) for
+// an empty stream and, once any non-finite value (NaN or ±Inf) has been added,
+// for the rest of the stream, because the mean is then undefined. For finite
+// inputs the result is always finite — even where a running total, and so
+// stats.Mean, would overflow — and agrees with stats.Mean up to floating-point
+// rounding.
+//
 // RunningMean is single-threaded; see the package documentation on thread
 // safety.
 type RunningMean struct {
 	n    int64
 	mean float64
+	// undefined records that a non-finite value has been added, which makes the
+	// mean undefined from then on.
+	undefined bool
 }
 
 // NewRunningMean creates an empty RunningMean. Before any Add, Result reports
@@ -21,23 +35,30 @@ func NewRunningMean() *RunningMean {
 	return &RunningMean{}
 }
 
-// Add folds one value into the running mean in O(1).
+// Add folds one value into the running mean in O(1). A non-finite x makes the
+// mean undefined for the rest of the stream (see Result).
 func (m *RunningMean) Add(x float64) {
 	m.n++
-	m.mean += (x - m.mean) / float64(m.n)
+	if math.IsNaN(x) || math.IsInf(x, 0) {
+		m.undefined = true
+		return
+	}
+	m.mean = blend(m.mean, x, 1/float64(m.n))
 }
 
 // Result returns the current mean. The second return value is false — and the
-// mean 0 — when no value has been added yet.
+// mean 0 — when no value has been added yet, or when any value added so far was
+// non-finite (NaN or ±Inf), matching stats.Mean.
 func (m *RunningMean) Result() (float64, bool) {
-	if m.n == 0 {
+	if m.n == 0 || m.undefined {
 		return 0, false
 	}
 	return m.mean, true
 }
 
-// Count returns the number of values added so far. It is an int64 on every
-// platform, so it does not wrap after 2^31-1 values where int is 32 bits.
+// Count returns the number of values added so far, non-finite ones included. It
+// is an int64 on every platform, so it does not wrap after 2^31-1 values where
+// int is 32 bits.
 func (m *RunningMean) Count() int64 {
 	return m.n
 }
@@ -123,8 +144,11 @@ func (v *RunningVariance) Count() int64 {
 //
 // The average is primed on the first Add (it is set to that first value rather
 // than blended into a zero), so the series is not biased toward zero at the
-// start. EWMA is single-threaded; see the package documentation on thread
-// safety.
+// start. For finite inputs the average is always finite, even when consecutive
+// values are more than math.MaxFloat64 apart. Non-finite inputs are not
+// filtered: a NaN makes the average NaN from then on, and an infinite input
+// leaves it infinite or NaN. EWMA is single-threaded; see the package
+// documentation on thread safety.
 type EWMA struct {
 	alpha  float64
 	value  float64
@@ -160,7 +184,22 @@ func (e *EWMA) Add(x float64) {
 		e.primed = true
 		return
 	}
-	e.value += e.alpha * (x - e.value)
+	e.value = blend(e.value, x, e.alpha)
+}
+
+// blend returns from + frac·(to − from), the point a fraction frac in (0, 1] of
+// the way from from to to — the incremental step shared by RunningMean
+// (frac = 1/n) and EWMA (frac = alpha). When from and to are finite but more
+// than math.MaxFloat64 apart the difference overflows, so blend forms the
+// convex combination from·(1−frac) + to·frac instead, whose terms are each
+// finite. Non-finite operands take the direct formula, so they propagate
+// exactly as before.
+func blend(from, to, frac float64) float64 {
+	gap := to - from
+	if math.IsInf(gap, 0) && !math.IsInf(from, 0) && !math.IsInf(to, 0) {
+		return from*(1-frac) + to*frac
+	}
+	return from + frac*gap
 }
 
 // Result returns the current moving average. The second return value is false —
