@@ -108,6 +108,7 @@ func main() {
 | **[ml/distance](./ml/distance/)** | Distance metrics (lower = closer) | Euclidean, Manhattan, Minkowski, Cosine, Hamming, Levenshtein |
 | **[ml/similarity](./ml/similarity/)** | Similarity metrics (higher = more alike) | Cosine similarity, Jaccard, Dice, Overlap |
 | **[ml/metrics](./ml/metrics/)** | Model-evaluation metrics by problem type | Regression (MSE/RMSE/R²), classification (precision/recall/F1, ROC/AUC), clustering (silhouette), ranking (DCG/NDCG, MAP) |
+| **[ml/preprocessing](./ml/preprocessing/README.md)** | Fit/transform feature engineering | Scaling, encoding, imputation, binning, train/test splitting |
 
 ## Choose Your Data Structure
 
@@ -316,6 +317,7 @@ downstream-consumer smoke test. See the [examples README](./examples/README.md).
 - **[ML Distance](./ml/distance/README.md)** - Distance metrics (Euclidean, Manhattan, Minkowski, Cosine, Hamming, Levenshtein)
 - **[ML Similarity](./ml/similarity/README.md)** - Similarity metrics (Cosine, Jaccard, Dice, Overlap)
 - **[ML Metrics](./ml/metrics/README.md)** - Model-evaluation metrics (regression, classification, clustering, ranking)
+- **[ML Preprocessing](./ml/preprocessing/README.md)** - Scaling, encoding, imputation, binning and reproducible dataset splits
 - **[Mutation Testing](./docs/mutation-testing.md)** - How we verify the tests catch regressions, not just run lines
 
 ## Contributing
