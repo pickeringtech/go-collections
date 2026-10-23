@@ -1,6 +1,10 @@
 package stats
 
-import "github.com/pickeringtech/go-collections/constraints"
+import (
+	"math"
+
+	"github.com/pickeringtech/go-collections/constraints"
+)
 
 // LineFit holds the result of an ordinary-least-squares straight-line fit:
 // the line y = Slope·x + Intercept that minimises the sum of squared vertical
@@ -27,9 +31,11 @@ func (l LineFit) Predict(x float64) float64 {
 //
 // The coefficients come from one numerically-stable Welford pass (see
 // accumulate): Slope = cov(x,y)/var(x), Intercept = ȳ − Slope·x̄, and
-// R² = cov(x,y)² / (var(x)·var(y)) — equivalently the squared Pearson
-// correlation. Computing them from accumulated moments rather than the textbook
-// Σxy − ΣxΣy/n form keeps the fit accurate on large or near-constant magnitudes.
+// R² = cov(x,y)² / (var(x)·var(y)) — the squared Pearson correlation, which is
+// how it is evaluated: r = C / (√M2X · √M2Y), then R² = r², so no intermediate
+// squares the co-moment (C² overflows to +Inf for values around 1e80). Computing
+// the fit from accumulated moments rather than the textbook Σxy − ΣxΣy/n form
+// keeps it accurate on large or near-constant magnitudes.
 //
 // It returns ok == false when the fit is undefined: when the inputs are empty,
 // of differing lengths, have fewer than two points, or when either x or y is
@@ -51,9 +57,10 @@ func LinearRegression[T constraints.Numeric](x, y []T) (LineFit, bool) {
 		return LineFit{}, false
 	}
 	slope := m.c / m.m2X
+	r := m.c / (math.Sqrt(m.m2X) * math.Sqrt(m.m2Y))
 	return LineFit{
 		Slope:     slope,
 		Intercept: m.meanY - slope*m.meanX,
-		R2:        (m.c * m.c) / (m.m2X * m.m2Y),
+		R2:        r * r,
 	}, true
 }

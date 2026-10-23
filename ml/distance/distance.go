@@ -94,7 +94,9 @@ func Minkowski[T constraints.Numeric](a, b []T, p float64) (float64, bool) {
 
 // CosineDistance computes the cosine distance between two numeric vectors:
 // 1 - CosineSimilarity(a, b). The result is in [0, 2]: 0 for identical
-// direction, 1 for orthogonal vectors, and 2 for anti-parallel vectors.
+// direction, 1 for orthogonal vectors, and 2 for anti-parallel vectors. The
+// bound holds exactly, because the underlying cosine is clamped to [−1, 1], so
+// rounding never yields a negative distance.
 //
 // It delegates to ml/similarity.CosineSimilarity and inherits its ok == false
 // conditions: empty input, mismatched lengths, or either vector having zero

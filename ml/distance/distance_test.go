@@ -378,6 +378,28 @@ func TestCosineDistance(t *testing.T) {
 	}
 }
 
+// TestCosineDistanceIsNeverNegative guards the [0, 2] range: rounding in the
+// cosine of a vector with itself (or a scaled copy) can overshoot 1, which
+// would make the distance a tiny negative number.
+func TestCosineDistanceIsNeverNegative(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b []float64
+	}{
+		{name: "decimal vector with itself", a: []float64{0.7000000000000001, 4.8999999999999995, 0.3}, b: []float64{0.7000000000000001, 4.8999999999999995, 0.3}},
+		{name: "another decimal vector with itself", a: []float64{7.6, 6.1, 7.8}, b: []float64{7.6, 6.1, 7.8}},
+		{name: "decimal vector with a scaled copy", a: []float64{1.8, 6.6, 4.4}, b: []float64{5.4, 19.799999999999997, 13.200000000000001}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := distance.CosineDistance(tt.a, tt.b)
+			if !ok || got < 0 || got > 1e-15 {
+				t.Errorf("CosineDistance() = %v, %v; want ~0 and never negative, true", got, ok)
+			}
+		})
+	}
+}
+
 func TestHamming(t *testing.T) {
 	type args struct {
 		a, b []string

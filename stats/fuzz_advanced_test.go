@@ -51,13 +51,10 @@ func FuzzVectorOps(f *testing.F) {
 		}
 
 		// CosineSimilarity is undefined for a zero vector (ok == false); when
-		// defined it is a cosine and must lie within [-1, 1] (allowing a little
-		// floating-point slack).
+		// defined it is clamped, so it lies within [-1, 1] exactly.
 		cos, ok := stats.CosineSimilarity(a, b)
-		if ok {
-			if cos < -1-1e-9 || cos > 1+1e-9 {
-				t.Fatalf("CosineSimilarity = %v, outside [-1, 1]", cos)
-			}
+		if ok && (cos < -1 || cos > 1) {
+			t.Fatalf("CosineSimilarity = %v, outside [-1, 1]", cos)
 		}
 	})
 }

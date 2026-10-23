@@ -7,6 +7,28 @@ import (
 	"github.com/pickeringtech/go-collections/stats"
 )
 
+// TestLinearRegressionExtremeMagnitudes guards R² against overflow: c²/(M2X·M2Y)
+// squares the co-moment before dividing, which is Inf/Inf = NaN for a perfect
+// fit of large values and 0/0 for small ones.
+func TestLinearRegressionExtremeMagnitudes(t *testing.T) {
+	tests := []struct {
+		name  string
+		x, y  []float64
+		slope float64
+	}{
+		{name: "large values", x: []float64{1e80, 2e80, 3e80}, y: []float64{1e80, 2e80, 3e80}, slope: 1},
+		{name: "small values", x: []float64{1e-80, 2e-80, 3e-80}, y: []float64{2e-80, 4e-80, 6e-80}, slope: 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fit, ok := stats.LinearRegression(tt.x, tt.y)
+			if !ok || !(math.Abs(fit.R2-1) <= 1e-12) || !(math.Abs(fit.Slope-tt.slope) <= 1e-12) {
+				t.Errorf("LinearRegression() = %+v, %v; want slope %v and R2 1, true", fit, ok, tt.slope)
+			}
+		})
+	}
+}
+
 func TestLinearRegression(t *testing.T) {
 	const eps = 1e-9
 

@@ -93,7 +93,11 @@ func SampleCovariance[T constraints.Numeric](x, y []T) (float64, bool) {
 //
 // Because the n (or n−1) factors cancel in the ratio, sample and population
 // conventions yield the same coefficient, so a single function suffices. It is
-// computed from one stable Welford pass as C / √(M2X · M2Y).
+// computed from one stable Welford pass as C / (√M2X · √M2Y). Taking the roots
+// separately keeps the denominator in range: the product M2X · M2Y would
+// overflow for large values (making the correlation of {1e100, 2e100, 3e100}
+// with itself read 0) and underflow for small ones (reporting {1e-100, …} as
+// constant).
 //
 // It returns ok == false when the coefficient is undefined: when the inputs are
 // empty, of differing lengths, have fewer than two pairs, or when either series
@@ -104,7 +108,7 @@ func Correlation[T constraints.Numeric](x, y []T) (float64, bool) {
 		return 0, false
 	}
 	m := accumulate(x, y)
-	denom := math.Sqrt(m.m2X * m.m2Y)
+	denom := math.Sqrt(m.m2X) * math.Sqrt(m.m2Y)
 	if denom == 0 {
 		// A constant series has zero variance, so the correlation is 0/0 —
 		// undefined rather than zero. NaN/Inf inputs make denom non-finite

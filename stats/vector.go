@@ -27,22 +27,34 @@ func Dot[T constraints.Numeric](a, b []T) (float64, bool) {
 }
 
 // Norm returns the Euclidean (L2) norm of the vector a — √(Σ aᵢ²), the length
-// of the vector — together with an ok flag. The squares are summed with Kahan
-// compensated summation.
+// of the vector — together with an ok flag.
+//
+// Like EuclideanDistance, the elements are first scaled by the largest |aᵢ|
+// (the dnrm2 technique) so the squared terms stay near 1, then the scaled
+// squares are summed with Kahan compensated summation and the scale is
+// multiplied back. Squaring 1e200 directly would overflow to +Inf, and
+// squaring 1e-200 would underflow to 0; the scaled form returns the true norm
+// for any finite vector whose norm is representable.
 //
 // ok is false (and the result 0) only for empty input, where the norm is
-// undefined. Non-finite inputs (NaN/Inf) propagate to a non-finite result with
-// ok == true.
+// undefined. Non-finite inputs propagate with ok == true: any NaN makes the
+// result NaN, and otherwise an infinite element makes it +Inf.
 func Norm[T constraints.Numeric](a []T) (float64, bool) {
 	if len(a) == 0 {
 		return 0, false
 	}
+	scale := maxAbs(a)
+	if scale == 0 || nonFinite(scale) {
+		// The zero vector has norm 0; a NaN or infinite scale is the result
+		// itself, per the propagation policy above.
+		return scale, true
+	}
 	var sum kahan.Sum
 	for _, v := range a {
-		f := float64(v)
+		f := float64(v) / scale
 		sum.Add(f * f)
 	}
-	return math.Sqrt(sum.Total()), true
+	return scale * math.Sqrt(sum.Total()), true
 }
 
 // EuclideanDistance returns the straight-line distance between the points a and
@@ -97,29 +109,42 @@ func EuclideanDistance[T constraints.Numeric](a, b []T) (float64, bool) {
 // −1 when opposite. It is the standard similarity measure for embeddings and
 // other high-dimensional feature vectors.
 //
+// Because the cosine ignores magnitude, each vector is first scaled by its
+// largest |element| (the dnrm2 technique), so the products and squares stay
+// near 1 whatever the inputs' magnitude — vectors of 1e200 or 1e-200 have a
+// well-defined cosine rather than an overflowed NaN or an underflowed zero
+// norm. The sums use Kahan compensated summation, and the result is clamped to
+// [−1, 1] so rounding can never report a cosine (and so a cosine distance)
+// outside its mathematical range.
+//
 // ok is false (and the result 0) when the similarity is undefined: when the
 // vectors are empty, of differing lengths, or when either vector is the zero
 // vector (a zero norm, so the ratio is 0/0 — a zero vector has no orientation).
-// Non-finite inputs (NaN/Inf) make a norm non-finite (not zero) and so fall
-// through to propagate to a non-finite result with ok == true.
+// Non-finite inputs (NaN/Inf) propagate: any NaN or infinite element in either
+// vector yields NaN with ok == true (an infinite component has no finite
+// direction), even when the other vector is the zero vector.
 func CosineSimilarity[T constraints.Numeric](a, b []T) (float64, bool) {
 	if len(a) != len(b) || len(a) == 0 {
 		return 0, false
 	}
+	scaleA := maxAbs(a)
+	scaleB := maxAbs(b)
+	if nonFinite(scaleA) || nonFinite(scaleB) {
+		return math.NaN(), true
+	}
+	if scaleA == 0 || scaleB == 0 {
+		// A zero vector has no orientation, so the cosine is 0/0 — undefined
+		// rather than zero.
+		return 0, false
+	}
 	var dot, sumA, sumB kahan.Sum
 	for i := range a {
-		fa := float64(a[i])
-		fb := float64(b[i])
+		fa := float64(a[i]) / scaleA
+		fb := float64(b[i]) / scaleB
 		dot.Add(fa * fb)
 		sumA.Add(fa * fa)
 		sumB.Add(fb * fb)
 	}
-	denom := math.Sqrt(sumA.Total()) * math.Sqrt(sumB.Total())
-	if denom == 0 {
-		// A zero vector has no orientation, so the cosine is 0/0 — undefined
-		// rather than zero. NaN/Inf inputs make denom non-finite (not zero) and
-		// so fall through to propagate as documented.
-		return 0, false
-	}
-	return dot.Total() / denom, true
+	cos := dot.Total() / (math.Sqrt(sumA.Total()) * math.Sqrt(sumB.Total()))
+	return min(max(cos, -1), 1), true
 }
