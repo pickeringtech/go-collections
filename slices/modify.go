@@ -89,7 +89,7 @@ func Insert[T any](input []T, startIdx int, elements ...T) []T {
 func JoinToString[T any](input []T, separator string) string {
 	var sb strings.Builder
 	for idx, element := range input {
-		sb.WriteString(fmt.Sprintf("%v", element))
+		fmt.Fprintf(&sb, "%v", element)
 		if idx != len(input)-1 {
 			sb.WriteString(separator)
 		}

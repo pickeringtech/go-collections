@@ -48,9 +48,13 @@ name: CI
 # `needs:` list, not the GitHub branch-protection rule.
 #
 # Test matrix (see #33, cost-tuned in #146, trigger-rationalised in #150): the
-# `test` job gates Linux/macOS/Windows on the primary (go.mod) Go version, plus
-# the previous minor on Linux. The `setup` job decides the cell list per event:
-#   pull_request / push-to-main → Linux cells only {1.24, 1.23} — fast, cheap,
+# `test` job gates Linux/macOS/Windows on the primary (go.mod) Go version — the
+# library's supported FLOOR — plus the latest stable Go on Linux, so both ends of
+# the supported range are proven. (The second cell used to be "the previous
+# minor", 1.23, but go.mod declares `go 1.24`: that cell never tested 1.23 — the
+# toolchain either auto-upgraded to 1.24 or, under setup-go's GOTOOLCHAIN=local,
+# refused to run at all.) The `setup` job decides the cell list per event:
+#   pull_request / push-to-main → Linux cells only {1.24, stable} — fast, cheap,
 #     ~all real failures for a pure-Go library surface here.
 #   merge_group (merge queue)   → the FULL matrix incl. macOS (billed 10x) and
 #     Windows (2x), run ONCE per merge right before landing.
@@ -109,9 +113,17 @@ env:
   # (The matrix itself can't read env, so the version literals live there.)
   GO_PRIMARY: "1.24"
   # Pin the security-tool version so CI is reproducible; bump deliberately.
+  #
+  # Tool installs and GOTOOLCHAIN: setup-go exports GOTOOLCHAIN=local, so the
+  # `go` it installs (the go.mod floor, 1.24) never silently swaps itself for a
+  # newer toolchain — that is what keeps each test cell honest about the version
+  # it claims to test. But every pinned dev tool here (gosec, benchstat, …)
+  # declares a newer `go` directive than the floor, so each `go install` step
+  # sets GOTOOLCHAIN=auto at STEP scope: the tool is built with the Go it needs,
+  # while the project itself is still built, vetted and tested by the floor.
   # (govulncheck moved to maintenance.yml and gorelease to release.yml — issue
   # #150 — so their pins now live in those workflows.)
-  GOSEC_VERSION: "v2.27.1"
+  GOSEC_VERSION: "v2.29.0"
   # golang.org/x/perf ships only pseudo-versions (no semver tags); pin one.
   BENCHSTAT_VERSION: "v0.0.0-20260615155930-9e4b9ddef5b6"
   # Benchmark knobs. Wall time ≈ (sub-benchmarks) × per-sample-time × count ×
@@ -164,7 +176,7 @@ jobs:
     #     the ONLY event that runs them, once per merge, right before landing —
     #     so cross-platform correctness gates pre-release without charging any
     #     PR push or re-running on the post-merge push to main.
-    #   pull_request / push → Linux only (primary go.mod Go + previous minor).
+    #   pull_request / push → Linux only (primary go.mod Go floor + latest stable).
     #     Fast, cheap feedback; macOS/Windows almost never surface a Linux-green
     #     failure for a pure-Go library, and the queue covers them pre-merge.
     # The matrix literals live here because `strategy.matrix` can't read `env`.
@@ -177,17 +189,17 @@ jobs:
         id: set
         run: |
           if [ "${{ github.event_name }}" = "merge_group" ]; then
-            echo 'matrix={"include":[{"os":"ubuntu-latest","go":"1.24"},{"os":"macos-latest","go":"1.24"},{"os":"windows-latest","go":"1.24"},{"os":"ubuntu-latest","go":"1.23"}]}' >> "$GITHUB_OUTPUT"
+            echo 'matrix={"include":[{"os":"ubuntu-latest","go":"1.24"},{"os":"macos-latest","go":"1.24"},{"os":"windows-latest","go":"1.24"},{"os":"ubuntu-latest","go":"stable"}]}' >> "$GITHUB_OUTPUT"
           else
-            echo 'matrix={"include":[{"os":"ubuntu-latest","go":"1.24"},{"os":"ubuntu-latest","go":"1.23"}]}' >> "$GITHUB_OUTPUT"
+            echo 'matrix={"include":[{"os":"ubuntu-latest","go":"1.24"},{"os":"ubuntu-latest","go":"stable"}]}' >> "$GITHUB_OUTPUT"
           fi
 
   build:
     name: Build & module hygiene
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Compile every package
@@ -222,11 +234,11 @@ jobs:
     # / -race behaviour, map-iteration order, path/newline assumptions) that a
     # single ubuntu+go.mod cell would miss. The cell list is computed by the
     # `setup` job per event (issues #146, #150):
-    #   PR / push main → Linux × {1.24, 1.23}                     (2 cells)
+    #   PR / push main → Linux × {1.24, stable}                   (2 cells)
     #   merge_group    → + macOS × 1.24 + Windows × 1.24          (4 cells)
     # so macOS (10x) and Windows (2x) — which dominate the per-run dollar cost —
     # are paid for only ONCE per merge, in the queue, while every PR push still
-    # gets Linux + -race + the previous-minor backward-compat check fast and
+    # gets Linux + -race + the floor-and-latest version check fast and
     # cheap. Cross-platform correctness still gates before a release (the merge
     # queue is pre-merge), satisfying #146's "must still run before a release"
     # constraint. Wider experimental coverage (Go tip) moved to a weekly schedule
@@ -249,8 +261,8 @@ jobs:
         # the runner) so the awk/tr/tail coverage steps are portable across cells.
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
           # Zero-dependency repo: no go.sum exists, so key the (per-OS, per-Go)
@@ -283,7 +295,7 @@ jobs:
         # a repo secret (Settings → Secrets → Actions → CODECOV_TOKEN).
         # Kept non-gating: the coverage floor above is the authoritative gate,
         # so a flaky upload must not block a merge.
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -310,8 +322,8 @@ jobs:
           - goarch: s390x      # big-endian — surfaces endianness assumptions
             run-tests: false
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod
@@ -332,8 +344,8 @@ jobs:
     name: Lint, format & complexity
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Check formatting (gofmt)
@@ -351,9 +363,12 @@ jobs:
         # Aggregates staticcheck, errcheck, ineffassign, unconvert, misspell,
         # revive, cyclop (cyclomatic) and gocognit (cognitive). Blocking: the
         # debt it surfaced has been paid down (see #9), so it now gates.
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.1.6
+          # Keep in lockstep with GOLANGCI_VERSION in the Makefile (#88). The
+          # action downloads a prebuilt binary, so the tool's own (newer) build
+          # Go never touches the floor toolchain this job analyses with.
+          version: v2.14.0
 
   gosec:
     # Static security analysis — code-dependent, so it gates every PR (issue
@@ -364,8 +379,8 @@ jobs:
     name: Security lint (gosec — static analysis)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           # Restore ~/.cache/go-build so the gosec install below relinks from
@@ -377,15 +392,19 @@ jobs:
       # fast no-op on a hit, removing a per-run rebuild of a non-trivial program.
       # (govulncheck's cache moved with it to maintenance.yml.)
       - name: Cache gosec binary
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/go/bin/gosec
           key: ${{ runner.os }}-tool-gosec-${{ env.GOSEC_VERSION }}-go${{ env.GO_PRIMARY }}
+      - name: Install gosec (pinned)
+        # gosec requires a newer Go than the floor to BUILD — see the
+        # GOTOOLCHAIN note on the workflow env.
+        env:
+          GOTOOLCHAIN: auto
+        run: go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
       - name: Security lint (gosec)
         # Blocking: gosec reports no issues, so it now gates against regressions.
-        run: |
-          go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
-          gosec ./...
+        run: gosec ./...
 
   examples-e2e:
     # Blocking: the examples/ module is a SEPARATE module that consumes the
@@ -399,8 +418,8 @@ jobs:
     name: Examples E2E (golden output, separate module)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           # Drive the toolchain from the examples module's own go.mod.
           go-version-file: examples/go.mod
@@ -424,8 +443,8 @@ jobs:
     name: Benchreport tests (separate module)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           # Drive the toolchain from the benchreport module's own go.mod.
           go-version-file: tools/benchreport/go.mod
@@ -449,8 +468,8 @@ jobs:
     name: CI-health tests (separate module)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           # Drive the toolchain from the cihealth module's own go.mod.
           go-version-file: tools/cihealth/go.mod
@@ -473,8 +492,8 @@ jobs:
     name: Doc examples compile-check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod
@@ -489,8 +508,8 @@ jobs:
     name: Fuzz (short run per target)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Run every fuzz target for a fixed iteration count, in parallel
@@ -610,7 +629,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Full history so we can check out and benchmark the queue base commit
           # within this same job (cheap no-op on push events).
@@ -618,7 +637,7 @@ jobs:
           # Bench the merge queue's head (the post-merge tree) on merge_group;
           # empty on push → checkout falls back to the default ref (main).
           ref: ${{ github.event.merge_group.head_sha }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod
@@ -627,8 +646,7 @@ jobs:
       # for the keying rationale. Restored before the install below so install is
       # a fast no-op on a cache hit.
       - name: Cache benchstat binary
-        if: github.event_name != 'pull_request' || needs.changes.outputs.code == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/go/bin/benchstat
           key: ${{ runner.os }}-tool-benchstat-${{ env.BENCHSTAT_VERSION }}-go${{ env.GO_PRIMARY }}
@@ -636,6 +654,10 @@ jobs:
       # outside the work tree, so switching the tree to the base commit can't
       # disturb it.
       - name: Install benchstat (pinned)
+        # x/perf requires a newer Go than the floor to BUILD — see the
+        # GOTOOLCHAIN note on the workflow env.
+        env:
+          GOTOOLCHAIN: auto
         run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
 
       # push to main: no base to diff against — just confirm benchmarks compile
@@ -841,7 +863,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Full history so the rebase-on-reject retry below has something to
           # rebase onto if main advances while this job runs.
@@ -850,18 +872,20 @@ jobs:
           # commit step can push to protected main. Also rewrites the remote to
           # SSH, so the push/pull below go over the key, not the token.
           ssh-key: ${{ secrets.BENCH_REPORT_DEPLOY_KEY }}
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache-dependency-path: go.mod
       # Cache the compiled benchstat binary (issue #151) — see the security job.
       - name: Cache benchstat binary
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/go/bin/benchstat
           key: ${{ runner.os }}-tool-benchstat-${{ env.BENCHSTAT_VERSION }}-go${{ env.GO_PRIMARY }}
       - name: Install benchstat (pinned)
         # Same pinned version as the PR A/B job, for a reproducible CSV format.
+        env:
+          GOTOOLCHAIN: auto
         run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
       - name: Capture CI dataset, archive trend snapshot, and regenerate the report
         # Captures the *ci* (secondary/indicative) environment only, archives this
