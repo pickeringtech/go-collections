@@ -54,24 +54,24 @@ task, found := tasks.Find(func(task string) bool { return strings.Contains(task,
 ## Available Implementations
 
 ### Linked List
-**Perfect for**: Stacks, queues, frequent insertions at ends
+**Perfect for**: Queues, appending at the end, simple sequences
 
 ```go
-// Fast insertions at both ends
 queue := lists.NewLinked("first", "second", "third")
 
-// O(1) operations at ends
+// O(1): append at the end, remove from the front
 queue.PushInPlace("fourth")                    // Add to end
 first, found := queue.DequeueInPlace()        // Remove from front
 
-// Great for stacks
+// Stacks work too, but PopInPlace is O(n) on a singly linked list
 stack := lists.NewLinked[int]()
 stack.PushInPlace(1)
 stack.PushInPlace(2)
 top, found := stack.PopInPlace()              // Returns 2 (LIFO)
 ```
 
-**Performance**: O(1) at ends, O(n) for random access
+**Performance**: O(1) push/enqueue at the end and dequeue from the front;
+O(n) `PopInPlace`, `Length` and random access (each walks from the head)
 
 ### Doubly Linked List
 **Perfect for**: When you need efficient access from both ends, better random access
@@ -83,13 +83,15 @@ deque := lists.NewDoublyLinked(1, 2, 3, 4, 5)
 // O(n/2) average access time (can start from either end)
 middle, found := deque.Get(2, -1)              // found reports whether the index was in range
 
-// Efficient insertion anywhere
+// Insertion by index walks from the head, then links in O(1)
 deque.InsertInPlace(2, 99)                     // Insert at index 2
 
 // Better for large lists with random access
 ```
 
-**Performance**: O(n/2) average access, O(1) insertion/removal anywhere
+**Performance**: O(1) push/pop at both ends and O(1) `Length`; O(n/2) average
+for access and removal by index (walking from the nearer end); O(n) for
+insertion by index
 
 ### Concurrent Lists - Thread-Safe Operations
 **Perfect for**: Multi-threaded applications, shared queues, producer-consumer patterns
@@ -124,10 +126,10 @@ go func() {
 
 | Implementation | Use When | Access Time | Insert/Remove | Thread-Safe |
 |---------------|----------|-------------|---------------|-------------|
-| `NewLinked()` | Stacks, queues, simple sequences | O(n) | O(1) at ends | No |
-| `NewDoublyLinked()` | Need bidirectional access | O(n/2) avg | O(1) anywhere | No |
-| `NewConcurrentLinked()` | Multi-threaded stacks/queues | O(n) | O(1) at ends | Yes |
-| `NewConcurrentRWLinked()` | Read-heavy multi-threaded | O(n) | O(1) at ends | Yes |
+| `NewLinked()` | Queues, simple sequences | O(n) | O(1) push at end / dequeue at front; O(n) pop from end | No |
+| `NewDoublyLinked()` | Need bidirectional access | O(n/2) avg | O(1) at both ends; O(n) by index | No |
+| `NewConcurrentLinked()` | Multi-threaded queues | O(n) | O(1) push at end / dequeue at front; O(n) pop from end | Yes |
+| `NewConcurrentRWLinked()` | Read-heavy multi-threaded | O(n) | O(1) push at end / dequeue at front; O(n) pop from end | Yes |
 
 ## Two Ways to Work: Immutable vs Mutable
 

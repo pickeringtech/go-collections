@@ -8,12 +8,16 @@ type node[T any] struct {
 	linked *Linked[T]
 }
 
-// Linked is a singly linked list implementation that provides O(1) operations
-// at both ends and rich data manipulation capabilities. It's perfect for implementing
-// stacks, queues, and ordered sequences where you primarily access elements from the ends.
+// Linked is a singly linked list with rich data manipulation capabilities. It
+// keeps head and tail pointers, so PushInPlace/EnqueueInPlace (append at the
+// end), DequeueInPlace (remove from the front), PeekFront, PeekEnd and IsEmpty
+// are O(1). Everything that must reach a node by walking from the head is O(n):
+// PopInPlace (it has to find the node before the tail), Length, Get,
+// InsertInPlace and RemoveAtInPlace. That makes it a natural FIFO queue; when
+// you also need O(1) removal from the end or an O(1) Length, use DoublyLinked.
 //
-// Linked supports both immutable operations (returning slices) and mutable operations
-// (modifying the list in place) to fit different programming styles.
+// Linked supports both immutable operations (returning a new List) and mutable
+// operations (modifying the list in place) to fit different programming styles.
 //
 // Example usage:
 //
@@ -237,7 +241,8 @@ func (l *Linked[T]) Get(index int, defaultValue T) (T, bool) {
 	return defaultValue, false
 }
 
-// Length returns the number of elements in the list.
+// Length returns the number of elements in the list. It runs in O(n): the list
+// keeps no count, so it walks every node.
 func (l *Linked[T]) Length() int {
 	if l.head == nil {
 		return 0
@@ -558,7 +563,8 @@ func (l *Linked[T]) Pop() (T, bool, List[T]) {
 
 // PopInPlace removes and returns the last element (stack operation).
 // This is a mutable operation that modifies the list in place.
-// Returns the removed element and whether it was found.
+// Returns the removed element and whether it was found. It runs in O(n): a
+// singly linked list must walk from the head to find the node before the tail.
 //
 // Example:
 //

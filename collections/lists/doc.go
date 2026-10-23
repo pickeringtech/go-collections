@@ -23,19 +23,30 @@
 //
 // # Available Implementations
 //
+// Array (lists.Array):
+//   - Slice-backed list: O(1) Get and Length, amortised O(1) push at the end
+//   - O(1) pop from the end and dequeue from the front; O(n) insert/remove by index
+//   - The default behind collections.NewList
+//
 // Linked List (lists.Linked):
-//   - Singly linked list with O(1) operations at ends
-//   - Perfect for stacks, queues, and simple sequences
+//   - Singly linked list: O(1) PushInPlace/EnqueueInPlace at the end and
+//     DequeueInPlace at the front
+//   - O(n) PopInPlace, Length and Get, which walk from the head
+//   - Perfect for queues and simple sequences
 //   - Low memory overhead
 //
 // Doubly Linked List (lists.DoublyLinked):
-//   - Bidirectional linked list with O(n/2) average access
+//   - Bidirectional linked list: O(1) push and pop at both ends, O(1) Length
+//   - Get and RemoveAtInPlace walk from the nearer end, O(n/2) on average;
+//     InsertInPlace walks from the head, O(n)
 //   - Perfect when you need efficient access from both ends
-//   - Better random access performance
+//
+// NewLinkedCircular and NewDoublyLinkedCircular build circular variants of the
+// linked lists, with the same complexities.
 //
 // Concurrent variants available for all implementations:
-//   - ConcurrentLinked, ConcurrentDoublyLinked (mutex protection)
-//   - ConcurrentRWLinked, ConcurrentRWDoublyLinked (read-write mutex)
+//   - ConcurrentArray, ConcurrentLinked, ConcurrentDoublyLinked (mutex protection)
+//   - ConcurrentRWArray, ConcurrentRWLinked, ConcurrentRWDoublyLinked (read-write mutex)
 //
 // # Stack vs Queue Operations
 //
