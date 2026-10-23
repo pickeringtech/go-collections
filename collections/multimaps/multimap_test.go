@@ -743,3 +743,48 @@ func TestListMultimap_MutationDuringIterationKeepsIterationConsistent(t *testing
 		}
 	}
 }
+
+// TestMultimap_IteratorSnapshotsWhenRangingBegins verifies that every iterator
+// reads the multimap when a range over it begins, not when the iterator is
+// created: a binding added between creating the iterator and ranging it is
+// seen. The concurrent multimaps used to copy their entries when All/KeysSeq
+// was called, so a stored iterator was stale.
+func TestMultimap_IteratorSnapshotsWhenRangingBegins(t *testing.T) {
+	iterators := []struct {
+		name   string
+		create func(m multimaps.MutableMultimap[string, int]) func(visit func(key string))
+	}{
+		{"All", func(m multimaps.MutableMultimap[string, int]) func(func(string)) {
+			seq := m.All()
+			return func(visit func(string)) {
+				for key := range seq {
+					visit(key)
+				}
+			}
+		}},
+		{"KeysSeq", func(m multimaps.MutableMultimap[string, int]) func(func(string)) {
+			seq := m.KeysSeq()
+			return func(visit func(string)) {
+				for key := range seq {
+					visit(key)
+				}
+			}
+		}},
+	}
+	for _, it := range iterators {
+		for _, f := range factories() {
+			t.Run(it.name+"/"+f.name, func(t *testing.T) {
+				m := f.make(multimaps.Entry[string, int]{Key: "a", Value: 1})
+				rangeOver := it.create(m)
+				m.PutInPlace("b", 2) // added after the iterator was created
+
+				var visited []string
+				rangeOver(func(key string) { visited = append(visited, key) })
+
+				if got, want := sortedStrings(visited), []string{"a", "b"}; !reflect.DeepEqual(got, want) {
+					t.Errorf("%s() created before PutInPlace then ranged = %v, want %v", it.name, got, want)
+				}
+			})
+		}
+	}
+}
