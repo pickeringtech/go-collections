@@ -321,8 +321,9 @@ func (d *Digest) Percentile(p float64) (float64, bool) {
 //     unmerged Add or AddWeighted, or a run of equal values) is a point mass, so
 //     repeated values — including a repeated minimum — are counted as at or
 //     below x. In particular CDF(Min()) is the fraction of weight in point
-//     masses at the minimum, which with the default compression always includes
-//     the minimum observation itself.
+//     masses at the minimum. With a compression of 4 or more (the default is
+//     100) the smallest observation is never merged into a wider centroid, so
+//     this always includes it; below 4 it can be, and CDF(Min()) may then be 0.
 //   - Weight in a centroid that merged several distinct values is assumed
 //     spread evenly either side of its mean: half of it counts as below the
 //     mean, and the CDF rises linearly between adjacent centroid means (and

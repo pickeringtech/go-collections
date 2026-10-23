@@ -2,6 +2,7 @@ package tdigest_test
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"sort"
@@ -919,5 +920,32 @@ func TestDigest_CDFIsMonotone(t *testing.T) {
 			t.Fatalf("CDF(%v) = (%v, %v) after CDF = %v just below it; want non-decreasing in [0, 1]", x, got, ok, prev)
 		}
 		prev = got
+	}
+}
+
+// TestDigest_CDFAtMinimumCountsTheMinimum pins the documented x == Min()
+// behaviour: from compression 4 upwards the smallest observation always stays
+// a point mass, so CDF(Min()) is at least its weight's share, even after a
+// Merge. (Below 4 the scale function lets it merge, and the doc says so.)
+func TestDigest_CDFAtMinimumCountsTheMinimum(t *testing.T) {
+	for _, compression := range []float64{4, 20, 100, 500} {
+		t.Run(fmt.Sprintf("compression %v", compression), func(t *testing.T) {
+			rng := rand.New(rand.NewPCG(uint64(compression), 1))
+			a := buildDigest(t, compression, nil)
+			b := buildDigest(t, compression, nil)
+			for i := 0; i < 3000; i++ {
+				a.Add(rng.NormFloat64())
+				b.Add(rng.NormFloat64() + 1)
+			}
+			err := a.Merge(b)
+			if err != nil {
+				t.Fatalf("Merge: %v", err)
+			}
+			lo, _ := a.Min()
+			got, ok := a.CDF(lo)
+			if !ok || got < 1/a.Count() {
+				t.Errorf("CDF(Min()) = (%v, %v), want at least 1/Count = %v", got, ok, 1/a.Count())
+			}
+		})
 	}
 }
