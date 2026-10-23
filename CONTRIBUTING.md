@@ -56,25 +56,35 @@ and how to refresh the reference baseline — see
 
 ### Multi-module layout
 
-The repo is **three Go modules**: the root library, plus two satellites with
-their own `go.mod` — [`examples/`](examples/) (downstream-consumer apps) and
-[`tools/benchreport/`](tools/benchreport/) (the benchmark-report generator). A
-root `go test ./...` does **not** descend into the satellites, so test each
+The repo is **five Go modules**, each with its own `go.mod`:
+
+- [Root](go.mod): the collections library.
+- [`examples/`](examples/): downstream-consumer apps with golden-output tests.
+- [`tools/benchreport/`](tools/benchreport/): the benchmark-report generator.
+- [`tools/cihealth/`](tools/cihealth/): the CI-health badge generator.
+- [`tools/doccompile/`](tools/doccompile/): the guard that compile-checks `doc.go` examples.
+
+A root `go test ./...` does **not** descend into nested modules, so test each
 explicitly — or let `make test` do it for you:
 
 ```bash
 make test                              # root + every nested module (what CI gates)
 make test-root                         # root library only, with -race
 go test ./...                          # root only (no satellites)
-cd examples && go test ./...           # the examples module
-cd tools/benchreport && go test ./...  # the benchreport module
+(cd examples && go test ./...)         # the examples module
+(cd tools/benchreport && go test ./...) # the benchreport module
+(cd tools/cihealth && go test ./...)    # the cihealth module
+(cd tools/doccompile && go test ./...) # the doccompile module
 ```
 
 `make test-nested` discovers nested modules dynamically (any nested `go.mod`),
-so a new satellite is picked up locally with no Makefile edit. In CI each
-satellite has its own gating job (**Examples E2E**, **Benchreport tests**); when
-you add a module, add a matching job to [`ci.yml`](.github/workflows/ci.yml) and
-to the `ci-gate` `needs:` list so it gates too.
+so a new nested module is picked up locally with no Makefile edit. In CI the
+current nested modules are covered by **Examples E2E**, **Benchreport tests**,
+**CI-health tests** and **Doc examples compile-check**. The last job tests
+`tools/doccompile` before checking the library's documentation examples. When
+you add a module, add corresponding coverage to [`ci.yml`](.github/workflows/ci.yml)
+and include any new blocking job in the `ci-gate` `needs:` list; local dynamic
+discovery does not add CI jobs automatically.
 
 ## Design conventions
 
