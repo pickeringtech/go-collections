@@ -42,9 +42,9 @@ func (a *Array[T]) NoneMatch(fn func(T) bool) bool {
 // Dequeue returns the first element, whether one was present, and a new List
 // with that element removed, without modifying the receiver.
 func (a *Array[T]) Dequeue() (T, bool, List[T]) {
-	// Operate on a copy so the returned List is independent of the receiver's
-	// backing array (PopFront returns a sub-slice of its input).
-	res, ok, rest := slices.PopFront(slices.Copy(a.elements))
+	// The rest is a view of the receiver; NewArray copies it, so the returned
+	// List is independent of the receiver.
+	res, ok, rest := slices.PopFront(a.elements)
 	return res, ok, NewArray(rest...)
 }
 
@@ -220,9 +220,9 @@ func (a *Array[T]) PeekFront() (T, bool) {
 // Pop returns the last element, whether one was present, and a new List with
 // that element removed, without modifying the receiver.
 func (a *Array[T]) Pop() (T, bool, List[T]) {
-	// Operate on a copy so the returned List is independent of the receiver's
-	// backing array (Pop returns a sub-slice of its input).
-	res, ok, rest := slices.Pop(slices.Copy(a.elements))
+	// The rest is a view of the receiver; NewArray copies it, so the returned
+	// List is independent of the receiver.
+	res, ok, rest := slices.Pop(a.elements)
 	return res, ok, NewArray(rest...)
 }
 
