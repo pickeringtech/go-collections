@@ -52,13 +52,17 @@ func (a *Array[T]) Dequeue() (T, bool, List[T]) {
 // was present, modifying the receiver. The vacated slot is zeroed, so the list's
 // backing array does not keep the removed element reachable.
 func (a *Array[T]) DequeueInPlace() (T, bool) {
-	res, ok, newSli := slices.PopFront(a.elements)
-	if ok {
-		var zero T
-		a.elements[0] = zero
+	var zero T
+	if len(a.elements) == 0 {
+		return zero, false
 	}
-	a.elements = newSli
-	return res, ok
+	// Reslice the list's own storage rather than calling slices.PopFront, which
+	// copies (package-level functions never alias their input): copying here
+	// would make every dequeue O(n) and draining the list O(n²).
+	first := a.elements[0]
+	a.elements[0] = zero
+	a.elements = a.elements[1:]
+	return first, true
 }
 
 // Enqueue returns a new List with element appended to the end, without
@@ -69,9 +73,9 @@ func (a *Array[T]) Enqueue(element T) List[T] {
 	return NewArray(slices.PushCopy(a.elements, element)...)
 }
 
-// EnqueueInPlace appends element to the end of the receiver.
+// EnqueueInPlace appends element to the end of the receiver in amortised O(1).
 func (a *Array[T]) EnqueueInPlace(element T) {
-	a.elements = slices.Push(a.elements, element)
+	a.elements = append(a.elements, element)
 }
 
 // Filter returns a new List containing only the elements for which fn returns
@@ -98,18 +102,22 @@ func (a *Array[T]) FindIndex(fn func(T) bool) int {
 	return slices.FindIndex(a.elements, fn)
 }
 
-// ForEach calls fn once for each element in order.
+// ForEach calls fn once for each element in order. fn may modify the list: the
+// walk proceeds by index over the list's current contents, so it never visits a
+// slot that fn has already removed.
 func (a *Array[T]) ForEach(fn EachFunc[T]) {
-	for _, element := range a.elements {
-		fn(element)
+	for i := 0; i < len(a.elements); i++ {
+		fn(a.elements[i])
 	}
 }
 
 // ForEachWithIndex calls fn once for each element in order, passing the
-// element's index and value.
+// element's index and value. fn may modify the list: the walk proceeds by index
+// over the list's current contents, so it never visits a slot that fn has
+// already removed.
 func (a *Array[T]) ForEachWithIndex(fn IndexedEachFunc[T]) {
-	for idx, element := range a.elements {
-		fn(idx, element)
+	for i := 0; i < len(a.elements); i++ {
+		fn(i, a.elements[i])
 	}
 }
 
@@ -222,13 +230,18 @@ func (a *Array[T]) Pop() (T, bool, List[T]) {
 // present, modifying the receiver. The vacated slot is zeroed, so the list's
 // backing array does not keep the removed element reachable.
 func (a *Array[T]) PopInPlace() (T, bool) {
-	res, ok, newSli := slices.Pop(a.elements)
-	if ok {
-		var zero T
-		a.elements[len(a.elements)-1] = zero
+	var zero T
+	last := len(a.elements) - 1
+	if last < 0 {
+		return zero, false
 	}
-	a.elements = newSli
-	return res, ok
+	// Reslice the list's own storage rather than calling slices.Pop, which
+	// copies (package-level functions never alias their input): copying here
+	// would make every pop O(n) and draining the list O(n²).
+	element := a.elements[last]
+	a.elements[last] = zero
+	a.elements = a.elements[:last]
+	return element, true
 }
 
 // Push returns a new List with element appended to the end, without modifying
@@ -239,9 +252,9 @@ func (a *Array[T]) Push(element T) List[T] {
 	return NewArray(slices.PushCopy(a.elements, element)...)
 }
 
-// PushInPlace appends element to the end of the receiver.
+// PushInPlace appends element to the end of the receiver in amortised O(1).
 func (a *Array[T]) PushInPlace(element T) {
-	a.elements = slices.Push(a.elements, element)
+	a.elements = append(a.elements, element)
 }
 
 // Sort returns a new List sorted according to the less-than function fn,

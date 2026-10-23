@@ -57,6 +57,12 @@ type MutableInsertable[T any] interface {
 
 // Iterable is implemented by collections that can be iterated over, with or
 // without element indices, via callbacks or range-over-func iterators.
+//
+// The iterators (All, Values, Backward) range over a snapshot of the list taken
+// when ranging begins, so the list may be modified during the range — by the
+// loop body or, for the concurrent types, by another goroutine — without
+// affecting the elements yielded, and an iterator stored and ranged later sees
+// the list as it is at that point.
 type Iterable[T any] interface {
 	ForEach(fn EachFunc[T])
 	ForEachWithIndex(fn IndexedEachFunc[T])

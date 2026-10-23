@@ -113,6 +113,9 @@
 //	for v := range list.Values() { ... }      // values, front to back
 //	for i, v := range list.Backward() { ... } // index/value pairs, back to front
 //
+// Each range walks a snapshot of the list taken when the range begins, so the
+// loop body may modify the list freely without disturbing the iteration.
+//
 // FromSeq builds a list from any iter.Seq, completing the round-trip:
 //
 //	list := lists.FromSeq(other.Values())
