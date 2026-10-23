@@ -189,6 +189,74 @@ func TestRun_Acceptance(t *testing.T) {
 	})
 }
 
+// TestRun_SkipsDirsOutsideRootModule guards #238: doc.go files that are not part
+// of the root module — a nested module, a hidden dir such as an agent worktree
+// (.claude/worktrees/<id>, a full checkout of another branch), an underscore dir,
+// or testdata — must not be checked, so their stale examples can't fail the gate.
+func TestRun_SkipsDirsOutsideRootModule(t *testing.T) {
+	_, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("go toolchain not available")
+	}
+
+	staleDoc := strings.Join([]string{
+		"// Package foo is a stale copy.",
+		"//",
+		"// # Quick Start",
+		"//",
+		"//\tn := foo.Gone()",
+		"//\t_ = n",
+		"package foo",
+		"",
+	}, "\n")
+
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "go.mod"), "module example.com/fixture\n\ngo 1.24\n")
+	mustWrite(t, filepath.Join(root, "foo", "foo.go"),
+		"package foo\n\n// Bar is a real exported function.\nfunc Bar() int { return 1 }\n")
+	worktree := filepath.Join(root, ".claude", "worktrees", "agent-1")
+	mustWrite(t, filepath.Join(worktree, "go.mod"), "module example.com/fixture\n\ngo 1.24\n")
+	mustWrite(t, filepath.Join(worktree, "foo", "doc.go"), staleDoc)
+	mustWrite(t, filepath.Join(root, "nested", "go.mod"), "module example.com/nested\n\ngo 1.24\n")
+	mustWrite(t, filepath.Join(root, "nested", "foo", "doc.go"), staleDoc)
+	mustWrite(t, filepath.Join(root, "_scratch", "foo", "doc.go"), staleDoc)
+	mustWrite(t, filepath.Join(root, "foo", "testdata", "doc.go"), staleDoc)
+
+	problems, err := run(root, false)
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if len(problems) != 0 {
+		t.Errorf("doc.go outside the root module was checked: %+v", problems)
+	}
+}
+
+func TestSkipDir(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "nested", "go.mod"), "module example.com/nested\n\ngo 1.24\n")
+	mustWrite(t, filepath.Join(root, "pkg", "pkg.go"), "package pkg\n")
+
+	tests := []struct {
+		name string
+		dir  string
+		want bool
+	}{
+		{name: "hidden dir is skipped", dir: ".claude", want: true},
+		{name: "underscore dir is skipped", dir: "_scratch", want: true},
+		{name: "testdata is skipped", dir: "testdata", want: true},
+		{name: "nested module is skipped", dir: "nested", want: true},
+		{name: "ordinary package dir is walked", dir: "pkg", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := skipDir(filepath.Join(root, tt.dir), tt.dir)
+			if got != tt.want {
+				t.Errorf("skipDir(%q) = %v, want %v", tt.dir, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestReadGoMod(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "go.mod"), "module example.com/x\n\ngo 1.23\n")

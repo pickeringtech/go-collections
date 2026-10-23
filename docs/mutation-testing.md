@@ -25,6 +25,12 @@ explicitly so an upstream default change can't silently move the score).
 > fetched only to *build gremlins*; the project's own tests still run under the
 > `go.mod` version.
 
+Only the **root library module** is mutated. `examples/` and `tools/*` are
+separate modules the root suite never runs, so `.gremlins.yaml` excludes them
+(`unleash.exclude-files`) — counting their mutants as "not covered" used to
+roughly halve the reported mutator coverage without saying anything about the
+library's tests.
+
 ## Two metrics
 
 - **Efficacy** = `KILLED / (KILLED + LIVED)` — of the mutants the tests *could*
@@ -34,8 +40,8 @@ explicitly so an upstream default change can't silently move the score).
 
 ## How it runs in CI
 
-Mutation testing re-runs the whole suite *once per mutant* (~400 mutants for
-this module), so it is far too slow to gate every PR. Per #32 the cost is
+Mutation testing re-runs the affected package's tests *once per mutant* (~1,700
+mutants for this module), so it is far too slow to gate every PR. Per #32 the cost is
 bounded two ways (`.github/workflows/mutation.yml`):
 
 | Job      | Trigger                                  | Scope                          |
@@ -48,6 +54,25 @@ job no-ops when a merge touches no non-test Go source. It runs once per merge in
 the merge queue rather than on every PR push (issue #150): installing gremlins
 fetches a newer Go toolchain, so paying that per push was waste — once per merge
 keeps the signal at a fraction of the cost.
+
+### Two guards every run needs
+
+Both jobs set `GOFLAGS="-count=1 -exec=…/.github/scripts/memcap-exec.sh"`:
+
+- **`-count=1`** — gremlins derives each mutant's timeout from how long its
+  initial coverage pass took. setup-go restores the build cache, *including Go's
+  test-result cache*, so without `-count=1` the coverage pass is a cache hit that
+  "takes" ~0 s and every mutant is reported `TIMED OUT` — a meaningless report.
+- **`-exec=memcap-exec.sh`** — runs each *test binary* under a per-process
+  address-space cap (`ulimit -v`, 3 GiB by default, `MEMCAP_KB` to tune). Some
+  mutants turn a bounded loop into an unbounded, allocating one (linked-list
+  traversal steps, slice-growth bounds). A few of those in parallel exhaust the
+  runner's RAM and the kernel takes the *whole runner* down ("The runner has
+  received a shutdown signal") — which is why every weekly full run failed
+  between June and October 2026. Capped, the runaway test dies alone with
+  `fatal error: out of memory` and gremlins records the mutant as caught. The
+  cap goes on the test binaries only (via `go test -exec`), never on gremlins or
+  the compiler — capping gremlins itself starves it of thread stacks.
 
 ## Gating policy (report-only → ratchet)
 
@@ -69,19 +94,19 @@ Thereafter ratchet the floor **upward only, never down** — exactly the
 coverage-floor discipline. A drop in mutation score is a regression in test
 quality and should fail.
 
-## Baseline (first observations)
+## Baseline
 
-From the initial local run (gremlins v0.6.0):
+First complete full-module run (gremlins v0.6.0, October 2026, with the guards
+above — earlier scheduled runs never finished):
 
-- **Mutator coverage ≈ 98.5%** across the module (406 runnable mutants, 6 not
-  covered) — nearly all mutated code is exercised.
-- On the `collections` subtree, **efficacy ≈ 91%** with a small number of
-  `LIVED` mutants to chase down (e.g. `collections/sets/hash.go` arithmetic
-  mutants that no assertion distinguishes).
+- **1,679 mutants**: 1,460 killed, 202 lived, 9 timed out, 8 not covered.
+- **Mutator coverage ≈ 99.5%** — nearly all mutated code is exercised.
+- **Efficacy ≈ 87.9%** — the surviving mutants cluster in the probabilistic
+  sketches (`tdigest`, `countmin`, `hll`), the linked lists and
+  `slices/retrieval.go`; they are the triage queue below.
 
-A full-module efficacy number is established by the first scheduled/dispatched
-`full` run — read it off the run's summary or the `mutation-report` artifact,
-then record the floor here before flipping on gating.
+Record the floor here (just under the triaged baseline) before flipping on
+gating.
 
 ## Known-equivalent / non-actionable mutants
 
@@ -109,7 +134,10 @@ in `.gremlins.yaml` (a filepath regexp) with a comment explaining why.
 # Install the pinned version (Go's toolchain auto-fetches the Go gremlins needs):
 GOTOOLCHAIN=auto go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
 
-gremlins unleash .                 # whole module (slow — minutes)
+# Always pass the same guards CI uses (see "Two guards every run needs"):
+export GOFLAGS="-count=1 -exec=$PWD/.github/scripts/memcap-exec.sh"
+
+gremlins unleash .                 # whole module (minutes)
 gremlins unleash ./collections     # one package subtree (much faster)
 gremlins unleash --dry-run .       # list mutants + mutator coverage, no test runs
 gremlins unleash --diff main .     # only lines changed vs main (what CI's PR job does)

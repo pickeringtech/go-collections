@@ -43,9 +43,21 @@ import (
 	"strings"
 )
 
-// Directories that are not part of the library's root module (nested modules,
-// VCS metadata, fuzz corpora) and so never contribute API symbols or doc blocks.
-var skipDirs = map[string]bool{".git": true, "testdata": true, "examples": true, "tools": true}
+// skipDir reports whether the directory at path (named name) lies outside the
+// root module's package tree, so it never contributes API symbols or doc blocks.
+// It mirrors the go command's own `./...` rules rather than a hand-kept name
+// list: directories whose names begin with "." or "_" and testdata directories
+// are ignored, and so is any directory holding its own go.mod — a nested module
+// (examples/, tools/*) or a local agent worktree (.claude/worktrees/...), which
+// is a full checkout of some other branch whose stale doc.go files would
+// otherwise fail the gate (#238).
+func skipDir(path, name string) bool {
+	if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "testdata" {
+		return true
+	}
+	_, err := os.Stat(filepath.Join(path, "go.mod"))
+	return err == nil
+}
 
 // stdlibImports maps the standard-library qualifiers the docs use to their
 // import paths. Over-inclusion is harmless: an import that a block doesn't
@@ -212,7 +224,7 @@ func indexAPI(absRoot, modPath string) (map[string]map[string]bool, map[string]s
 			return err
 		}
 		if d.IsDir() {
-			if path != absRoot && skipDirs[d.Name()] {
+			if path != absRoot && skipDir(path, d.Name()) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -273,7 +285,7 @@ func findDocFiles(absRoot string) ([]string, error) {
 			return err
 		}
 		if d.IsDir() {
-			if path != absRoot && skipDirs[d.Name()] {
+			if path != absRoot && skipDir(path, d.Name()) {
 				return filepath.SkipDir
 			}
 			return nil

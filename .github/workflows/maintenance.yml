@@ -33,7 +33,7 @@ permissions:
 
 env:
   # Pin govulncheck so scheduled runs are reproducible; bump deliberately.
-  GOVULNCHECK_VERSION: "v1.3.0"
+  GOVULNCHECK_VERSION: "v1.8.0"
 
 jobs:
   govulncheck:
@@ -43,19 +43,29 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 5 * * *'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        id: setup-go
         with:
-          go-version-file: go.mod
+          # Scan under the latest STABLE Go, not the go.mod floor. go.mod's
+          # `go 1.24` is a minimum, not the toolchain consumers build with, and
+          # once a Go minor is out of upstream support it never receives another
+          # stdlib security fix — so a scan pinned to the floor would eventually
+          # report an advisory nobody can fix here, turning this daily gate into
+          # permanent noise. Stable is what a consumer should be on, so a finding
+          # under it is a real, actionable exposure in this library's code.
+          go-version: stable
           cache-dependency-path: go.mod
-      # Cache the compiled govulncheck binary, keyed on its pinned version + OS
-      # (issue #151). Restore-then-`go install`: install is a fast no-op on a hit
-      # and only recompiles on a deliberate version bump.
+      # Cache the compiled govulncheck binary, keyed on its pinned version, the
+      # resolved Go version and OS (issue #151). `stable` moves, and a binary
+      # built by an older Go may not load a newer stdlib's sources, so the
+      # resolved version is part of the key. Restore-then-`go install`: install
+      # is a fast no-op on a hit and only recompiles on a tool or Go bump.
       - name: Cache govulncheck binary
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/go/bin/govulncheck
-          key: ${{ runner.os }}-tool-govulncheck-${{ env.GOVULNCHECK_VERSION }}
+          key: ${{ runner.os }}-tool-govulncheck-${{ env.GOVULNCHECK_VERSION }}-go${{ steps.setup-go.outputs.go-version }}
       - name: Scan for known vulnerabilities (govulncheck)
         # Gating: a real vulnerability fails this scheduled run (and notifies
         # maintainers). There is no PR to block at schedule time.
@@ -72,8 +82,8 @@ jobs:
     # about an upcoming toolchain change, not a gate.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           # Stable toolchain only bootstraps the gotip installer below.
           go-version: stable
