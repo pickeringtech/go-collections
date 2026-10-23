@@ -36,9 +36,9 @@ BENCHSTAT ?= benchstat
 # repo's (dependency-free) go.mod. The first run builds the tool (then caches).
 # NB: keep these as bare values — a trailing inline `# comment` would fold its
 # leading spaces into the variable (Make quirk) and leak into the `go run` arg.
-GOLANGCI_VERSION    ?= v2.1.6
-GOVULNCHECK_VERSION ?= v1.3.0
-GOSEC_VERSION       ?= v2.27.1
+GOLANGCI_VERSION    ?= v2.14.0
+GOVULNCHECK_VERSION ?= v1.8.0
+GOSEC_VERSION       ?= v2.29.0
 COVERAGE_MIN        ?= 100
 
 BENCHREPORT_DIR := tools/benchreport
@@ -70,9 +70,18 @@ BENCH_ALERT       := $(BUILD_DIR)/bench-alert.md
 # Discover them dynamically (any nested go.mod; `-not -path ./go.mod` drops the
 # root's own) so new modules are picked up automatically and this can't drift as
 # modules are added. Prune .git and the build dir so the walk doesn't descend
-# into large/irrelevant trees on every `make` invocation.
-NESTED_MODULES := $(shell find . \( -name .git -o -path ./$(BUILD_DIR) \) -prune \
+# into large/irrelevant trees on every `make` invocation, and prune the local
+# agent-worktree dirs (.claude/, .claire/): each worktree is a full checkout of
+# some OTHER branch, so without the prune `make test` would test stale copies of
+# the whole repo and fail on their drift (#238).
+LOCAL_ONLY_DIRS := .claude .claire
+NESTED_MODULES := $(shell find . \( -name .git -o -path ./$(BUILD_DIR) \
+	$(foreach d,$(LOCAL_ONLY_DIRS),-o -path ./$(d)) \) -prune \
 	-o -name go.mod -not -path ./go.mod -print | xargs -r -n1 dirname | sort)
+# The Go source files gofmt checks: everything tracked or untracked-but-not-
+# ignored, minus the local agent worktrees (same reason as above).
+GOFMT_FILES = $(shell git ls-files --cached --others --exclude-standard -- '*.go' \
+	$(foreach d,$(LOCAL_ONLY_DIRS),':!:$(d)/**'))
 
 # Provenance, computed once so the generator stays a pure function of its inputs.
 GIT_SHA    := $(shell git rev-parse --short HEAD 2>/dev/null)
@@ -152,7 +161,7 @@ cover: ## CI 'test' gate: root suite with -race -shuffle, then enforce the cover
 
 lint: ## CI 'lint' gate: gofmt check + go vet + golangci-lint (pinned to CI's version)
 	@echo ">> checking gofmt"
-	@unformatted=$$(gofmt -l .); \
+	@unformatted=$$(gofmt -l $(GOFMT_FILES)); \
 	if [ -n "$$unformatted" ]; then \
 		echo "::error::these files are not gofmt-clean:"; echo "$$unformatted"; exit 1; \
 	fi; \

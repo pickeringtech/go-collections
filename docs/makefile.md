@@ -171,9 +171,9 @@ Override any of these on the command line (`make <target> VAR=value`).
 | `BENCHSTAT` | `benchstat` (from `PATH`) | benchstat binary; CI installs a pinned version first |
 | `BENCH_HISTORY` | empty | If non-empty, archive a trend snapshot (CI-only; opt-in) |
 | `BENCH_HISTORY_CAP` | `100` | Max trend snapshots kept (oldest pruned) |
-| `GOLANGCI_VERSION` | `v2.1.6` | golangci-lint version — **must track** the CI pin (#88) |
-| `GOVULNCHECK_VERSION` | `v1.3.0` | govulncheck version — must track the CI pin |
-| `GOSEC_VERSION` | `v2.27.1` | gosec version — must track the CI pin |
+| `GOLANGCI_VERSION` | `v2.14.0` | golangci-lint version — **must track** the CI pin (#88) |
+| `GOVULNCHECK_VERSION` | `v1.8.0` | govulncheck version — must track the `maintenance.yml` pin |
+| `GOSEC_VERSION` | `v2.29.0` | gosec version — must track the CI pin |
 | `COVERAGE_MIN` | `100` | Coverage floor (%) enforced by `cover` |
 
 > **Tool-version pins must track `.github/workflows/ci.yml`.** golangci-lint in
