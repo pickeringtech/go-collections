@@ -75,6 +75,28 @@ func TestRange(t *testing.T) {
 	}
 }
 
+// TestRangeOverflowsInT pins the documented exact-in-T overflow, mirroring
+// Sum: an integer range wider than T wraps, and a float range wider than
+// math.MaxFloat64 rounds to +Inf (finite input, so ok stays true).
+func TestRangeOverflowsInT(t *testing.T) {
+	gotInt8, ok := stats.Range([]int8{-128, 127})
+	if !ok || gotInt8 != -1 {
+		t.Errorf("Range([]int8{-128, 127}) = %d, %v; want the wrapped -1, true", gotInt8, ok)
+	}
+	gotUint8, ok := stats.Range([]uint8{0, 255})
+	if !ok || gotUint8 != 255 {
+		t.Errorf("Range([]uint8{0, 255}) = %d, %v; want 255, true", gotUint8, ok)
+	}
+	gotFloat, ok := stats.Range([]float64{-math.MaxFloat64, math.MaxFloat64})
+	if !ok || !math.IsInf(gotFloat, 1) {
+		t.Errorf("Range({-MaxFloat64, MaxFloat64}) = %v, %v; want +Inf, true", gotFloat, ok)
+	}
+	widened, ok := stats.Range([]int16{-128, 127})
+	if !ok || widened != 255 {
+		t.Errorf("Range([]int16{-128, 127}) = %d, %v; want 255, true", widened, ok)
+	}
+}
+
 func TestRangeRejectsNonFinite(t *testing.T) {
 	for _, bad := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
 		_, ok := stats.Range([]float64{1, bad, 3})
