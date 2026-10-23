@@ -164,7 +164,7 @@ the merge queue**:
 | CI job | What it checks | When | Reproduce locally |
 |---|---|---|---|
 | Build & module hygiene | compiles; `go.mod` tidy; **zero deps**; module integrity | every PR | `make hygiene` |
-| Test (race + coverage) | suite on Linux × Go 1.24 (+ Go 1.23) on PRs; **+ macOS/Windows in the merge queue**; 100% floor | PR (Linux) / merge queue (+ macOS/Win) | `make cover` |
+| Test (race + coverage) | suite on Linux × Go 1.24 (the floor) + latest stable Go on PRs; **+ macOS/Windows in the merge queue**; 100% floor | PR (Linux) / merge queue (+ macOS/Win) | `make cover` |
 | Lint, format & complexity | `gofmt`, `go vet`, golangci-lint (staticcheck, revive, cyclop, gocognit…) | every PR | `make lint` |
 | Security lint (gosec) | static security analysis (code-dependent) | every PR | `make security` |
 | Examples E2E | the separate `examples/` module builds and matches golden stdout | every PR | `make test-nested` |
