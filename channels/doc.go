@@ -92,7 +92,10 @@
 //
 // Sources and sinks:
 //   - FromSlice / FromMap: turn a slice or map into a channel
-//   - CollectAsSlice / CollectNAsSlice: drain a channel into a slice
+//   - CollectAsSlice: drain a channel into a slice
+//   - CollectNAsSlice: take just the first n elements into a slice (it does not
+//     drain the rest, so cancel the upstream context afterwards to release the
+//     stages still blocked on it)
 //   - CollectAsMap / BuildMapFromEntries: drain a channel into a map
 //
 // Pipeline:

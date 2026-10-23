@@ -50,7 +50,11 @@ func FuzzCollectNAsSlice(f *testing.F) {
 		input := make([]byte, len(data))
 		copy(input, data)
 
-		got := channels.CollectNAsSlice(channels.FromSlice(context.Background(), input), n)
+		// Collecting fewer than len(input) leaves FromSlice blocked on its next
+		// send; cancel afterwards so each iteration releases it.
+		ctx, cancel := context.WithCancel(context.Background())
+		got := channels.CollectNAsSlice(channels.FromSlice(ctx, input), n)
+		cancel()
 
 		want := n
 		if want > len(input) {
