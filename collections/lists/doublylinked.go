@@ -294,7 +294,8 @@ func (dl *DoublyLinked[T]) ForEachWithIndex(fn IndexedEachFunc[T]) {
 	}
 }
 
-// AsSlice returns the list as a slice.
+// AsSlice returns the elements, front to back, as a new slice independent of
+// the list. The result is non-nil even when the list is empty.
 func (dl *DoublyLinked[T]) AsSlice() []T {
 	result := make([]T, 0, dl.size)
 	current := dl.head

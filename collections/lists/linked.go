@@ -380,9 +380,10 @@ func (l *Linked[T]) ForEachWithIndex(fn IndexedEachFunc[T]) {
 	}
 }
 
-// AsSlice returns the list as a slice.
+// AsSlice returns the elements, front to back, as a new slice independent of
+// the list. The result is non-nil even when the list is empty.
 func (l *Linked[T]) AsSlice() []T {
-	var result []T
+	result := []T{}
 	current := l.head
 	for current != nil {
 		result = append(result, current.value)

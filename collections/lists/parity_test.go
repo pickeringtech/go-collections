@@ -30,6 +30,54 @@ func allMutableListConstructors() []mutableListConstructor {
 	}
 }
 
+// everyMutableListConstructor returns the linear and the circular constructors
+// together, so a contract every list shares runs against all of them.
+func everyMutableListConstructor() []mutableListConstructor {
+	ctors := allMutableListConstructors()
+	for _, ctor := range allCircularConstructors() {
+		ctors = append(ctors, mutableListConstructor(ctor))
+	}
+	return ctors
+}
+
+func TestMutableList_AsSliceOfEmptyListIsNonNil(t *testing.T) {
+	tests := []struct {
+		name  string
+		empty func(ctor mutableListConstructor) lists.MutableList[int]
+	}{
+		{
+			name:  "a freshly constructed list",
+			empty: func(ctor mutableListConstructor) lists.MutableList[int] { return ctor.make() },
+		},
+		{
+			name: "a list emptied by Clear",
+			empty: func(ctor mutableListConstructor) lists.MutableList[int] {
+				l := ctor.make(1, 2)
+				l.Clear()
+				return l
+			},
+		},
+		{
+			name: "a list emptied by PopInPlace",
+			empty: func(ctor mutableListConstructor) lists.MutableList[int] {
+				l := ctor.make(1)
+				l.PopInPlace()
+				return l
+			},
+		},
+	}
+	for _, ctor := range everyMutableListConstructor() {
+		for _, tt := range tests {
+			t.Run(ctor.name+"/"+tt.name, func(t *testing.T) {
+				got := tt.empty(ctor).AsSlice()
+				if got == nil || !reflect.DeepEqual(got, []int{}) {
+					t.Errorf("AsSlice() = %#v, want []int{}", got)
+				}
+			})
+		}
+	}
+}
+
 func TestMutableList_IsEmpty(t *testing.T) {
 	for _, ctor := range allMutableListConstructors() {
 		t.Run(ctor.name, func(t *testing.T) {
