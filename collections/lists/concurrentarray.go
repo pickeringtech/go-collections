@@ -80,9 +80,9 @@ func (a *ConcurrentArray[T]) Dequeue() (T, bool, List[T]) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	// Operate on a copy so the returned List is independent of the receiver's
-	// backing array (PopFront returns a sub-slice of its input).
-	res, ok, rest := slices.PopFront(slices.Copy(a.elements))
+	// The rest is a view of the receiver; NewArray copies it, so the returned
+	// List is independent of the receiver.
+	res, ok, rest := slices.PopFront(a.elements)
 	return res, ok, NewArray(rest...)
 }
 
@@ -370,9 +370,9 @@ func (a *ConcurrentArray[T]) Pop() (T, bool, List[T]) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	// Operate on a copy so the returned List is independent of the receiver's
-	// backing array (Pop returns a sub-slice of its input).
-	res, ok, rest := slices.Pop(slices.Copy(a.elements))
+	// The rest is a view of the receiver; NewArray copies it, so the returned
+	// List is independent of the receiver.
+	res, ok, rest := slices.Pop(a.elements)
 	return res, ok, NewArray(rest...)
 }
 

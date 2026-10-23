@@ -205,11 +205,11 @@ with `[skip ci]` — don't hand-edit those.
   (e.g. `(closes #56)`).
 - **No AI attribution** in commits or PR descriptions unless the maintainer
   explicitly asks for it.
+- **Record user-visible changes** under `## [Unreleased]` in
+  [`CHANGELOG.md`](CHANGELOG.md): new API, behaviour changes and, above all,
+  breaking changes, each with what callers should do instead. Pre-1.0 a minor
+  release may break the API, so the changelog is how users find out.
 - Open the PR against `main`. Once the `CI Gate` is green and any required
   review is in, auto-merge lands it; branch protection blocks the merge until
   the gate passes.
 
----
-
-Out of scope for this issue, but welcome as follow-ups: a
-`.github/PULL_REQUEST_TEMPLATE.md` and issue templates.
