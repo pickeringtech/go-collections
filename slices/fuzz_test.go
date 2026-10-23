@@ -177,9 +177,8 @@ func FuzzPaginate(f *testing.F) {
 			return
 		}
 
-		// Compute the exact page count up front. This avoids ever calling
-		// Paginate with a pageIndex large enough to overflow pageSize*pageIndex,
-		// and lets us assert that every non-last page is full.
+		// Compute the exact page count up front so we can assert that every
+		// non-last page is full.
 		pageCount := 0
 		if len(input) > 0 {
 			pageCount = (len(input)-1)/pageSize + 1
