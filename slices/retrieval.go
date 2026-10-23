@@ -2,10 +2,9 @@ package slices
 
 // AllMatch tests each element of the input with the provided function.  If all the elements, when passed through the
 // function result in a truthy boolean value, true is returned from this function.  Otherwise, false is returned.
+// An empty or nil input has no element that fails the test, so the result is vacuously true (matching Python's
+// all([]) and Java's Stream.allMatch); fun is never called.
 func AllMatch[T any](input []T, fun FindFunc[T]) bool {
-	if len(input) == 0 {
-		return false
-	}
 	for _, element := range input {
 		if !fun(element) {
 			return false
@@ -16,7 +15,7 @@ func AllMatch[T any](input []T, fun FindFunc[T]) bool {
 
 // AnyMatch tests each element of the input with the provided function.  If any of the elements, when passed through the
 // function result in a truthy boolean value, a match is found and true is returned from this function.  Otherwise, false
-// is returned.
+// is returned, including for an empty or nil input.
 func AnyMatch[T any](input []T, fun FindFunc[T]) bool {
 	for _, element := range input {
 		if fun(element) {
@@ -146,24 +145,30 @@ func PeekFront[T any](input []T) (firstElement T, ok bool) {
 	return input[0], true
 }
 
-// SubSlice provides a new slice containing the entries between the two indexes of the input slice (from is inclusive,
-// to is exclusive).
+// SubSlice returns the entries between the two indexes of the input slice (from is inclusive, to is exclusive). It is
+// O(1): the returned slice is a view of the input's remaining elements, not a copy, with its capacity clipped to its
+// length - so appending to it always allocates fresh storage and can never overwrite the input. Like any Go sub-slice,
+// writing to one of its elements writes to the input's element too; use Copy for an independent slice.
+//
+// A range that reaches past either end of the input is clamped to it. If the input is empty or nil, or the range
+// selects nothing (it lies wholly before or after the input, or is backward), the output is an initialised, non-nil
+// empty slice.
 func SubSlice[T any](input []T, fromIndex, toIndex int) []T {
 	l := len(input)
 	if l == 0 {
-		return nil
+		return []T{}
 	}
-	// If the range is before the start of the slice, return nil...
+	// If the range is before the start of the slice, return an empty slice...
 	if fromIndex < 0 && toIndex < 0 {
-		return nil
+		return []T{}
 	}
-	// If the range is after the end of the slice, return nil...
+	// If the range is after the end of the slice, return an empty slice...
 	if fromIndex > l && toIndex > l {
-		return nil
+		return []T{}
 	}
-	// If the range is backward (i.e. fromIndex > toIndex), return nil...
+	// If the range is backward (i.e. fromIndex > toIndex), return an empty slice...
 	if fromIndex > toIndex {
-		return nil
+		return []T{}
 	}
 	if toIndex >= l {
 		toIndex = l
@@ -171,5 +176,5 @@ func SubSlice[T any](input []T, fromIndex, toIndex int) []T {
 	if fromIndex < 0 {
 		fromIndex = 0
 	}
-	return input[fromIndex:toIndex]
+	return input[fromIndex:toIndex:toIndex]
 }

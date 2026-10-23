@@ -29,7 +29,8 @@ func NewPipeline[I, O any](ctx context.Context, input <-chan I, fn PipelineCreat
 }
 
 // CollectAsSlice collects all elements from the end channel of the pipeline into a slice, which is returned.  This
-// function will block until the end channel is closed.
+// function will block until the end channel is closed. If no element reaches the end channel, the output is an
+// initialised, non-nil empty slice.
 func (p Pipeline[I, O]) CollectAsSlice() []O {
 	return CollectAsSlice(p.end)
 }

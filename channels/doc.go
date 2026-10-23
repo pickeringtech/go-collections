@@ -92,7 +92,10 @@
 //
 // Sources and sinks:
 //   - FromSlice / FromMap: turn a slice or map into a channel
-//   - CollectAsSlice / CollectNAsSlice: drain a channel into a slice
+//   - CollectAsSlice: drain a channel into a slice
+//   - CollectNAsSlice: take just the first n elements into a slice (it does not
+//     drain the rest, so cancel the upstream context afterwards to release the
+//     stages still blocked on it)
 //   - CollectAsMap / BuildMapFromEntries: drain a channel into a map
 //
 // Pipeline:
@@ -148,7 +151,9 @@
 //
 // SlidingWindow's step selects the regime: step == size tumbles, step > size
 // skips elements between windows, step < size overlaps them. Both verbs emit
-// full windows only and align with slices.Chunk / slices.Window.
+// full windows only, so a trailing partial window is dropped: TumblingWindow
+// therefore matches slices.Chunk minus its final partial chunk (which
+// slices.Chunk keeps), and SlidingWindow with step 1 matches slices.Window.
 //
 // SessionWindow groups consecutive elements into variable-width sessions split
 // by a gap predicate, flushing the open session when the input closes:

@@ -33,7 +33,11 @@ type ErrorPolicy int
 const (
 	// StopOnError (the default) cancels the remaining work the moment any item
 	// fails and reports the first error in input order. Items already in flight
-	// run to completion; items not yet started are skipped.
+	// run to completion; items not yet started are skipped. An in-flight item
+	// that then fails only because of that cancellation (it returns the induced
+	// context.Canceled) counts as skipped rather than failed, so the reported
+	// error is always a real failure - never a context error from a
+	// lower-indexed item masking the failure that stopped the run.
 	StopOnError ErrorPolicy = iota
 	// CollectErrors runs every item to completion and reports all the errors
 	// joined together (via errors.Join), so errors.Is/As can match any of them.
@@ -177,7 +181,10 @@ func Batch[T any](ctx context.Context, input []T, size int, fn BatchFunc[T], opt
 // that child is distinct from the caller's ctx, the cancellation does not make
 // ctx.Err() report a context error for what is really a work failure. The
 // limiter still dispatches the remaining items, but each returns immediately
-// once the child context is done, so no further user work runs.
+// once the child context is done, so no further user work runs. An in-flight
+// item that answers the cancellation with context.Canceled is not recorded
+// (see isInducedCancellation): its error is a symptom of the stop, and
+// recording it would let a lower index mask the failure that caused it.
 func run(ctx context.Context, n int, cfg config, task func(context.Context, int) error) []error {
 	errs := make([]error, n)
 	if n == 0 {
@@ -196,22 +203,34 @@ func run(ctx context.Context, n int, cfg config, task func(context.Context, int)
 			if cctx.Err() != nil {
 				return nil
 			}
-			err := task(cctx, i)
-			if err != nil {
-				errs[i] = err
-				if cfg.policy == StopOnError {
-					cancel()
-				}
-			}
 			// Always report success to the limiter: its []error return is
-			// unused (errors are tracked by index above), so returning the real
+			// unused (errors are tracked by index here), so returning the real
 			// error would only push it onto the limiter's slow lock+append path.
+			err := task(cctx, i)
+			if err == nil || isInducedCancellation(cctx, err) {
+				return nil
+			}
+			errs[i] = err
+			if cfg.policy == StopOnError {
+				cancel()
+			}
 			return nil
 		}
 	}
 
 	_ = NewBlockingWorkLimiter(cfg.concurrency).Run(work)
 	return errs
+}
+
+// isInducedCancellation reports whether err, returned by a task, is merely the
+// run's own context cancellation surfacing through it: cctx is already done and
+// the task answered with context.Canceled. That happens when StopOnError
+// cancelled cctx on a sibling's failure (the sibling's error is the cause and is
+// what resolve must report) or when the caller cancelled ctx (resolve reports
+// ctx.Err() regardless). A task whose own context.Canceled triggers the stop is
+// not affected: cctx is still live when it returns, so its error is recorded.
+func isInducedCancellation(cctx context.Context, err error) bool {
+	return cctx.Err() != nil && errors.Is(err, context.Canceled)
 }
 
 // resolve turns the per-index errors into a single error according to policy.

@@ -36,9 +36,10 @@ func Copy[K comparable, V any](input map[K]V) map[K]V {
 }
 
 // GetMany attempts to find many entries in the map, returning their values in a slice. If a value does not exist, it
-// is simply omitted from the output - no default value is inserted.
+// is simply omitted from the output - no default value is inserted. When none of the keys is found (including for an
+// empty or nil map, or no keys), the output is an initialised, non-nil empty slice.
 func GetMany[K comparable, V any](input map[K]V, keys []K) []V {
-	var results []V
+	results := make([]V, 0, len(keys))
 	for _, key := range keys {
 		val, ok := input[key]
 		if !ok {
@@ -50,9 +51,10 @@ func GetMany[K comparable, V any](input map[K]V, keys []K) []V {
 }
 
 // GetManyOrDefault attempts to find many entries in the map, returning their values in a slice. If a value does not
-// exist, the default value specified is included in the output instead of the targeted value.
+// exist, the default value specified is included in the output instead of the targeted value, so the output has one
+// element per key. If keys is empty or nil, the output is an initialised, non-nil empty slice.
 func GetManyOrDefault[K comparable, V any](input map[K]V, keys []K, defaultVal V) []V {
-	var results []V
+	results := make([]V, 0, len(keys))
 	for _, key := range keys {
 		val, ok := input[key]
 		if !ok {
@@ -73,9 +75,10 @@ func GetOrDefault[K comparable, V any](input map[K]V, key K, orElse V) V {
 	return val
 }
 
-// Items returns a slice of map entries representing each entry in the input map.
+// Items returns a slice of map entries representing each entry in the input map. If the input is empty or nil, the
+// output is an initialised, non-nil empty slice.
 func Items[K comparable, V any](input map[K]V) []Entry[K, V] {
-	var results []Entry[K, V]
+	results := make([]Entry[K, V], 0, len(input))
 	for key, val := range input {
 		results = append(results, Entry[K, V]{
 			Key:   key,
@@ -85,18 +88,20 @@ func Items[K comparable, V any](input map[K]V) []Entry[K, V] {
 	return results
 }
 
-// Keys provides a slice of all the keys of the input map.
+// Keys provides a slice of all the keys of the input map. If the input is empty or nil, the output is an initialised,
+// non-nil empty slice.
 func Keys[K comparable, V any](input map[K]V) []K {
-	var results []K
+	results := make([]K, 0, len(input))
 	for key := range input {
 		results = append(results, key)
 	}
 	return results
 }
 
-// Values returns a slice of all the values of the input map.
+// Values returns a slice of all the values of the input map. If the input is empty or nil, the output is an
+// initialised, non-nil empty slice.
 func Values[K comparable, V any](input map[K]V) []V {
-	var results []V
+	results := make([]V, 0, len(input))
 	for _, val := range input {
 		results = append(results, val)
 	}

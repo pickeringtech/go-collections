@@ -48,24 +48,24 @@ func TestFilter(t *testing.T) {
 			want: []string{"everyone", "goodness", "gracious"},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[string]{
 				input: channels.FromSlice(ctx, []string{}),
 				fn: func(element string) bool {
 					return len(element) > 5
 				},
 			},
-			want: nil,
+			want: []string{},
 		},
 		{
-			name: "nil input provides nil output",
+			name: "nil input provides non-nil empty output",
 			args: args[string]{
 				input: channels.FromSlice[string](ctx, nil),
 				fn: func(element string) bool {
 					return len(element) > 5
 				},
 			},
-			want: nil,
+			want: []string{},
 		},
 	}
 	for _, tt := range tests {

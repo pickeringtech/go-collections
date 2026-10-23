@@ -205,12 +205,28 @@ func TestGetMany(t *testing.T) {
 			want: []string{"one", "ten"},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[int, string]{
 				input: map[int]string{},
 				keys:  []int{1, 100, 10},
 			},
-			want: nil,
+			want: []string{},
+		},
+		{
+			name: "nil input provides non-nil empty output",
+			args: args[int, string]{
+				input: nil,
+				keys:  []int{1, 100, 10},
+			},
+			want: []string{},
+		},
+		{
+			name: "nil keys provide non-nil empty output",
+			args: args[int, string]{
+				input: map[int]string{1: "one"},
+				keys:  nil,
+			},
+			want: []string{},
 		},
 	}
 	for _, tt := range tests {
@@ -268,6 +284,24 @@ func TestGetManyOrDefault(t *testing.T) {
 				defaultVal: "missing",
 			},
 			want: []string{"missing", "missing", "missing"},
+		},
+		{
+			name: "nil keys provide non-nil empty output",
+			args: args[int, string]{
+				input:      map[int]string{1: "one"},
+				keys:       nil,
+				defaultVal: "missing",
+			},
+			want: []string{},
+		},
+		{
+			name: "empty keys provide non-nil empty output",
+			args: args[int, string]{
+				input:      map[int]string{1: "one"},
+				keys:       []int{},
+				defaultVal: "missing",
+			},
+			want: []string{},
 		},
 	}
 	for _, tt := range tests {
@@ -401,10 +435,22 @@ func TestItems(t *testing.T) {
 			},
 			want: []maps.Entry[int, string]{},
 		},
+		{
+			name: "nil input provides non-nil empty output",
+			args: args[int, string]{
+				input: nil,
+			},
+			want: []maps.Entry[int, string]{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := maps.Items(tt.args.input)
+			// Assert non-nil on the direct result: sorting below returns a
+			// fresh non-nil slice and would mask a nil return.
+			if got == nil {
+				t.Fatalf("Items() = nil, want non-nil")
+			}
 			got = slices.SortByOrderedField(got, slices.AscendingSortFunc[int], func(e maps.Entry[int, string]) int {
 				return e.Key
 			})
@@ -453,10 +499,22 @@ func TestKeys(t *testing.T) {
 			},
 			want: []int{},
 		},
+		{
+			name: "nil input provides non-nil empty output",
+			args: args[int, string]{
+				input: nil,
+			},
+			want: []int{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := maps.Keys(tt.args.input)
+			// Assert non-nil on the direct result: sorting below returns a
+			// fresh non-nil slice and would mask a nil return.
+			if got == nil {
+				t.Fatalf("Keys() = nil, want non-nil")
+			}
 			got = slices.SortOrderedAsc(got)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Keys() = %v, want %v", got, tt.want)
@@ -503,10 +561,22 @@ func TestValues(t *testing.T) {
 			},
 			want: []string{},
 		},
+		{
+			name: "nil input provides non-nil empty output",
+			args: args[int, string]{
+				input: nil,
+			},
+			want: []string{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := maps.Values(tt.args.input)
+			// Assert non-nil on the direct result: sorting below returns a
+			// fresh non-nil slice and would mask a nil return.
+			if got == nil {
+				t.Fatalf("Values() = nil, want non-nil")
+			}
 			got = slices.SortOrderedAsc(got)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Values() = %v, want %v", got, tt.want)

@@ -3,10 +3,13 @@ package channels_test
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"runtime"
+	"testing"
+	"time"
+
 	"github.com/pickeringtech/go-collections/channels"
 	"github.com/pickeringtech/go-collections/maps"
-	"reflect"
-	"testing"
 )
 
 func TestBuildMapFromEntries(t *testing.T) {
@@ -48,7 +51,8 @@ func TestBuildMapFromEntries(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := channels.BuildMapFromEntries(tt.args.entries); !reflect.DeepEqual(got, tt.want) {
+			got := channels.BuildMapFromEntries(tt.args.entries)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("BuildMapFromEntries() = %v, want %v", got, tt.want)
 			}
 		})
@@ -85,18 +89,18 @@ func TestCollectAsSlice(t *testing.T) {
 			want: []int{1, 19, 21, 3, -1, 100},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[int]{
 				input: channels.FromSlice(ctx, []int{}),
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "nil input provides nil output",
+			name: "nil input provides non-nil empty output",
 			args: args[int]{
 				input: channels.FromSlice[int](ctx, nil),
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -172,7 +176,10 @@ func TestCollectNAsSlice(t *testing.T) {
 		args args[T]
 		want []T
 	}
-	ctx := context.Background()
+	// Cases that collect fewer elements than the input holds leave FromSlice
+	// blocked on its next send; cancelling at the end of the test reclaims it.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	tests := []testCase[int]{
 		{
 			name: "correctly collect as a slice",
@@ -183,20 +190,20 @@ func TestCollectNAsSlice(t *testing.T) {
 			want: []int{1, 19, 21, 3, -1, 100},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[int]{
 				input:   channels.FromSlice(ctx, []int{}),
 				howMany: 0,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "nil input provides nil output",
+			name: "nil input provides non-nil empty output",
 			args: args[int]{
 				input:   channels.FromSlice[int](ctx, nil),
 				howMany: 0,
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
 			name: "collects a subset of the input",
@@ -217,7 +224,8 @@ func TestCollectNAsSlice(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := channels.CollectNAsSlice(tt.args.input, tt.args.howMany); !reflect.DeepEqual(got, tt.want) {
+			got := channels.CollectNAsSlice(tt.args.input, tt.args.howMany)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("CollectNAsSlice() = %v, want %v", got, tt.want)
 			}
 		})
@@ -225,13 +233,59 @@ func TestCollectNAsSlice(t *testing.T) {
 }
 
 func ExampleCollectNAsSlice() {
-	ctx := context.Background()
+	// CollectNAsSlice stops reading after three elements without draining the
+	// rest, so FromSlice and Map stay blocked on their next send. Cancelling
+	// their context once the elements are collected releases them.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
 	mapOut := channels.Map(ctx, input, func(element int) int {
 		return element * 2
 	})
 	output := channels.CollectNAsSlice(mapOut, 3)
+	cancel()
 
 	fmt.Printf("result: %v", output)
 	// Output: result: [2 4 6]
+}
+
+// TestCollectNAsSlice_CancelReleasesUpstream is the goroutine-leak regression
+// test for issue #234. CollectNAsSlice returns without draining its input, so
+// the documented pattern - cancel the upstream context once it returns - must
+// reclaim every stage goroutine that was left blocked mid-stream.
+func TestCollectNAsSlice_CancelReleasesUpstream(t *testing.T) {
+	tests := []struct {
+		name    string
+		howMany int
+		want    []int
+	}{
+		{name: "collecting nothing", howMany: 0, want: []int{}},
+		{name: "collecting part of the stream", howMany: 3, want: []int{2, 4, 6}},
+		{name: "collecting the whole stream", howMany: 10, want: []int{2, 4, 6, 8, 10}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := runtime.NumGoroutine()
+
+			ctx, cancel := context.WithCancel(context.Background())
+			input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
+			doubled := channels.Map(ctx, input, func(n int) int { return n * 2 })
+			got := channels.CollectNAsSlice(doubled, tt.howMany)
+			cancel()
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CollectNAsSlice() = %v, want %v", got, tt.want)
+			}
+			// The stages exit asynchronously after cancel, so poll briefly
+			// rather than sampling once.
+			deadline := time.Now().Add(time.Second)
+			for runtime.NumGoroutine() > before {
+				if time.Now().After(deadline) {
+					t.Fatalf("%d goroutines still running after cancel, want at most %d - the upstream stages leaked",
+						runtime.NumGoroutine(), before)
+				}
+				time.Sleep(time.Millisecond)
+			}
+		})
+	}
 }

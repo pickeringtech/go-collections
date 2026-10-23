@@ -41,18 +41,18 @@ func TestFromSlice(t *testing.T) {
 			want: []int{1, 10, 5, 19, -1},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[int]{
 				input: []int{},
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "nil input provides nil output",
+			name: "nil input provides non-nil empty output",
 			args: args[int]{
 				input: nil,
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {

@@ -2,6 +2,14 @@ package channels
 
 import "context"
 
+// maxWindowPrealloc caps how many elements TumblingWindow and SlidingWindow
+// reserve up front for their window buffer. The window size is caller-supplied,
+// so preallocating all of it would panic inside the goroutine (cap out of range,
+// crashing the process) for a size such as math.MaxInt, and reserve that much
+// memory for any merely large size however short the stream. Below the cap the
+// buffer is sized exactly; above it, append grows the buffer as elements arrive.
+const maxWindowPrealloc = 1024
+
 // closedEmpty returns an already-closed output channel of element type []T, the
 // degenerate result the windowers return when their size/step parameters are
 // meaningless. A consumer ranging over it sees no windows and an immediate
@@ -43,22 +51,18 @@ func TumblingWindow[T any](ctx context.Context, input <-chan T, size int) <-chan
 	output := make(chan []T)
 	go func() {
 		defer close(output)
-		buf := make([]T, 0, size)
+		buf := make([]T, 0, min(size, maxWindowPrealloc))
 		for {
-			select {
-			case <-ctx.Done():
-				return
-			case val, ok := <-input:
-				if !ok {
-					return // drop the trailing partial window
+			val, ok := receive(ctx, input)
+			if !ok {
+				return // input closed or ctx cancelled: drop the trailing partial window
+			}
+			buf = append(buf, val)
+			if len(buf) == size {
+				if !send(ctx, output, copyWindow(buf)) {
+					return
 				}
-				buf = append(buf, val)
-				if len(buf) == size {
-					if !send(ctx, output, copyWindow(buf)) {
-						return
-					}
-					buf = buf[:0]
-				}
+				buf = buf[:0]
 			}
 		}
 	}()
@@ -91,21 +95,17 @@ func SlidingWindow[T any](ctx context.Context, input <-chan T, size, step int) <
 		// advance has not yet dropped. skip counts elements still to be discarded
 		// before buffering resumes, which is how step > size skips the gap
 		// between non-adjacent windows.
-		buf := make([]T, 0, size)
+		buf := make([]T, 0, min(size, maxWindowPrealloc))
 		skip := 0
 		for {
-			select {
-			case <-ctx.Done():
+			val, ok := receive(ctx, input)
+			if !ok {
+				return // input closed or ctx cancelled: drop any trailing partial window
+			}
+			var done bool
+			buf, skip, done = slideStep(ctx, output, buf, skip, size, step, val)
+			if done {
 				return
-			case val, ok := <-input:
-				if !ok {
-					return // drop any trailing partial window
-				}
-				var done bool
-				buf, skip, done = slideStep(ctx, output, buf, skip, size, step, val)
-				if done {
-					return
-				}
 			}
 		}
 	}()
@@ -166,21 +166,19 @@ func SessionWindow[T any](ctx context.Context, input <-chan T, gap SessionGapFun
 		defer close(output)
 		var buf []T
 		for {
-			select {
-			case <-ctx.Done():
+			val, ok := receive(ctx, input)
+			if !ok {
+				// Flush the open session if the input closed; if ctx was
+				// cancelled instead, send declines and nothing is delivered.
+				if len(buf) > 0 {
+					send(ctx, output, copyWindow(buf))
+				}
 				return
-			case val, ok := <-input:
-				if !ok {
-					if len(buf) > 0 {
-						send(ctx, output, copyWindow(buf)) // flush the open session
-					}
-					return
-				}
-				var done bool
-				buf, done = sessionStep(ctx, output, buf, gap, val)
-				if done {
-					return
-				}
+			}
+			var done bool
+			buf, done = sessionStep(ctx, output, buf, gap, val)
+			if done {
+				return
 			}
 		}
 	}()
@@ -224,16 +222,12 @@ func WindowedReduce[I, O any](ctx context.Context, input <-chan I, windower Wind
 	go func() {
 		defer close(output)
 		for {
-			select {
-			case <-ctx.Done():
+			window, ok := receive(ctx, windows)
+			if !ok {
 				return
-			case window, ok := <-windows:
-				if !ok {
-					return
-				}
-				if !send(ctx, output, fn(window)) {
-					return
-				}
+			}
+			if !send(ctx, output, fn(window)) {
+				return
 			}
 		}
 	}()

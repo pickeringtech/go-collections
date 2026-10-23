@@ -167,19 +167,19 @@ func FuzzPaginate(f *testing.F) {
 		input := bytesToInts(data)
 
 		// A non-positive page size has no meaningful page: every page index
-		// must return nil without panicking.
+		// must return a non-nil empty slice without panicking.
 		if pageSize <= 0 {
 			for _, pageIndex := range []int{-1, 0, 1, 2} {
-				if page := slices.Paginate(input, pageIndex, pageSize); page != nil {
-					t.Fatalf("Paginate(_, %d, %d) = %v, want nil for non-positive pageSize", pageIndex, pageSize, page)
+				page := slices.Paginate(input, pageIndex, pageSize)
+				if page == nil || len(page) != 0 {
+					t.Fatalf("Paginate(_, %d, %d) = %#v, want non-nil empty for non-positive pageSize", pageIndex, pageSize, page)
 				}
 			}
 			return
 		}
 
-		// Compute the exact page count up front. This avoids ever calling
-		// Paginate with a pageIndex large enough to overflow pageSize*pageIndex,
-		// and lets us assert that every non-last page is full.
+		// Compute the exact page count up front so we can assert that every
+		// non-last page is full.
 		pageCount := 0
 		if len(input) > 0 {
 			pageCount = (len(input)-1)/pageSize + 1
@@ -188,8 +188,8 @@ func FuzzPaginate(f *testing.F) {
 		var rebuilt []int
 		for pageIndex := 0; pageIndex < pageCount; pageIndex++ {
 			page := slices.Paginate(input, pageIndex, pageSize)
-			if page == nil {
-				t.Fatalf("page %d unexpectedly nil (pageCount %d, pageSize %d)", pageIndex, pageCount, pageSize)
+			if len(page) == 0 {
+				t.Fatalf("page %d unexpectedly empty (pageCount %d, pageSize %d)", pageIndex, pageCount, pageSize)
 			}
 			isLast := pageIndex == pageCount-1
 			if !isLast && len(page) != pageSize {
@@ -201,9 +201,10 @@ func FuzzPaginate(f *testing.F) {
 			rebuilt = append(rebuilt, page...)
 		}
 
-		// The first out-of-range page must be nil.
-		if page := slices.Paginate(input, pageCount, pageSize); page != nil {
-			t.Fatalf("page %d (out of range) = %v, want nil", pageCount, page)
+		// The first out-of-range page must be non-nil and empty.
+		page := slices.Paginate(input, pageCount, pageSize)
+		if page == nil || len(page) != 0 {
+			t.Fatalf("page %d (out of range) = %#v, want non-nil empty", pageCount, page)
 		}
 
 		if len(rebuilt) != len(input) {
@@ -232,10 +233,12 @@ func FuzzInsertDelete(f *testing.F) {
 		n := len(input)
 
 		// Out-of-range Delete is a no-op on length.
-		if got := slices.Delete(input, n+1); len(got) != n {
+		got := slices.Delete(input, n+1)
+		if len(got) != n {
 			t.Fatalf("Delete(out-of-range high) length = %d, want %d", len(got), n)
 		}
-		if got := slices.Delete(input, -1); len(got) != n {
+		got = slices.Delete(input, -1)
+		if len(got) != n {
 			t.Fatalf("Delete(-1) length = %d, want %d", len(got), n)
 		}
 
@@ -288,7 +291,8 @@ func FuzzNumerics(f *testing.F) {
 
 		sum, sumOK := stats.Sum(input)
 		// Sum is order-independent.
-		if rev, _ := stats.Sum(slices.Reverse(input)); rev != sum {
+		rev, _ := stats.Sum(slices.Reverse(input))
+		if rev != sum {
 			t.Fatalf("Sum not order-independent: %d vs %d", sum, rev)
 		}
 		var manual int
@@ -327,17 +331,21 @@ func FuzzNumerics(f *testing.F) {
 
 		// The NumericSlice method forms must agree with the function forms.
 		ns := slices.NumericSlice[int](input)
-		if nsSum, nsSumOK := ns.Sum(); nsSum != sum || nsSumOK != sumOK {
+		nsSum, nsSumOK := ns.Sum()
+		if nsSum != sum || nsSumOK != sumOK {
 			t.Fatalf("NumericSlice.Sum (%v, %v) disagrees with Sum (%v, %v)", nsSum, nsSumOK, sum, sumOK)
 		}
-		if nsMax, nsMaxOK := ns.Max(); nsMax != mx || nsMaxOK != mxOK {
+		nsMax, nsMaxOK := ns.Max()
+		if nsMax != mx || nsMaxOK != mxOK {
 			t.Fatalf("NumericSlice.Max (%v, %v) disagrees with Max (%v, %v)", nsMax, nsMaxOK, mx, mxOK)
 		}
-		if nsMin, nsMinOK := ns.Min(); nsMin != mn || nsMinOK != mnOK {
+		nsMin, nsMinOK := ns.Min()
+		if nsMin != mn || nsMinOK != mnOK {
 			t.Fatalf("NumericSlice.Min (%v, %v) disagrees with Min (%v, %v)", nsMin, nsMinOK, mn, mnOK)
 		}
 		avg, avgOK := stats.Mean(input)
-		if nsMean, nsMeanOK := ns.Mean(); nsMean != avg || nsMeanOK != avgOK {
+		nsMean, nsMeanOK := ns.Mean()
+		if nsMean != avg || nsMeanOK != avgOK {
 			t.Fatalf("NumericSlice.Mean (%v, %v) disagrees with stats.Mean (%v, %v)", nsMean, nsMeanOK, avg, avgOK)
 		}
 	})

@@ -98,7 +98,8 @@ Windowing each batches the stream into a channel of slices:
 Sources and sinks:
 
 - **`FromSlice` / `FromMap`** — turn a slice or map into a channel.
-- **`CollectAsSlice` / `CollectNAsSlice`** — drain a channel into a slice.
+- **`CollectAsSlice`** — drain a channel into a slice.
+- **`CollectNAsSlice`** — take just the first n elements into a slice. It does not drain the rest, so cancel the upstream context afterwards to release the stages still blocked on it (see [Cancellation](#cancellation)).
 - **`CollectAsMap` / `BuildMapFromEntries`** — drain a channel into a map.
 
 Pipeline:
@@ -166,7 +167,7 @@ sliding := channels.SlidingWindow(ctx, channels.FromSlice(ctx, []int{1, 2, 3, 4,
 // [1 2 3], [2 3 4], [3 4 5]
 ```
 
-`SlidingWindow`'s step selects the regime: `step == size` tumbles, `step > size` skips elements between windows, `step < size` overlaps them. Both verbs emit full windows only and align with `slices.Chunk` / `slices.Window`.
+`SlidingWindow`'s step selects the regime: `step == size` tumbles, `step > size` skips elements between windows, `step < size` overlaps them. Both verbs emit full windows only, so a trailing partial window is dropped: `TumblingWindow` therefore matches `slices.Chunk` minus its final partial chunk (which `slices.Chunk` keeps), and `SlidingWindow` with step 1 matches `slices.Window`.
 
 ### SessionWindow
 
@@ -256,9 +257,13 @@ input := channels.FromSlice(ctx, []int{1, 2, 3, 4, 5})
 doubled := channels.Map(ctx, input, func(n int) int { return n * 2 })
 all := channels.CollectAsSlice(doubled) // [2 4 6 8 10]
 
-// Or take only the first N elements.
-more := channels.Map(ctx, channels.FromSlice(ctx, []int{1, 2, 3, 4, 5}), func(n int) int { return n * 2 })
+// Or take only the first N elements. CollectNAsSlice stops reading without
+// draining the rest, so give the stages a cancellable context and cancel it
+// afterwards to release the producers still blocked on their next send.
+firstCtx, cancelFirst := context.WithCancel(ctx)
+more := channels.Map(firstCtx, channels.FromSlice(firstCtx, []int{1, 2, 3, 4, 5}), func(n int) int { return n * 2 })
 firstThree := channels.CollectNAsSlice(more, 3) // [2 4 6]
+cancelFirst()
 ```
 
 `CollectAsMap` drains a channel into a map by deriving a key/value entry from each element:

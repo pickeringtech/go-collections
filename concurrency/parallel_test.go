@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/pickeringtech/go-collections/concurrency"
 )
@@ -139,7 +140,8 @@ func TestMapErrorPolicies(t *testing.T) {
 		if !ok {
 			t.Fatalf("Map() error %T is not a joined error", err)
 		}
-		if got := len(joined.Unwrap()); got != 2 {
+		got := len(joined.Unwrap())
+		if got != 2 {
 			t.Errorf("Map() collected %d errors, want 2", got)
 		}
 	})
@@ -263,6 +265,71 @@ func TestBatch(t *testing.T) {
 	})
 }
 
+// TestStopOnErrorReportsRootCause pins that, under StopOnError, an item that
+// fails only because the run was cancelled - it returns the induced
+// context.Canceled after a sibling's failure cancelled the shared context - never
+// masks the failure that triggered the cancellation, even when the cancelled item
+// has the lower index. A task's own context.Canceled is still reported when it is
+// the root cause.
+func TestStopOnErrorReportsRootCause(t *testing.T) {
+	// Item 0 blocks until the run is cancelled and reports that cancellation;
+	// item 1 fails for real a moment later, which is what cancels the run.
+	inducedCancel := func(ctx context.Context, n int) error {
+		if n == 0 {
+			<-ctx.Done()
+			return ctx.Err()
+		}
+		time.Sleep(10 * time.Millisecond)
+		return errBoom
+	}
+	// Item 0 fails with context.Canceled of its own accord, so it is the root
+	// cause even though it is a context error.
+	ownCancel := func(_ context.Context, n int) error {
+		if n == 0 {
+			return context.Canceled
+		}
+		return nil
+	}
+	asMap := func(fn concurrency.EachFunc[int]) func(context.Context, []int, ...concurrency.Option) error {
+		return func(ctx context.Context, input []int, opts ...concurrency.Option) error {
+			_, err := concurrency.Map(ctx, input, func(c context.Context, n int) (int, error) {
+				return n, fn(c, n)
+			}, opts...)
+			return err
+		}
+	}
+	asForEach := func(fn concurrency.EachFunc[int]) func(context.Context, []int, ...concurrency.Option) error {
+		return func(ctx context.Context, input []int, opts ...concurrency.Option) error {
+			return concurrency.ForEach(ctx, input, fn, opts...)
+		}
+	}
+	asBatch := func(fn concurrency.EachFunc[int]) func(context.Context, []int, ...concurrency.Option) error {
+		return func(ctx context.Context, input []int, opts ...concurrency.Option) error {
+			return concurrency.Batch(ctx, input, 1, func(c context.Context, batch []int) error {
+				return fn(c, batch[0])
+			}, opts...)
+		}
+	}
+	tests := []struct {
+		name      string
+		run       func(context.Context, []int, ...concurrency.Option) error
+		wantErrIs error
+	}{
+		{name: "Map reports the triggering error, not the induced cancellation", run: asMap(inducedCancel), wantErrIs: errBoom},
+		{name: "ForEach reports the triggering error, not the induced cancellation", run: asForEach(inducedCancel), wantErrIs: errBoom},
+		{name: "Batch reports the triggering error, not the induced cancellation", run: asBatch(inducedCancel), wantErrIs: errBoom},
+		{name: "Map reports a task's own cancellation when it is the root cause", run: asMap(ownCancel), wantErrIs: context.Canceled},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.run(context.Background(), []int{0, 1}, concurrency.WithConcurrency(2))
+			if !errors.Is(err, tt.wantErrIs) {
+				t.Errorf("error = %v, want %v", err, tt.wantErrIs)
+			}
+		})
+	}
+}
+
 // TestContextCancellation proves a cancelled context wins over the policy and is
 // surfaced as the context error, and that no further work starts after cancel.
 func TestContextCancellation(t *testing.T) {
@@ -303,7 +370,8 @@ func TestContextCancellation(t *testing.T) {
 		if !errors.Is(err, context.Canceled) {
 			t.Errorf("ForEach() error = %v, want context.Canceled", err)
 		}
-		if got := atomic.LoadInt64(&ran); got != 1 {
+		got := atomic.LoadInt64(&ran)
+		if got != 1 {
 			t.Errorf("ForEach() ran %d items, want exactly 1 before cancel took hold", got)
 		}
 	})

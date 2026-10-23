@@ -10,7 +10,7 @@ for the full reference.
 | API | Use when | Completion and results |
 | --- | --- | --- |
 | `NewBlockingWorkLimiter(limit)` | All tasks are ready as a `[]WorkFunc`. | `Run(work)` blocks until all tasks finish and returns their errors. |
-| `NewBackgroundWorkLimiter(limit)` | Tasks arrive over time. | `Start` → `Add` → `Stop` → `Wait` → `Errors`; `Add` can block while handing off work. |
+| `NewBackgroundWorkLimiter(limit)` | Tasks arrive over time. | `Start` → `Add` → `Stop` → `Wait` → `Errors`; `Add` blocks until a worker is free (back-pressure), so never call it from work running on the same limiter. |
 | `Map` | Transform each slice element. | Returns a result slice in input order and an error. |
 | `ForEach` | Perform a side effect for each slice element. | Waits for running callbacks and returns an error. |
 | `Batch` | Process consecutive chunks of a slice. | Runs chunk callbacks concurrently and returns an error. |
@@ -57,7 +57,10 @@ positions hold the output type's zero value, so check the error before using it.
 `runtime.GOMAXPROCS(0)`, values below 1 are clamped to 1) and `WithErrorPolicy`:
 
 - `StopOnError` (default) cancels remaining work on failure, waits for callbacks
-  already running, and reports the first error in input order.
+  already running, and reports the first error in input order. A running
+  callback that fails only because of that cancellation (it returns the
+  induced `context.Canceled`) counts as skipped, so the reported error is the
+  failure that stopped the run rather than a context error.
 - `CollectErrors` runs all items and joins their errors with `errors.Join`.
 - `ContinueOnError` runs all items and suppresses work errors.
 

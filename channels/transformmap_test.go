@@ -48,24 +48,24 @@ func TestMap(t *testing.T) {
 			want: []int{3, 3, 5, 4, 4},
 		},
 		{
-			name: "empty input provides nil output",
+			name: "empty input provides non-nil empty output",
 			args: args[string, int]{
 				input: channels.FromSlice[string](ctx, []string{}),
 				fn: func(s string) int {
 					return len(s)
 				},
 			},
-			want: nil,
+			want: []int{},
 		},
 		{
-			name: "nil input provides nil output",
+			name: "nil input provides non-nil empty output",
 			args: args[string, int]{
 				input: channels.FromSlice[string](ctx, nil),
 				fn: func(s string) int {
 					return len(s)
 				},
 			},
-			want: nil,
+			want: []int{},
 		},
 	}
 	for _, tt := range tests {

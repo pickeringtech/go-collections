@@ -1271,31 +1271,31 @@ func TestPop(t *testing.T) {
 			wantSli: []int{1, 2, 3},
 		},
 		{
-			name: "popping last element from a slice with one element returns the element and a nil slice",
+			name: "popping last element from a slice with one element returns the element and a non-nil empty slice",
 			args: args{
 				input: []int{1},
 			},
 			want:    1,
 			wantOK:  true,
-			wantSli: nil,
+			wantSli: []int{},
 		},
 		{
-			name: "nil input provides zero value for type and nil resulting slice",
+			name: "nil input provides zero value for type and non-nil empty resulting slice",
 			args: args{
 				input: nil,
 			},
 			want:    0,
 			wantOK:  false,
-			wantSli: nil,
+			wantSli: []int{},
 		},
 		{
-			name: "empty input provides zero value for type and nil resulting slice",
+			name: "empty input provides zero value for type and non-nil empty resulting slice",
 			args: args{
 				input: []int{},
 			},
 			want:    0,
 			wantOK:  false,
-			wantSli: nil,
+			wantSli: []int{},
 		},
 	}
 	for _, tt := range tests {
@@ -1386,31 +1386,31 @@ func TestPopFront(t *testing.T) {
 			wantNewSlice:     []int{4, 3, 2, 1},
 		},
 		{
-			name: "popping last element from a slice with one element returns the element and a nil slice",
+			name: "popping last element from a slice with one element returns the element and a non-nil empty slice",
 			args: args{
 				input: []int{1},
 			},
 			wantFirstElement: 1,
 			wantOK:           true,
-			wantNewSlice:     nil,
+			wantNewSlice:     []int{},
 		},
 		{
-			name: "nil input provides zero value output and nil resulting slice",
+			name: "nil input provides zero value output and non-nil empty resulting slice",
 			args: args{
 				input: nil,
 			},
 			wantFirstElement: 0,
 			wantOK:           false,
-			wantNewSlice:     nil,
+			wantNewSlice:     []int{},
 		},
 		{
-			name: "empty input provides zero value output and nil resulting slice",
+			name: "empty input provides zero value output and non-nil empty resulting slice",
 			args: args{
 				input: []int{},
 			},
 			wantFirstElement: 0,
 			wantOK:           false,
-			wantNewSlice:     nil,
+			wantNewSlice:     []int{},
 		},
 	}
 	for _, tt := range tests {

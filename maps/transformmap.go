@@ -6,6 +6,10 @@ type MapFunc[K comparable, V any, OK comparable, OV any] func(key K, value V) (O
 // Map takes each entry in the input map, transforming them using the provided mapping function, building a new map to
 // output. It does not modify the input map, rather creating a new map which is returned. An entry's key and value can
 // both be changed - transformation is not limited to the value.
+//
+// If fn maps two or more input keys to the same output key, the output holds only one of their values, and which one
+// survives is unspecified: it depends on Go's randomised map iteration order and can differ between calls. Make fn
+// injective on keys (or merge colliding entries yourself) when that matters.
 func Map[K comparable, V any, OK comparable, OV any](input map[K]V, fn MapFunc[K, V, OK, OV]) map[OK]OV {
 	results := map[OK]OV{}
 	for key, value := range input {

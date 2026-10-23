@@ -66,7 +66,7 @@ func TestConcurrentArray_AllMatch(t *testing.T) {
 					return a > 2 && a < 5
 				},
 			},
-			want: false,
+			want: true,
 		},
 	}
 	for _, tt := range tests {

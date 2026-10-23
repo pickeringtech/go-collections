@@ -11,22 +11,19 @@ type FilterFunc[T any] func(element T) bool
 //
 // The supplied context governs the lifetime of the filtering goroutine: when ctx is cancelled the goroutine stops
 // reading from input, closes the output channel, and returns, so an abandoned pipeline is reclaimed deterministically.
+// As in Map, cancellation takes priority over a ready input, so fn never runs on an element taken after cancellation.
 func Filter[T any](ctx context.Context, input <-chan T, fn FilterFunc[T]) <-chan T {
 	output := make(chan T)
 	go func() {
 		defer close(output)
 		for {
-			select {
-			case <-ctx.Done():
+			element, ok := receive(ctx, input)
+			if !ok {
 				return
-			case element, ok := <-input:
-				if !ok {
+			}
+			if fn(element) {
+				if !send(ctx, output, element) {
 					return
-				}
-				if fn(element) {
-					if !send(ctx, output, element) {
-						return
-					}
 				}
 			}
 		}

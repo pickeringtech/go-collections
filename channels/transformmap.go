@@ -11,21 +11,19 @@ type MapFunc[I, O any] func(I) O
 // The supplied context governs the lifetime of the transforming goroutine: when ctx is cancelled the goroutine
 // stops reading from input, closes the output channel, and returns. This reclaims the goroutine deterministically
 // rather than leaking it until the input drains, and unblocks it even when a downstream consumer has stalled.
+// Cancellation takes priority over a ready input: once ctx is cancelled no further element is taken from input (even
+// one already waiting there), so fn never runs on it.
 func Map[I, O any](ctx context.Context, input <-chan I, fn MapFunc[I, O]) <-chan O {
 	output := make(chan O)
 	go func() {
 		defer close(output)
 		for {
-			select {
-			case <-ctx.Done():
+			val, ok := receive(ctx, input)
+			if !ok {
 				return
-			case val, ok := <-input:
-				if !ok {
-					return
-				}
-				if !send(ctx, output, fn(val)) {
-					return
-				}
+			}
+			if !send(ctx, output, fn(val)) {
+				return
 			}
 		}
 	}()

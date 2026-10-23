@@ -23,6 +23,15 @@ const (
 // because those are programming mistakes rather than recoverable conditions. A
 // second Start is a no-op (it does not leak the running goroutine), as is a
 // second Stop.
+//
+// Add applies back-pressure: while every worker is busy, Add blocks until one
+// frees up, so a producer cannot outrun the workers by more than a single item
+// and memory stays bounded however fast it adds. The flip side is that a work
+// function must not call Add on the limiter that is running it: when every
+// worker is busy, that Add waits for a free worker which only the calling work
+// function's own completion would provide, so the limiter deadlocks (and a
+// later Stop blocks behind it). To fan out follow-up work, hand it back to the
+// producer (for example over a channel) or run it on a separate limiter.
 type BackgroundWorkLimiter struct {
 	max         int
 	workToDo    chan WorkFunc
@@ -115,10 +124,12 @@ func (wl *BackgroundWorkLimiter) Wait() {
 	wl.waitGroup.Wait()
 }
 
-// Add adds an item of work to be completed in the background. It panics if the
-// limiter is not currently running - that is, if Start has not been called or
-// Stop already has been called - because sending on the unallocated or closed
-// channel would otherwise block forever or panic obscurely.
+// Add adds an item of work to be completed in the background, blocking while
+// every worker is busy (back-pressure; see BackgroundWorkLimiter - in
+// particular, never call Add from a work function running on the same limiter).
+// It panics if the limiter is not currently running - that is, if Start has not
+// been called or Stop already has been called - because sending on the
+// unallocated or closed channel would otherwise block forever or panic obscurely.
 //
 // The wait group is incremented here, on the producer side, before the work is
 // handed off, so that a subsequent Stop followed by Wait cannot race ahead of

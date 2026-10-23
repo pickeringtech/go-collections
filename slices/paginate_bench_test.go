@@ -8,12 +8,13 @@ import (
 
 // BenchmarkPaginate backfills the missing benchmark for slices.Paginate (issue
 // #52 sweep), following the scaling ladder in
-// agent-os/standards/testing/benchmark-scaling.md. Paginate returns a re-slice
-// rather than a copy, so the timed work is the bounds arithmetic; the page index
-// and size are held constant across sizes so only the input length varies. They
-// are kept small (page index 1, size 2) so the requested page exists even at the
-// smallest ladder size (3) — otherwise the small cells would hit Paginate's
-// out-of-range early return and measure a different code path from the rest.
+// agent-os/standards/testing/benchmark-scaling.md. Paginate copies only the
+// requested page, so the timed work is the bounds arithmetic plus a page-sized
+// copy; the page index and size are held constant across sizes so only the
+// input length varies. They are kept small (page index 1, size 2) so the
+// requested page exists even at the smallest ladder size (3) — otherwise the
+// small cells would hit Paginate's out-of-range early return and measure a
+// different code path from the rest.
 func BenchmarkPaginate(b *testing.B) {
 	benchmarks := []struct {
 		name string
