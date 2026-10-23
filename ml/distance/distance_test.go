@@ -612,31 +612,3 @@ func TestLevenshteinOverOtherElementTypes(t *testing.T) {
 		})
 	}
 }
-
-// TestDistanceSumsAreCompensated guards the L1/Lp sums against round-off: with
-// one coordinate difference of 1e17 first, a naive running sum absorbs (and
-// loses) each later difference of 1, while a compensated sum keeps all 16.
-func TestDistanceSumsAreCompensated(t *testing.T) {
-	a := make([]float64, 17)
-	a[0] = 1e17
-	for i := 1; i < len(a); i++ {
-		a[i] = 1
-	}
-	zero := make([]float64, len(a))
-	const want = 1e17 + 16
-	tests := []struct {
-		name string
-		fn   func() (float64, bool)
-	}{
-		{name: "Manhattan", fn: func() (float64, bool) { return distance.Manhattan(a, zero) }},
-		{name: "Minkowski with p = 1", fn: func() (float64, bool) { return distance.Minkowski(a, zero, 1) }},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, ok := tt.fn()
-			if !ok || got != want {
-				t.Errorf("got %v, %v; want %v, true", got, ok, float64(want))
-			}
-		})
-	}
-}

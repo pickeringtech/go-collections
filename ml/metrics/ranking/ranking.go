@@ -4,7 +4,6 @@ import (
 	"math"
 	"sort"
 
-	"github.com/pickeringtech/go-collections/internal/kahan"
 	"github.com/pickeringtech/go-collections/stats"
 )
 
@@ -23,19 +22,17 @@ func effectiveK(k, n int) int {
 }
 
 // dcgInOrder sums the discounted gains relᵢ / log₂(i+2) over the first k
-// positions of the already-ordered relevances, with compensated
-// (Kahan–Neumaier) summation so small late gains survive a large early one.
+// positions of the already-ordered relevances.
 func dcgInOrder(relevances []float64, k int) float64 {
-	var sum kahan.Sum
+	var sum float64
 	for i := 0; i < k; i++ {
-		sum.Add(relevances[i] / math.Log2(float64(i+2)))
+		sum += relevances[i] / math.Log2(float64(i+2))
 	}
-	return sum.Total()
+	return sum
 }
 
 // DCG returns the discounted cumulative gain of relevances, taken in the given
-// order — Σ relᵢ / log₂(i+2) over the first k items, summed with compensated
-// (Kahan–Neumaier) summation — together with an ok flag.
+// order — Σ relᵢ / log₂(i+2) over the first k items — together with an ok flag.
 // Later positions are discounted, so the same relevances earlier in the list
 // score higher. k is the cutoff rank; k <= 0 (or k larger than the list) scores
 // the whole list.
