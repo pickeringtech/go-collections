@@ -1,6 +1,7 @@
 package lists
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/pickeringtech/go-collections/collections/internal/nocopy"
@@ -414,22 +415,26 @@ func (a *ConcurrentArray[T]) PushInPlace(element T) {
 }
 
 // Sort returns a new List sorted according to the less-than function lessThan,
-// without modifying the receiver. It is safe for concurrent use.
+// without modifying the receiver. The sort is stable: elements that compare
+// equal keep their original relative order. It is safe for concurrent use.
 func (a *ConcurrentArray[T]) Sort(lessThan func(T, T) bool) List[T] {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	return NewArray(slices.Sort(a.elements, lessThan)...)
+	sorted := slices.Copy(a.elements)
+	sort.SliceStable(sorted, func(i, j int) bool { return lessThan(sorted[i], sorted[j]) })
+	return NewArray(sorted...)
 }
 
 // SortInPlace sorts the receiver's elements according to the less-than function
-// lessThan. It is safe for concurrent use.
+// lessThan. The sort is stable: elements that compare equal keep their
+// original relative order. It is safe for concurrent use.
 func (a *ConcurrentArray[T]) SortInPlace(lessThan func(T, T) bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	a.version++
 
-	slices.SortInPlace(a.elements, lessThan)
+	sort.SliceStable(a.elements, func(i, j int) bool { return lessThan(a.elements[i], a.elements[j]) })
 }
 
 // partitionElements calls fn once per snapshot element, in order, and splits
