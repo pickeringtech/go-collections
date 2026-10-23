@@ -798,6 +798,17 @@ func TestFindLast(t *testing.T) {
 			wantOk:     true,
 		},
 		{
+			name: "a match only at the first element is still found",
+			args: args[int]{
+				input: []int{5, 4, 3, 2, 1},
+				fun: func(a int) bool {
+					return a > 4
+				},
+			},
+			wantResult: 5,
+			wantOk:     true,
+		},
+		{
 			name: "no match causes zero value and falsy boolean returns",
 			args: args[int]{
 				input: []int{5, 4, 3, 2, 1},
@@ -993,6 +1004,16 @@ func TestFindLastIndex(t *testing.T) {
 				},
 			},
 			want: 1,
+		},
+		{
+			name: "a match only at the first element is still found",
+			args: args[int]{
+				input: []int{5, 4, 3, 2, 1},
+				fun: func(a int) bool {
+					return a > 4
+				},
+			},
+			want: 0,
 		},
 		{
 			name: "no match causes zero value and falsy boolean returns",
