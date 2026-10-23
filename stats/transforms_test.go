@@ -172,6 +172,53 @@ func TestNormalizeNaNPropagates(t *testing.T) {
 	}
 }
 
+// TestNormalizeNaNOnlyAffectsItsOwnPosition pins the documented locality: the
+// min and max are taken over the non-NaN elements, so a NaN — even at index 0,
+// where it used to seed both bounds — leaves every other position rescaled.
+func TestNormalizeNaNOnlyAffectsItsOwnPosition(t *testing.T) {
+	nan := math.NaN()
+	tests := []struct {
+		name  string
+		input []float64
+		want  []float64
+	}{
+		{name: "leading NaN", input: []float64{nan, 0, 10}, want: []float64{nan, 0, 1}},
+		{name: "interleaved NaNs", input: []float64{0, nan, 10, nan, 5}, want: []float64{0, nan, 1, nan, 0.5}},
+		{name: "NaN beside a degenerate range", input: []float64{nan, 5, 5}, want: []float64{nan, 0, 0}},
+		{name: "all NaN", input: []float64{nan, nan}, want: []float64{nan, nan}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := stats.Normalize(tt.input)
+			if !ok || !floatSlicesClose(got, tt.want) {
+				t.Errorf("Normalize() = %v, %v; want %v, true", got, ok, tt.want)
+			}
+		})
+	}
+}
+
+// TestNormalizeOverflowingSpan checks a finite range whose width overflows
+// float64 still rescales into [0, 1] rather than to NaN.
+func TestNormalizeOverflowingSpan(t *testing.T) {
+	maxF := math.MaxFloat64
+	tests := []struct {
+		name  string
+		input []float64
+		want  []float64
+	}{
+		{name: "extremes", input: []float64{-maxF, maxF}, want: []float64{0, 1}},
+		{name: "extremes and midpoint", input: []float64{maxF, 0, -maxF}, want: []float64{1, 0.5, 0}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := stats.Normalize(tt.input)
+			if !ok || !floatSlicesClose(got, tt.want) {
+				t.Errorf("Normalize() = %v, %v; want %v, true", got, ok, tt.want)
+			}
+		})
+	}
+}
+
 // A +Inf element makes the span non-finite: finite positions rescale to 0 while
 // the infinite position becomes NaN (Inf/Inf). This locks in the documented
 // IEEE-754 propagation behaviour for non-finite extremes.

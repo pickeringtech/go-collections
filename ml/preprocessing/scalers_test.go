@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/pickeringtech/go-collections/ml/preprocessing"
+	"github.com/pickeringtech/go-collections/stats"
 )
 
 func TestStandardScaler(t *testing.T) {
@@ -86,6 +87,37 @@ func TestMinMaxScaler(t *testing.T) {
 			}
 			if !floatSlicesClose(got, tc.want) {
 				t.Fatalf("Transform = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestMinMaxScalerMirrorsNormalize checks the scaler inherits Normalize's
+// semantics: the learned range skips NaN (so a NaN only affects its own
+// position) and a finite range whose width overflows still rescales.
+func TestMinMaxScalerMirrorsNormalize(t *testing.T) {
+	nan, maxF := math.NaN(), math.MaxFloat64
+	tests := []struct {
+		name  string
+		train []float64
+		input []float64
+		want  []float64
+	}{
+		{name: "leading NaN in training data", train: []float64{nan, 0, 10}, input: []float64{nan, 0, 5, 10}, want: []float64{nan, 0, 0.5, 1}},
+		{name: "overflowing training range", train: []float64{-maxF, maxF}, input: []float64{-maxF, 0, maxF}, want: []float64{0, 0.5, 1}},
+		{name: "all-NaN training data propagates", train: []float64{nan, nan}, input: []float64{1, 2}, want: []float64{nan, nan}},
+		{name: "NaN beside a degenerate range", train: []float64{nan, 5, 5}, input: []float64{nan, 5, 7}, want: []float64{nan, 0, 0}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := preprocessing.NewMinMaxScaler().Fit(tt.train).Transform(tt.input)
+			if !ok || !floatSlicesClose(got, tt.want) {
+				t.Errorf("Transform() = %v, %v; want %v, true", got, ok, tt.want)
+			}
+			norm, _ := stats.Normalize(tt.train)
+			mirrored, _ := preprocessing.NewMinMaxScaler().FitTransform(tt.train)
+			if !floatSlicesClose(mirrored, norm) {
+				t.Errorf("FitTransform() = %v, want stats.Normalize's %v", mirrored, norm)
 			}
 		})
 	}

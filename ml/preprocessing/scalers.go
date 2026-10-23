@@ -1,6 +1,10 @@
 package preprocessing
 
-import "github.com/pickeringtech/go-collections/stats"
+import (
+	"math"
+
+	"github.com/pickeringtech/go-collections/stats"
+)
 
 // StandardScaler rescales features to zero mean and unit variance using the
 // z-score (x − mean) / stddev, where mean and the population standard deviation
@@ -80,9 +84,11 @@ func (s *StandardScaler) StdDev() float64 {
 // for every subsequent Transform. Test values outside the training range map
 // outside [0, 1].
 //
-// It mirrors stats.Normalize's semantics: a feature with a degenerate training
-// range (max == min) transforms to all zeros, and non-finite values (NaN/Inf)
-// PROPAGATE rather than being rejected.
+// It mirrors stats.Normalize's semantics: the range is learned over the non-NaN
+// training values, so a NaN only affects its own position; a feature with a
+// degenerate training range (max == min) transforms every finite value to 0;
+// a range whose width overflows float64 is still rescaled (in half-units); and
+// non-finite values (NaN/Inf) PROPAGATE rather than being rejected.
 type MinMaxScaler struct {
 	min    float64
 	max    float64
@@ -94,12 +100,18 @@ func NewMinMaxScaler() *MinMaxScaler {
 	return &MinMaxScaler{}
 }
 
-// Fit learns the minimum and maximum from data and returns the receiver so
-// calls can be chained. Empty input leaves the scaler unfitted.
+// Fit learns the minimum and maximum of the non-NaN values in data and returns
+// the receiver so calls can be chained. Empty input leaves the scaler
+// unfitted. Data that is entirely NaN is not rejected: it learns a NaN range,
+// so every later Transform output is NaN (the propagate policy).
 func (s *MinMaxScaler) Fit(data []float64) *MinMaxScaler {
-	lo, hi, ok := stats.MinMax(data)
-	if !ok {
+	if len(data) == 0 {
 		return s
+	}
+	// Like stats.Normalize, skip NaN so it cannot seed (and poison) the bounds.
+	lo, hi, ok := stats.MinMax(nonMissingFloats(data, IsNaN))
+	if !ok {
+		lo, hi = math.NaN(), math.NaN()
 	}
 	s.min = lo
 	s.max = hi
@@ -109,18 +121,26 @@ func (s *MinMaxScaler) Fit(data []float64) *MinMaxScaler {
 
 // Transform applies the learned min-max scaling to input, returning a fresh
 // []float64 and an ok flag. ok is false if the scaler is unfitted. When the
-// learned range is degenerate (max == min), every value maps to 0.
+// learned range is degenerate (max == min), every finite value maps to 0 and a
+// non-finite value to NaN.
 func (s *MinMaxScaler) Transform(input []float64) ([]float64, bool) {
 	if !s.fitted {
 		return nil, false
 	}
-	out := make([]float64, len(input))
-	span := s.max - s.min
-	if span == 0 {
-		return out, true
+	// As in stats.Normalize, a range whose width overflows is rescaled in
+	// half-units, which is exact at that magnitude.
+	scale := 1.0
+	if math.IsInf(s.max-s.min, 1) {
+		scale = 0.5
 	}
+	span := s.max*scale - s.min*scale
+	out := make([]float64, len(input))
 	for i, v := range input {
-		out[i] = (v - s.min) / span
+		if span == 0 {
+			out[i] = v - v // 0 for finite v; NaN for NaN/Inf
+			continue
+		}
+		out[i] = (v*scale - s.min*scale) / span
 	}
 	return out, true
 }
