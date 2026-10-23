@@ -250,7 +250,12 @@ func (d *Digest) knots() []knot {
 	ks = append(ks, knot{value: d.min, rank: 0})
 	weightSoFar := 0.0
 	for _, c := range d.centroids {
-		ks = append(ks, knot{value: c.mean, rank: weightSoFar + c.weight/2})
+		// float64(...) forces c.weight/2 to round on its own: without it Go may
+		// fuse the halving into the addition (an FMA on arm64, ppc64le, s390x),
+		// which rounds differently. With subnormal weights that difference moves
+		// whole ranks, so the conversion keeps results identical on every
+		// platform. The same guard appears wherever a product feeds a sum below.
+		ks = append(ks, knot{value: c.mean, rank: weightSoFar + float64(c.weight/2)})
 		weightSoFar += c.weight
 	}
 	ks = append(ks, knot{value: d.max, rank: d.count})
@@ -281,7 +286,7 @@ func fraction(target, r0, r1 float64) float64 {
 	}
 	f := (target - r0) / span
 	if math.IsInf(span, 0) {
-		f = (target/2 - r0/2) / (r1/2 - r0/2)
+		f = (float64(target/2) - float64(r0/2)) / (float64(r1/2) - float64(r0/2))
 	}
 	return min(max(f, 0), 1)
 }
@@ -294,9 +299,9 @@ func fraction(target, r0, r1 float64) float64 {
 // step outside it; in particular lerp(v, v, f) is exactly v.
 func lerp(v0, v1, frac float64) float64 {
 	span := v1 - v0
-	point := v0 + frac*span
+	point := v0 + float64(frac*span)
 	if math.IsInf(span, 0) {
-		point = 2 * (v0/2 + frac*(v1/2-v0/2))
+		point = 2 * (float64(v0/2) + float64(frac*(float64(v1/2)-float64(v0/2))))
 	}
 	return min(max(point, min(v0, v1)), max(v0, v1))
 }
@@ -390,8 +395,8 @@ func (d *Digest) cdfKnots() []knot {
 			}
 		}
 		ks = append(ks,
-			knot{value: mean, rank: below + spread/2},
-			knot{value: mean, rank: below + spread/2 + point})
+			knot{value: mean, rank: below + float64(spread/2)},
+			knot{value: mean, rank: below + float64(spread/2) + point})
 		below += spread + point
 	}
 	return append(ks, knot{value: d.max, rank: d.count})
