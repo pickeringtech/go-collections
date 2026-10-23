@@ -187,38 +187,50 @@ func TestJaccard(t *testing.T) {
 		name string
 		args args
 		want float64
+		ok   bool
 	}{
 		{
 			name: "identical sets",
 			args: args{a: sets.NewHash("a", "b", "c"), b: sets.NewHash("a", "b", "c")},
 			want: 1,
+			ok:   true,
 		},
 		{
 			name: "disjoint sets",
 			args: args{a: sets.NewHash("a", "b"), b: sets.NewHash("c", "d")},
 			want: 0,
+			ok:   true,
 		},
 		{
 			name: "partial overlap",
 			args: args{a: sets.NewHash("a", "b", "c", "d"), b: sets.NewHash("b", "c", "d", "e")},
 			want: 3.0 / 5.0, // |{b,c,d}| / |{a,b,c,d,e}|
+			ok:   true,
 		},
 		{
 			name: "subset is less than one",
 			args: args{a: sets.NewHash("a", "b"), b: sets.NewHash("a", "b", "c")},
 			want: 2.0 / 3.0,
+			ok:   true,
 		},
 		{
-			name: "both empty returns zero",
+			name: "one empty set is disjoint, not undefined",
+			args: args{a: sets.NewHash[string](), b: sets.NewHash("a")},
+			want: 0,
+			ok:   true,
+		},
+		{
+			name: "both empty is undefined",
 			args: args{a: sets.NewHash[string](), b: sets.NewHash[string]()},
 			want: 0,
+			ok:   false,
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := similarity.Jaccard(tc.args.a, tc.args.b)
-			if !floatsClose(got, tc.want) {
-				t.Errorf("Jaccard() = %v, want %v", got, tc.want)
+			got, ok := similarity.Jaccard(tc.args.a, tc.args.b)
+			if ok != tc.ok || !floatsClose(got, tc.want) {
+				t.Errorf("Jaccard() = %v, %v; want %v, %v", got, ok, tc.want, tc.ok)
 			}
 		})
 	}
@@ -227,10 +239,10 @@ func TestJaccard(t *testing.T) {
 func TestJaccardSymmetric(t *testing.T) {
 	a := sets.NewHash("a", "b", "c")
 	b := sets.NewHash("b", "c", "d")
-	ab := similarity.Jaccard(a, b)
-	ba := similarity.Jaccard(b, a)
-	if !floatsClose(ab, ba) {
-		t.Fatalf("Jaccard(a,b) = %v != Jaccard(b,a) = %v", ab, ba)
+	ab, okAB := similarity.Jaccard(a, b)
+	ba, okBA := similarity.Jaccard(b, a)
+	if !okAB || !okBA || !floatsClose(ab, ba) {
+		t.Fatalf("Jaccard(a,b) = %v, %v != Jaccard(b,a) = %v, %v", ab, okAB, ba, okBA)
 	}
 }
 
@@ -242,33 +254,44 @@ func TestDice(t *testing.T) {
 		name string
 		args args
 		want float64
+		ok   bool
 	}{
 		{
 			name: "identical sets",
 			args: args{a: sets.NewHash("a", "b", "c"), b: sets.NewHash("a", "b", "c")},
 			want: 1,
+			ok:   true,
 		},
 		{
 			name: "disjoint sets",
 			args: args{a: sets.NewHash("a", "b"), b: sets.NewHash("c", "d")},
 			want: 0,
+			ok:   true,
 		},
 		{
 			name: "partial overlap",
 			args: args{a: sets.NewHash("a", "b", "c", "d"), b: sets.NewHash("b", "c", "d", "e")},
 			want: 2.0 * 3.0 / (4.0 + 4.0), // 2*|{b,c,d}| / (4+4)
+			ok:   true,
 		},
 		{
-			name: "both empty returns zero",
+			name: "one empty set is disjoint, not undefined",
+			args: args{a: sets.NewHash("a", "b"), b: sets.NewHash[string]()},
+			want: 0,
+			ok:   true,
+		},
+		{
+			name: "both empty is undefined",
 			args: args{a: sets.NewHash[string](), b: sets.NewHash[string]()},
 			want: 0,
+			ok:   false,
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := similarity.Dice(tc.args.a, tc.args.b)
-			if !floatsClose(got, tc.want) {
-				t.Errorf("Dice() = %v, want %v", got, tc.want)
+			got, ok := similarity.Dice(tc.args.a, tc.args.b)
+			if ok != tc.ok || !floatsClose(got, tc.want) {
+				t.Errorf("Dice() = %v, %v; want %v, %v", got, ok, tc.want, tc.ok)
 			}
 		})
 	}
@@ -282,48 +305,56 @@ func TestOverlap(t *testing.T) {
 		name string
 		args args
 		want float64
+		ok   bool
 	}{
 		{
 			name: "identical sets",
 			args: args{a: sets.NewHash("a", "b", "c"), b: sets.NewHash("a", "b", "c")},
 			want: 1,
+			ok:   true,
 		},
 		{
 			name: "subset returns one",
 			args: args{a: sets.NewHash("a", "b"), b: sets.NewHash("a", "b", "c")},
 			want: 1,
+			ok:   true,
 		},
 		{
 			name: "disjoint sets",
 			args: args{a: sets.NewHash("a", "b"), b: sets.NewHash("c", "d")},
 			want: 0,
+			ok:   true,
 		},
 		{
 			name: "partial overlap",
 			args: args{a: sets.NewHash("a", "b", "c", "d"), b: sets.NewHash("b", "c", "d", "e")},
 			want: 3.0 / 4.0,
+			ok:   true,
 		},
 		{
-			name: "both empty returns zero",
+			name: "both empty is undefined",
 			args: args{a: sets.NewHash[string](), b: sets.NewHash[string]()},
 			want: 0,
+			ok:   false,
 		},
 		{
-			name: "one empty returns zero",
+			name: "one empty is undefined",
 			args: args{a: sets.NewHash[string](), b: sets.NewHash("a", "b")},
 			want: 0,
+			ok:   false,
 		},
 		{
 			name: "b smaller than a",
 			args: args{a: sets.NewHash("a", "b", "c"), b: sets.NewHash("a", "b")},
 			want: 1,
+			ok:   true,
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := similarity.Overlap(tc.args.a, tc.args.b)
-			if !floatsClose(got, tc.want) {
-				t.Errorf("Overlap() = %v, want %v", got, tc.want)
+			got, ok := similarity.Overlap(tc.args.a, tc.args.b)
+			if ok != tc.ok || !floatsClose(got, tc.want) {
+				t.Errorf("Overlap() = %v, %v; want %v, %v", got, ok, tc.want, tc.ok)
 			}
 		})
 	}

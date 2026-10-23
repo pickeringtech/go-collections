@@ -83,7 +83,7 @@ func BenchmarkJaccard(b *testing.B) {
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_ = similarity.Jaccard(bm.a, bm.v)
+				_, _ = similarity.Jaccard(bm.a, bm.v)
 			}
 		})
 	}
@@ -105,7 +105,7 @@ func BenchmarkDice(b *testing.B) {
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_ = similarity.Dice(bm.a, bm.v)
+				_, _ = similarity.Dice(bm.a, bm.v)
 			}
 		})
 	}
@@ -127,7 +127,7 @@ func BenchmarkOverlap(b *testing.B) {
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_ = similarity.Overlap(bm.a, bm.v)
+				_, _ = similarity.Overlap(bm.a, bm.v)
 			}
 		})
 	}

@@ -38,62 +38,62 @@ func CosineSimilarity[T constraints.Numeric](a, b []T) (float64, bool) {
 }
 
 // Jaccard computes the Jaccard similarity coefficient between two sets:
-// |A ∩ B| / |A ∪ B|. The result is in [0, 1]: 0 when the sets are disjoint
-// and 1 when they are equal.
+// |A ∩ B| / |A ∪ B|, together with an ok flag. The result is in [0, 1]: 0 when
+// the sets are disjoint and 1 when they are equal.
 //
-// When both sets are empty the union is also empty (zero denominator), so
-// Jaccard returns 0.
+// ok is false (and the result 0) when both sets are empty: the union is then
+// empty too, so the coefficient is 0/0 — undefined, and distinct from the
+// computed 0 of two disjoint sets. One empty set against a non-empty one is
+// disjoint and yields (0, true).
 //
 // Jaccard composes Intersection and Length from the sets.Set[T]
 // interface — |A ∪ B| is derived as |A| + |B| − |A ∩ B|, avoiding an extra
 // allocation for the union set.
-func Jaccard[T comparable](a, b sets.Set[T]) float64 {
-	intersection := a.Intersection(b)
-	intersectionLen := intersection.Length()
-	denominator := float64(a.Length() + b.Length() - intersectionLen)
-	if denominator == 0 {
-		return 0
+func Jaccard[T comparable](a, b sets.Set[T]) (float64, bool) {
+	intersectionLen := a.Intersection(b).Length()
+	union := a.Length() + b.Length() - intersectionLen
+	if union == 0 {
+		return 0, false
 	}
-	return float64(intersectionLen) / denominator
+	return float64(intersectionLen) / float64(union), true
 }
 
 // Dice computes the Sørensen–Dice similarity coefficient between two sets:
-// 2|A ∩ B| / (|A| + |B|). The result is in [0, 1]: 0 when the sets are
-// disjoint and 1 when they are equal.
+// 2|A ∩ B| / (|A| + |B|), together with an ok flag. The result is in [0, 1]: 0
+// when the sets are disjoint and 1 when they are equal.
 //
 // Dice weights the intersection more heavily than Jaccard for the same overlap.
-// When both sets are empty (zero denominator), Dice returns 0.
+// ok is false (and the result 0) when both sets are empty (a zero denominator,
+// so the coefficient is undefined); one empty set against a non-empty one
+// yields (0, true).
 //
 // Dice composes Intersection and Length from the sets.Set[T] interface — no
 // set algebra is reimplemented here.
-func Dice[T comparable](a, b sets.Set[T]) float64 {
-	denominator := float64(a.Length() + b.Length())
-	if denominator == 0 {
-		return 0
+func Dice[T comparable](a, b sets.Set[T]) (float64, bool) {
+	total := a.Length() + b.Length()
+	if total == 0 {
+		return 0, false
 	}
-	intersection := a.Intersection(b)
-	return 2 * float64(intersection.Length()) / denominator
+	return 2 * float64(a.Intersection(b).Length()) / float64(total), true
 }
 
 // Overlap computes the Overlap coefficient (Szymkiewicz–Simpson coefficient)
-// between two sets: |A ∩ B| / min(|A|, |B|). The result is in [0, 1]: 1 when
-// the smaller set is a subset of the larger (even if the sets are not equal),
-// which is the key distinction from Jaccard and Dice — it measures containment
-// rather than mutual similarity. The coefficient is symmetric. When either set
-// is empty (zero denominator), Overlap returns 0.
+// between two sets: |A ∩ B| / min(|A|, |B|), together with an ok flag. The
+// result is in [0, 1]: 1 when the smaller set is a subset of the larger (even
+// if the sets are not equal), which is the key distinction from Jaccard and
+// Dice — it measures containment rather than mutual similarity. The
+// coefficient is symmetric.
+//
+// ok is false (and the result 0) when either set is empty: min(|A|, |B|) is
+// then 0, so the coefficient is 0/0 — undefined, since an empty set has no
+// elements whose containment could be measured.
 //
 // Overlap composes Intersection and Length from the sets.Set[T] interface — no
 // set algebra is reimplemented here.
-func Overlap[T comparable](a, b sets.Set[T]) float64 {
-	minLen := a.Length()
-	bLen := b.Length()
-	if bLen < minLen {
-		minLen = bLen
+func Overlap[T comparable](a, b sets.Set[T]) (float64, bool) {
+	smaller := min(a.Length(), b.Length())
+	if smaller == 0 {
+		return 0, false
 	}
-	denominator := float64(minLen)
-	if denominator == 0 {
-		return 0
-	}
-	intersection := a.Intersection(b)
-	return float64(intersection.Length()) / denominator
+	return float64(a.Intersection(b).Length()) / float64(smaller), true
 }
