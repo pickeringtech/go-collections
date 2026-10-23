@@ -123,7 +123,8 @@ func TestSilhouetteRejectsBadInput(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, ok := clustering.SilhouetteScore(tt.points, tt.labels); ok {
+			_, ok := clustering.SilhouetteScore(tt.points, tt.labels)
+			if ok {
 				t.Error("ok = true, want false")
 			}
 		})
@@ -150,10 +151,12 @@ func TestSilhouetteScoreWithCustomMetric(t *testing.T) {
 }
 
 func TestSilhouetteWithNilMetric(t *testing.T) {
-	if s, ok := clustering.SilhouetteSamplesWith(wellSeparated, twoClusters, nil); ok || s != nil {
+	s, ok := clustering.SilhouetteSamplesWith(wellSeparated, twoClusters, nil)
+	if ok || s != nil {
 		t.Errorf("SilhouetteSamplesWith(nil) = %v %v, want nil false", s, ok)
 	}
-	if score, ok := clustering.SilhouetteScoreWith(wellSeparated, twoClusters, nil); ok || score != 0 {
+	score, ok := clustering.SilhouetteScoreWith(wellSeparated, twoClusters, nil)
+	if ok || score != 0 {
 		t.Errorf("SilhouetteScoreWith(nil) = %v %v, want 0 false", score, ok)
 	}
 }
@@ -169,10 +172,12 @@ func TestSilhouetteRejectsMisbehavingMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if s, ok := clustering.SilhouetteSamplesWith(wellSeparated, twoClusters, tt.dist); ok || s != nil {
+			s, ok := clustering.SilhouetteSamplesWith(wellSeparated, twoClusters, tt.dist)
+			if ok || s != nil {
 				t.Errorf("SilhouetteSamplesWith = %v %v, want nil false", s, ok)
 			}
-			if score, ok := clustering.SilhouetteScoreWith(wellSeparated, twoClusters, tt.dist); ok || score != 0 {
+			score, ok := clustering.SilhouetteScoreWith(wellSeparated, twoClusters, tt.dist)
+			if ok || score != 0 {
 				t.Errorf("SilhouetteScoreWith = %v %v, want 0 false", score, ok)
 			}
 		})
@@ -188,10 +193,12 @@ func TestSilhouetteRejectsOverflowingMetric(t *testing.T) {
 	labels := []int{0, 0, 0, 1, 1}
 	huge := func(a, b []float64) float64 { return math.MaxFloat64 }
 
-	if s, ok := clustering.SilhouetteSamplesWith(points, labels, huge); ok || s != nil {
+	s, ok := clustering.SilhouetteSamplesWith(points, labels, huge)
+	if ok || s != nil {
 		t.Errorf("SilhouetteSamplesWith = %v %v, want nil false", s, ok)
 	}
-	if score, ok := clustering.SilhouetteScoreWith(points, labels, huge); ok || score != 0 {
+	score, ok := clustering.SilhouetteScoreWith(points, labels, huge)
+	if ok || score != 0 {
 		t.Errorf("SilhouetteScoreWith = %v %v, want 0 false", score, ok)
 	}
 }

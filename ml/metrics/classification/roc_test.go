@@ -112,13 +112,16 @@ func TestROCCurve(t *testing.T) {
 		}
 	}
 
-	if _, ok := classification.ROCCurve([]int{1, 1}, []float64{0.2, 0.5}, 1); ok {
+	_, ok = classification.ROCCurve([]int{1, 1}, []float64{0.2, 0.5}, 1)
+	if ok {
 		t.Error("single class: ok = true, want false")
 	}
-	if _, ok := classification.ROCCurve([]int{0, 1}, []float64{0.2}, 1); ok {
+	_, ok = classification.ROCCurve([]int{0, 1}, []float64{0.2}, 1)
+	if ok {
 		t.Error("length mismatch: ok = true, want false")
 	}
-	if _, ok := classification.ROCCurve([]int{0, 1}, []float64{0.2, math.NaN()}, 1); ok {
+	_, ok = classification.ROCCurve([]int{0, 1}, []float64{0.2, math.NaN()}, 1)
+	if ok {
 		t.Error("non-finite score: ok = true, want false")
 	}
 }

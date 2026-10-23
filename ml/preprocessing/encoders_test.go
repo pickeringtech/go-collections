@@ -31,7 +31,8 @@ func TestOneHotEncoderUnseenIsAllZero(t *testing.T) {
 }
 
 func TestOneHotEncoderUnfitted(t *testing.T) {
-	if _, ok := preprocessing.NewOneHotEncoder[int]().Transform([]int{1}); ok {
+	_, ok := preprocessing.NewOneHotEncoder[int]().Transform([]int{1})
+	if ok {
 		t.Fatalf("unfitted Transform reported ok")
 	}
 }
@@ -134,7 +135,8 @@ func TestTargetEncoder(t *testing.T) {
 
 func TestTargetEncoderMismatchedLengthsLeavesUnfitted(t *testing.T) {
 	enc := preprocessing.NewTargetEncoder[string]().Fit([]string{"a", "b"}, []float64{1})
-	if _, ok := enc.Transform([]string{"a"}); ok {
+	_, ok := enc.Transform([]string{"a"})
+	if ok {
 		t.Fatalf("Fit with mismatched lengths reported fitted")
 	}
 }
