@@ -1,4 +1,3 @@
-// Package sketches is documented in doc.go.
 package sketches
 
 import (
