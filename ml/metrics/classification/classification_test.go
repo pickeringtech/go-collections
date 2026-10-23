@@ -205,3 +205,43 @@ func TestBinaryDegenerate(t *testing.T) {
 		t.Error("RecallBinary empty: ok = true, want false")
 	}
 }
+
+// TestLabelMetricsRejectNaNLabels guards the label index against NaN: NaN is
+// unequal to itself, so every NaN became a fresh label while its count was
+// credited to whichever label happened to be first ([1 NaN NaN 2], and
+// Count(1, 1) == 2 for ConfusionMatrix({1,NaN,2},{1,NaN,1})). Every metric
+// that takes labels now reports ok == false instead.
+func TestLabelMetricsRejectNaNLabels(t *testing.T) {
+	nan := math.NaN()
+	yTrue := []float64{1, nan, 2}
+	yPred := []float64{1, nan, 1}
+	clean := []float64{1, 2, 2}
+	tests := []struct {
+		name string
+		fn   func() bool
+	}{
+		{name: "ConfusionMatrix", fn: func() bool { _, ok := classification.ConfusionMatrix(yTrue, yPred); return ok }},
+		{name: "ConfusionMatrix with NaN only in yPred", fn: func() bool { _, ok := classification.ConfusionMatrix(clean, yPred); return ok }},
+		{name: "Accuracy", fn: func() bool { _, ok := classification.Accuracy(yTrue, clean); return ok }},
+		{name: "Precision", fn: func() bool { _, ok := classification.Precision(yTrue, yPred, classification.Micro); return ok }},
+		{name: "Recall", fn: func() bool { _, ok := classification.Recall(clean, yPred, classification.Macro); return ok }},
+		{name: "F1", fn: func() bool { _, ok := classification.F1(yTrue, clean, classification.Weighted); return ok }},
+		{name: "PrecisionBinary with a NaN label", fn: func() bool { _, ok := classification.PrecisionBinary(yTrue, clean, 1); return ok }},
+		{name: "RecallBinary with a NaN positive", fn: func() bool { _, ok := classification.RecallBinary(clean, clean, nan); return ok }},
+		{name: "F1Binary with a NaN prediction", fn: func() bool { _, ok := classification.F1Binary(clean, yPred, 2); return ok }},
+		{name: "ROCCurve", fn: func() bool { _, ok := classification.ROCCurve(yTrue, []float64{0.9, 0.5, 0.1}, 1); return ok }},
+		{name: "AUC", fn: func() bool {
+			_, ok := classification.AUC([]float64{1, 2, nan, 1}, []float64{0.9, 0.5, 0.3, 0.1}, 1)
+			return ok
+		}},
+		{name: "LogLoss", fn: func() bool { _, ok := classification.LogLoss(yTrue, []float64{0.9, 0.5, 0.1}, 1); return ok }},
+		{name: "LogLoss with a NaN positive", fn: func() bool { _, ok := classification.LogLoss(clean, []float64{0.9, 0.5, 0.1}, nan); return ok }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.fn() {
+				t.Errorf("ok = true, want false")
+			}
+		})
+	}
+}

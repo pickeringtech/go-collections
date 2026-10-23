@@ -33,6 +33,13 @@ func finiteScores(scores []float64) bool {
 	return true
 }
 
+// scoredLabels reports whether yTrue and the positive label can be scored
+// against n scores or probabilities: yTrue non-empty with exactly n labels,
+// and no label — positive included — NaN.
+func scoredLabels[T comparable](yTrue []T, n int, positive T) bool {
+	return len(yTrue) != 0 && len(yTrue) == n && !hasNaN(yTrue) && positive == positive
+}
+
 // countClasses returns the number of positive and negative samples for the
 // designated positive label.
 func countClasses[T comparable](yTrue []T, positive T) (pos, neg int) {
@@ -55,11 +62,12 @@ func countClasses[T comparable](yTrue []T, positive T) (pos, neg int) {
 // ok is false (and the curve is the zero Curve) when the inputs cannot be
 // summarised:
 //   - yTrue is empty, or len(yTrue) != len(scores);
+//   - any label in yTrue, or the positive label, is NaN;
 //   - any score is non-finite (NaN or ±Inf);
 //   - the data is single-class (no positives or no negatives), for which a TPR
 //     or FPR is undefined.
 func ROCCurve[T comparable](yTrue []T, scores []float64, positive T) (Curve, bool) {
-	if len(yTrue) == 0 || len(yTrue) != len(scores) {
+	if !scoredLabels(yTrue, len(scores), positive) {
 		return Curve{}, false
 	}
 	if !finiteScores(scores) {
@@ -136,9 +144,10 @@ func tieAveragedRanks(scores []float64) []float64 {
 // ranker, 0.5 is random, and below 0.5 is worse than random.
 //
 // ok is false (and the result is 0) under the same conditions as ROCCurve:
-// empty or unequal-length input, any non-finite score, or single-class data.
+// empty or unequal-length input, a NaN label, any non-finite score, or
+// single-class data.
 func AUC[T comparable](yTrue []T, scores []float64, positive T) (float64, bool) {
-	if len(yTrue) == 0 || len(yTrue) != len(scores) {
+	if !scoredLabels(yTrue, len(scores), positive) {
 		return 0, false
 	}
 	if !finiteScores(scores) {
@@ -172,13 +181,13 @@ func AUC[T comparable](yTrue []T, scores []float64, positive T) (float64, bool) 
 // Probabilities are clamped to [1e-15, 1−1e-15] before the logarithm so a
 // confident-but-wrong prediction yields a large finite penalty rather than
 // +Inf. ok is false (and the result is 0) when the inputs cannot be summarised:
-// yTrue is empty, len(yTrue) != len(probs), or any probability is NaN or lies
-// outside [0, 1].
+// yTrue is empty, len(yTrue) != len(probs), any label (positive included) is
+// NaN, or any probability is NaN or lies outside [0, 1].
 //
 // This is the binary case; multiclass log-loss over a probability matrix is not
 // yet provided.
 func LogLoss[T comparable](yTrue []T, probs []float64, positive T) (float64, bool) {
-	if len(yTrue) == 0 || len(yTrue) != len(probs) {
+	if !scoredLabels(yTrue, len(probs), positive) {
 		return 0, false
 	}
 
