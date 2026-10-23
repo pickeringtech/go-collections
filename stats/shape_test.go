@@ -50,6 +50,48 @@ func TestSkewness(t *testing.T) {
 	})
 }
 
+// TestShapeRejectsInexactConstantData guards the constant-data check against
+// round-off: values like 0.1 are not exactly representable, so a sum/n mean
+// drifts an ulp away from them and leaves a tiny non-zero m2 that would turn
+// 0/0 into a spurious finite skewness or kurtosis.
+func TestShapeRejectsInexactConstantData(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []float64
+	}{
+		{name: "three tenths", input: []float64{0.1, 0.1, 0.1}},
+		{name: "many thirds", input: []float64{1.0 / 3, 1.0 / 3, 1.0 / 3, 1.0 / 3, 1.0 / 3, 1.0 / 3, 1.0 / 3}},
+		{name: "large inexact constant", input: []float64{1e16 + 2, 1e16 + 2, 1e16 + 2}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			skew, ok := stats.Skewness(tt.input)
+			if ok {
+				t.Errorf("Skewness(%v) = %v, true; want ok == false", tt.input, skew)
+			}
+			kurt, ok := stats.Kurtosis(tt.input)
+			if ok {
+				t.Errorf("Kurtosis(%v) = %v, true; want ok == false", tt.input, kurt)
+			}
+		})
+	}
+}
+
+// TestShapeConstantNonFinitePropagates checks that the constant-data rejection
+// does not swallow non-finite input: identical infinities still propagate a
+// non-finite result with ok == true, per the variance family's policy.
+func TestShapeConstantNonFinitePropagates(t *testing.T) {
+	input := []float64{math.Inf(1), math.Inf(1)}
+	skew, ok := stats.Skewness(input)
+	if !ok || !math.IsNaN(skew) {
+		t.Errorf("Skewness = %v, %v; want NaN, true", skew, ok)
+	}
+	kurt, ok := stats.Kurtosis(input)
+	if !ok || !math.IsNaN(kurt) {
+		t.Errorf("Kurtosis = %v, %v; want NaN, true", kurt, ok)
+	}
+}
+
 func TestKurtosis(t *testing.T) {
 	t.Run("canonical dataset", func(t *testing.T) {
 		got, ok := stats.Kurtosis(shapeData)
