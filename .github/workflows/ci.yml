@@ -412,20 +412,26 @@ jobs:
           cache-dependency-path: go.mod
       # Cache the compiled gosec binary, keyed on pinned-version + Go-minor + OS
       # (issue #151). The pinned version lives in `env:`, so the key is stable and
-      # busts only on a deliberate bump. Restore-then-`go install`: install is a
-      # fast no-op on a hit, removing a per-run rebuild of a non-trivial program.
+      # busts only on a deliberate bump. On a hit the install step is SKIPPED, not
+      # re-run: `go install tool@version` is not a no-op even with the binary in
+      # place — it re-resolves the tool's whole module graph (and, under
+      # GOTOOLCHAIN=auto, a Go toolchain) from the module proxy, which made it the
+      # job's slowest and least reliable step. On a miss the install retries
+      # transient proxy errors (.github/scripts/retry.sh).
       # (govulncheck's cache moved with it to maintenance.yml.)
       - name: Cache gosec binary
+        id: gosec-cache
         uses: actions/cache@v6
         with:
           path: ~/go/bin/gosec
           key: ${{ runner.os }}-tool-gosec-${{ env.GOSEC_VERSION }}-go${{ env.GO_PRIMARY }}
       - name: Install gosec (pinned)
+        if: steps.gosec-cache.outputs.cache-hit != 'true'
         # gosec requires a newer Go than the floor to BUILD — see the
         # GOTOOLCHAIN note on the workflow env.
         env:
           GOTOOLCHAIN: auto
-        run: go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
+        run: .github/scripts/retry.sh go install "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}"
       - name: Security lint (gosec)
         # Blocking: gosec reports no issues, so it now gates against regressions.
         run: gosec ./...
@@ -667,9 +673,9 @@ jobs:
           cache-dependency-path: go.mod
 
       # Cache the compiled benchstat binary (issue #151) — see the security job
-      # for the keying rationale. Restored before the install below so install is
-      # a fast no-op on a cache hit.
+      # for the keying rationale and why a hit skips the install entirely.
       - name: Cache benchstat binary
+        id: benchstat-cache
         uses: actions/cache@v6
         with:
           path: ~/go/bin/benchstat
@@ -678,11 +684,12 @@ jobs:
       # outside the work tree, so switching the tree to the base commit can't
       # disturb it.
       - name: Install benchstat (pinned)
+        if: steps.benchstat-cache.outputs.cache-hit != 'true'
         # x/perf requires a newer Go than the floor to BUILD — see the
         # GOTOOLCHAIN note on the workflow env.
         env:
           GOTOOLCHAIN: auto
-        run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
+        run: .github/scripts/retry.sh go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
 
       # push to main: no base to diff against — just confirm benchmarks compile
       # and run (the previous smoke behaviour).
@@ -902,15 +909,17 @@ jobs:
           cache-dependency-path: go.mod
       # Cache the compiled benchstat binary (issue #151) — see the security job.
       - name: Cache benchstat binary
+        id: benchstat-cache
         uses: actions/cache@v6
         with:
           path: ~/go/bin/benchstat
           key: ${{ runner.os }}-tool-benchstat-${{ env.BENCHSTAT_VERSION }}-go${{ env.GO_PRIMARY }}
       - name: Install benchstat (pinned)
+        if: steps.benchstat-cache.outputs.cache-hit != 'true'
         # Same pinned version as the PR A/B job, for a reproducible CSV format.
         env:
           GOTOOLCHAIN: auto
-        run: go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
+        run: .github/scripts/retry.sh go install "golang.org/x/perf/cmd/benchstat@${BENCHSTAT_VERSION}"
       - name: Capture CI dataset, archive trend snapshot, and regenerate the report
         # Captures the *ci* (secondary/indicative) environment only, archives this
         # commit's raw multi-sample run into the long-term trend store

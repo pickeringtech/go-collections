@@ -43,13 +43,28 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.mod
       # Cache the compiled gorelease binary, keyed on its pinned version + OS
-      # (issue #151). Restore-then-`go install`: install is a fast no-op on a hit
-      # and only recompiles on a deliberate version bump.
+      # (issue #151). A hit skips the install: `go install tool@version` would
+      # otherwise re-download the tool's module graph and toolchain from the
+      # proxy every run. A miss retries transient proxy errors
+      # (.github/scripts/retry.sh). See ci.yml's security job.
       - name: Cache gorelease binary
+        id: gorelease-cache
         uses: actions/cache@v6
         with:
           path: ~/go/bin/gorelease
           key: ${{ runner.os }}-tool-gorelease-${{ env.GORELEASE_VERSION }}
+      - name: Install gorelease (pinned)
+        if: steps.gorelease-cache.outputs.cache-hit != 'true'
+        # Report-only like the report step below: a failed install leaves the
+        # report step to say the analysis could not run, rather than failing a
+        # release-time check that gates nothing pre-1.0.
+        continue-on-error: true
+        env:
+          # x/exp (gorelease) requires a newer Go than the go.mod floor to build,
+          # and setup-go exports GOTOOLCHAIN=local. Without this the install
+          # fails and no API report is produced.
+          GOTOOLCHAIN: auto
+        run: .github/scripts/retry.sh go install "golang.org/x/exp/cmd/gorelease@${GORELEASE_VERSION}"
       - name: Report API compatibility and implied semver bump
         # Report-only pre-1.0 (see the header): breaking changes are allowed while
         # major version is 0, so this surfaces the verdict without gating.
@@ -61,13 +76,8 @@ jobs:
           # The ref that triggered this run: a tag name (e.g. v0.1.0) on a tag
           # push, or the branch name on workflow_dispatch.
           CURRENT_REF: ${{ github.ref_name }}
-          # x/exp (gorelease) requires a newer Go than the go.mod floor to build,
-          # and setup-go exports GOTOOLCHAIN=local. Without this the install fails
-          # — silently, given continue-on-error — and no API report is produced.
-          GOTOOLCHAIN: auto
         run: |
           set -uo pipefail
-          go install "golang.org/x/exp/cmd/gorelease@${GORELEASE_VERSION}"
 
           # Latest released semver tag (vMAJOR.MINOR.PATCH; skip pre-releases),
           # EXCLUDING the tag that triggered this run so a tag push compares

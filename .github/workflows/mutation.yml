@@ -77,20 +77,24 @@ jobs:
       # Cache the compiled gremlins binary, keyed on its pinned version + OS
       # (issue #151). gremlins builds itself with the Go its own module pins
       # (GOTOOLCHAIN=auto below), so that version is fixed per GREMLINS_VERSION —
-      # the pinned tool version alone is a stable key. Restore-then-install: the
-      # install is a fast no-op on a hit and only rebuilds on a version bump.
+      # the pinned tool version alone is a stable key. A hit skips the install:
+      # `go install tool@version` would otherwise re-download the tool's module
+      # graph and toolchain from the proxy every run. A miss retries transient
+      # proxy errors (.github/scripts/retry.sh). See ci.yml's security job.
       - name: Cache gremlins binary
+        id: gremlins-cache
         uses: actions/cache@v6
         with:
           path: ~/go/bin/gremlins
           key: ${{ runner.os }}-tool-gremlins-${{ env.GREMLINS_VERSION }}
       - name: Install gremlins (pinned)
+        if: steps.gremlins-cache.outputs.cache-hit != 'true'
         # GOTOOLCHAIN=auto lets `go install` fetch the newer Go the gremlins
         # module requires to *build the tool*, without changing the `go`
         # toolchain that gremlins itself then uses for `go test` on this module.
         env:
           GOTOOLCHAIN: auto
-        run: go install "github.com/go-gremlins/gremlins/cmd/gremlins@${GREMLINS_VERSION}"
+        run: .github/scripts/retry.sh go install "github.com/go-gremlins/gremlins/cmd/gremlins@${GREMLINS_VERSION}"
       - name: Unleash gremlins on the whole module
         continue-on-error: true   # report-only — see gating policy at top of file
         run: |
@@ -147,16 +151,17 @@ jobs:
       # Cache the compiled gremlins binary (issue #151) — see the full job above.
       # Gated on the same condition as the install so a tests-only PR skips both.
       - name: Cache gremlins binary
+        id: gremlins-cache
         if: steps.changed.outputs.run == 'true'
         uses: actions/cache@v6
         with:
           path: ~/go/bin/gremlins
           key: ${{ runner.os }}-tool-gremlins-${{ env.GREMLINS_VERSION }}
       - name: Install gremlins (pinned)
-        if: steps.changed.outputs.run == 'true'
+        if: steps.changed.outputs.run == 'true' && steps.gremlins-cache.outputs.cache-hit != 'true'
         env:
           GOTOOLCHAIN: auto
-        run: go install "github.com/go-gremlins/gremlins/cmd/gremlins@${GREMLINS_VERSION}"
+        run: .github/scripts/retry.sh go install "github.com/go-gremlins/gremlins/cmd/gremlins@${GREMLINS_VERSION}"
       - name: Unleash gremlins on lines changed by this merge
         if: steps.changed.outputs.run == 'true'
         continue-on-error: true   # report-only — see gating policy at top of file
