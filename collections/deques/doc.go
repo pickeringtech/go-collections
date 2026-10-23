@@ -62,13 +62,18 @@
 //
 // In-place operations modify the receiver and report only a status:
 //
-//	accepted := d.PushBackInPlace(element)  // bool — false only on RejectWhenFull full
+//	accepted := d.PushBackInPlace(element)  // bool — false on RejectWhenFull full, or capacity 0
 //	v, ok := d.PopFrontInPlace()            // element, present?
 //	d.Clear()                               // empties the deque
 //
 // For a full bounded RejectWhenFull deque, the immutable PushFront/PushBack
 // return an unchanged copy; use the in-place form when you need to know whether
 // the element was accepted.
+//
+// A bounded deque of capacity zero (NewBoundedRingBuffer treats a negative
+// capacity as zero) can hold nothing: it is always both empty and full, and it
+// rejects every push under either policy — the in-place forms report false and
+// the immutable forms return an unchanged, empty copy.
 //
 // # Iteration
 //
