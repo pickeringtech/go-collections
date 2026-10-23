@@ -287,3 +287,33 @@ func TestFilter_SignedZeroNoFalseNegative(t *testing.T) {
 		})
 	}
 }
+
+// TestFilter_InterfaceKeysDistinguishTypes checks that a Filter[any] does not
+// report a value of another dynamic type as present just because it has the
+// same numeric value: any(int(5)) and any(int64(5)) are distinct keys under ==.
+// The rate is set low enough that a false positive here is not plausible.
+func TestFilter_InterfaceKeysDistinguishTypes(t *testing.T) {
+	f := mustNew[any](t, 100, 1e-9)
+	f.Add(int(5))
+	f.Add(1.0)
+	tests := []struct {
+		name  string
+		probe any
+		want  bool
+	}{
+		{"same type and value is present", int(5), true},
+		{"float64 is present", 1.0, true},
+		{"int64 of the same value is absent", int64(5), false},
+		{"uint8 of the same value is absent", uint8(5), false},
+		{"uintptr of the same value is absent", uintptr(5), false},
+		{"uint64 bit pattern of the float is absent", math.Float64bits(1.0), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := f.Contains(tt.probe)
+			if got != tt.want {
+				t.Errorf("Contains(%T(%v)) = %v, want %v", tt.probe, tt.probe, got, tt.want)
+			}
+		})
+	}
+}

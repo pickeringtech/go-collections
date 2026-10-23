@@ -12,11 +12,18 @@
 // independent hash functions (as repeated HyperLogLog trials or a Count-Min
 // sketch's rows require), not as relabellings of one another.
 //
-// For any other comparable key type Hash64 falls back to hash/maphash's
-// Comparable (Go 1.24+), keyed by a process-stable seed created once at init.
-// That keeps every sketch in a single process mutually mergeable, but the
-// values are not reproducible across processes for those exotic key types —
-// pass a custom hasher to a sketch if you need that.
+// When the key type is an interface (such as any), the same holds for a
+// dynamic value of one of those predeclared types: a fixed tag for the dynamic
+// type is hashed ahead of the value, so values that differ only in type
+// (any(int(5)) and any(int64(5)), which == treats as distinct) hash apart.
+//
+// For any other comparable key type — or dynamic type, behind an interface —
+// Hash64 falls back to hash/maphash's Comparable (Go 1.24+), keyed by a
+// process-stable seed created once at init. That keeps every sketch in a
+// single process mutually mergeable, but the values are not reproducible
+// across processes for those exotic key types — pass a custom hasher to a
+// sketch if you need that. maphash hashes a NaN inside such a key randomly, so
+// each such key behaves as a new element, as it does as a Go map key.
 package sketchhash
 
 import (
@@ -47,22 +54,21 @@ var comparableSeed = maphash.MakeSeed()
 // equal: -0 hashes as +0. NaN is never equal to anything, so it is given one
 // fixed meaning instead: every NaN, whatever its sign or payload, hashes
 // alike, and a sketch therefore treats all NaNs as a single element.
+//
+// When T is an interface type (such as any), == compares the dynamic type as
+// well as the value — any(int(5)) != any(int64(5)) — so Hash64 folds a fixed
+// per-type tag into the hash before the value. A dynamic value of one of the
+// predeclared string, integer or float types therefore stays stable across
+// processes, and values of different dynamic types hash apart; any other
+// dynamic type (a named or composite type) takes the maphash fallback, which
+// includes its type.
 func Hash64[T comparable](seed uint64, v T) uint64 {
 	basis := seedBasis(seed)
-	switch x := any(v).(type) {
-	case string:
-		return mix64(fnvString(basis, x))
-	case float32:
-		return mix64(fnvUint(basis, float32Bits(x)))
-	case float64:
-		return mix64(fnvUint(basis, float64Bits(x)))
-	default:
-		u, ok := asUint64(v)
-		if ok {
-			return mix64(fnvUint(basis, u))
-		}
-		return mix64(maphash.Comparable(comparableSeed, v) ^ basis)
+	h, ok := hashPredeclared(basis, any(v), isInterface[T]())
+	if ok {
+		return h
 	}
+	return mix64(maphash.Comparable(comparableSeed, v) ^ basis)
 }
 
 // seedBasis derives the hashing start state from seed by running it through
@@ -76,37 +82,107 @@ func seedBasis(seed uint64) uint64 {
 	return mix64(seed)
 }
 
-// asUint64 returns the bit pattern of v as a uint64 for the integer kinds,
-// reporting ok=false for any other type so Hash64 can fall back. It is split out
-// from Hash64 to keep each function's branching modest. Signed kinds are widened
-// to int64 (a safe conversion) and reinterpreted by signedBits; unsigned kinds
-// widen directly.
-func asUint64[T comparable](v T) (uint64, bool) {
-	switch x := any(v).(type) {
-	case int:
-		return signedBits(int64(x)), true
-	case int8:
-		return signedBits(int64(x)), true
-	case int16:
-		return signedBits(int64(x)), true
-	case int32:
-		return signedBits(int64(x)), true
-	case int64:
-		return signedBits(x), true
-	case uint:
-		return uint64(x), true
-	case uint8:
-		return uint64(x), true
-	case uint16:
-		return uint64(x), true
-	case uint32:
-		return uint64(x), true
-	case uint64:
-		return x, true
-	case uintptr:
-		return uint64(x), true
-	default:
+// isInterface reports whether T is an interface type: only an interface
+// type's zero value converts to a nil any.
+func isInterface[T comparable]() bool {
+	var zero T
+	return any(zero) == nil
+}
+
+// kind tags the predeclared type of a key whose static type is an interface,
+// so that values of different dynamic types hash apart. The values are part of
+// the stable hash output and must never be renumbered.
+type kind uint64
+
+const (
+	kindString kind = iota + 1
+	kindFloat32
+	kindFloat64
+	kindInt
+	kindInt8
+	kindInt16
+	kindInt32
+	kindInt64
+	kindUint
+	kindUint8
+	kindUint16
+	kindUint32
+	kindUint64
+	kindUintptr
+)
+
+// hashPredeclared hashes x when its dynamic type is string or one of the
+// predeclared integer or float types, reporting ok=false for any other type so
+// Hash64 can fall back. tagged reports whether the key's static type is an
+// interface, in which case the type's tag is hashed ahead of the value (see
+// Hash64); for a concrete key type the tag would be the same for every key, so
+// it is skipped.
+func hashPredeclared(basis uint64, x any, tagged bool) (uint64, bool) {
+	s, isString := x.(string)
+	if isString {
+		return mix64(fnvString(withKind(basis, tagged, kindString), s)), true
+	}
+	bits, k, ok := numericBits(x)
+	if !ok {
 		return 0, false
+	}
+	return mix64(fnvUint(withKind(basis, tagged, k), bits)), true
+}
+
+// withKind hashes the type tag k into basis when tagged is set, and returns
+// basis unchanged otherwise.
+func withKind(basis uint64, tagged bool, k kind) uint64 {
+	if !tagged {
+		return basis
+	}
+	return fnvUint(basis, uint64(k))
+}
+
+// numericBits returns the 64-bit pattern Hash64 hashes for x and x's type tag
+// when x is a predeclared float or integer, and ok=false otherwise. Floats are
+// canonicalised by float32Bits/float64Bits.
+func numericBits(x any) (uint64, kind, bool) {
+	switch f := x.(type) {
+	case float32:
+		return float32Bits(f), kindFloat32, true
+	case float64:
+		return float64Bits(f), kindFloat64, true
+	default:
+		return integerBits(x)
+	}
+}
+
+// integerBits returns the bit pattern of x as a uint64, and x's type tag, for
+// the predeclared integer types, reporting ok=false for any other type. It is
+// split out from numericBits to keep each function's branching modest. Signed
+// kinds are widened to int64 (a safe conversion) and reinterpreted by
+// signedBits; unsigned kinds widen directly.
+func integerBits(x any) (uint64, kind, bool) {
+	switch n := x.(type) {
+	case int:
+		return signedBits(int64(n)), kindInt, true
+	case int8:
+		return signedBits(int64(n)), kindInt8, true
+	case int16:
+		return signedBits(int64(n)), kindInt16, true
+	case int32:
+		return signedBits(int64(n)), kindInt32, true
+	case int64:
+		return signedBits(n), kindInt64, true
+	case uint:
+		return uint64(n), kindUint, true
+	case uint8:
+		return uint64(n), kindUint8, true
+	case uint16:
+		return uint64(n), kindUint16, true
+	case uint32:
+		return uint64(n), kindUint32, true
+	case uint64:
+		return n, kindUint64, true
+	case uintptr:
+		return uint64(n), kindUintptr, true
+	default:
+		return 0, 0, false
 	}
 }
 

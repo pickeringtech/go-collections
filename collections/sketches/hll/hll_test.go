@@ -275,3 +275,22 @@ func TestSketch_SeedsGiveIndependentEstimates(t *testing.T) {
 			spread, se/2, 2*se, se)
 	}
 }
+
+// TestSketch_InterfaceKeysCountedByType checks that a Sketch[any] counts values
+// of different dynamic types as distinct, as == does: int(i), int64(i),
+// uint32(i) and float64(i) are four keys, not one.
+func TestSketch_InterfaceKeysCountedByType(t *testing.T) {
+	s := mustNew[any](t)
+	for i := 0; i < 1000; i++ {
+		s.Add(int(i))
+		s.Add(int64(i))
+		s.Add(uint32(i))
+		s.Add(float64(i))
+	}
+	got := s.Count()
+	tolerance := 3*s.StandardError() + 0.01
+	e := relErr(got, 4000)
+	if e > tolerance {
+		t.Errorf("Count() = %d for 4000 distinct any keys, relative error %.4f exceeds %.4f", got, e, tolerance)
+	}
+}

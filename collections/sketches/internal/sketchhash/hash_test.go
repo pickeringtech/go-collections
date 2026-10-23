@@ -215,3 +215,73 @@ func TestHash64_SeedNotXoredIntoInput(t *testing.T) {
 		})
 	}
 }
+
+// TestHash64_InterfaceKeysIncludeDynamicType checks that, when the key type is
+// an interface, values of different dynamic types hash apart. Under == an
+// any(int(5)) and an any(int64(5)) are distinct keys, but a type switch on the
+// dynamic value used to drop the type and hash both as the integer 5 — so
+// HyperLogLog[any] undercounted and a Bloom filter[any] reported phantom
+// members.
+func TestHash64_InterfaceKeysIncludeDynamicType(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b any
+	}{
+		{"int vs int64", int(5), int64(5)},
+		{"int vs uint8", int(5), uint8(5)},
+		{"int vs uintptr", int(5), uintptr(5)},
+		{"int32 vs uint32", int32(5), uint32(5)},
+		{"int8 vs int16", int8(-5), int16(-5)},
+		{"uint vs uint16", uint(5), uint16(5)},
+		{"float64 vs its uint64 bits", 1.0, math.Float64bits(1.0)},
+		{"float32 vs its uint64 bits", float32(1), uint64(math.Float32bits(1))},
+		{"float32 vs float64 zero", float32(0), 0.0},
+		{"int zero vs nil", 0, nil},
+		{"empty string vs nil", "", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ha := sketchhash.Hash64[any](11, tt.a)
+			hb := sketchhash.Hash64[any](11, tt.b)
+			if ha == hb {
+				t.Errorf("Hash64[any](%T(%v)) == Hash64[any](%T(%v)) = %#x, want distinct (the keys differ under ==)",
+					tt.a, tt.a, tt.b, tt.b, ha)
+			}
+			if sketchhash.Hash64[any](11, tt.a) != ha {
+				t.Errorf("Hash64[any](%T(%v)) is not deterministic", tt.a, tt.a)
+			}
+		})
+	}
+}
+
+// TestHash64_GoldenValues pins Hash64's output for the stable key kinds — the
+// predeclared string, integer and float types, held directly or in an
+// interface. These values must be identical on every platform, process and
+// run (the package's reproducibility promise); a change here alters every
+// sketch's behaviour and must be deliberate.
+func TestHash64_GoldenValues(t *testing.T) {
+	tests := []struct {
+		name string
+		got  uint64
+		want uint64
+	}{
+		{"string", sketchhash.Hash64(0, "hello"), 0x3b978b8de9d51643},
+		{"string, seed 42", sketchhash.Hash64(42, "hello"), 0x737220cc3e9a102c},
+		{"int", sketchhash.Hash64(0, 42), 0x7b5d7bb8958f7ed3},
+		{"int64, seed 7", sketchhash.Hash64(7, int64(-1)), 0xd06cdf5fcfcba9ea},
+		{"uint8", sketchhash.Hash64(0, uint8(200)), 0xca256359d895cc5d},
+		{"float64", sketchhash.Hash64(0, 3.5), 0x4cc2d87728a17351},
+		{"float64 NaN", sketchhash.Hash64(0, math.NaN()), 0x2e86cbf8328a0810},
+		{"float32", sketchhash.Hash64(0, float32(-2.25)), 0x30f7c25a56f2b2e},
+		{"any string", sketchhash.Hash64[any](0, "hello"), 0x67de19fc18b62f8f},
+		{"any int", sketchhash.Hash64[any](0, 42), 0x20c4340055fa2c23},
+		{"any float64", sketchhash.Hash64[any](0, 3.5), 0xd664517275f8c176},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.got != tt.want {
+				t.Errorf("Hash64 = %#x, want %#x", tt.got, tt.want)
+			}
+		})
+	}
+}
