@@ -4,14 +4,21 @@ import (
 	"math"
 
 	"github.com/pickeringtech/go-collections/constraints"
+	"github.com/pickeringtech/go-collections/internal/kahan"
 )
 
 // centralMoments returns the element count and the 2nd, 3rd and 4th central
 // moments of input — m2 = (1/n)Σ(x−mean)², m3 = (1/n)Σ(x−mean)³ and
 // m4 = (1/n)Σ(x−mean)⁴ — the building blocks of skewness and kurtosis.
 //
-// They are computed in two passes: a Kahan-compensated pass for the mean, then
-// a second pass accumulating the powered deviations (also with Kahan). Taking
+// They are computed in two passes: the package's compensated mean (see
+// compensatedMean), then a second pass accumulating the powered deviations
+// with Kahan. The mean is clamped to the data's [min, max], the interval it
+// must lie in; for
+// constant data that makes it exactly the common value, so every deviation is
+// exactly 0 and m2 == 0 even when the value is not exactly representable (a
+// sum/n mean of {0.1, 0.1, 0.1} drifts an ulp and would leave m2 ≈ 1e-35).
+// Taking
 // every deviation from the final mean keeps the moments accurate, unlike the
 // naive power-sum forms (Σx³, Σx⁴ …) which subtract large nearly-equal numbers
 // and bleed precision on large or near-constant magnitudes. Non-finite inputs
@@ -23,22 +30,18 @@ func centralMoments[T constraints.Numeric](input []T) (n int, m2, m3, m4 float64
 		return 0, 0, 0, 0
 	}
 
-	var meanSum kahan
-	for _, v := range input {
-		meanSum.add(float64(v))
-	}
-	mean := meanSum.sum / float64(count)
+	mean := compensatedMean(input)
 
-	var s2, s3, s4 kahan
+	var s2, s3, s4 kahan.Sum
 	for _, v := range input {
 		d := float64(v) - mean
 		d2 := d * d
-		s2.add(d2)
-		s3.add(d2 * d)
-		s4.add(d2 * d2)
+		s2.Add(d2)
+		s3.Add(d2 * d)
+		s4.Add(d2 * d2)
 	}
 	fn := float64(count)
-	return count, s2.sum / fn, s3.sum / fn, s4.sum / fn
+	return count, s2.Total() / fn, s3.Total() / fn, s4.Total() / fn
 }
 
 // Skewness returns the population skewness of input — the Fisher–Pearson
@@ -52,8 +55,9 @@ func centralMoments[T constraints.Numeric](input []T) (n int, m2, m3, m4 float64
 //
 // ok is false (and the result 0) when skewness is undefined: when input is
 // empty, or when every element is identical (zero variance, so m2^1.5 is 0 and
-// the ratio is 0/0). A single element is the degenerate constant case and is
-// likewise rejected. Non-finite inputs (NaN/Inf) propagate to a non-finite
+// the ratio is 0/0). Constant data is detected exactly, including values such
+// as 0.1 that are not exactly representable. A single element is the
+// degenerate constant case and is likewise rejected. Non-finite inputs (NaN/Inf) propagate to a non-finite
 // result with ok == true, consistent with the variance family.
 func Skewness[T constraints.Numeric](input []T) (float64, bool) {
 	n, m2, m3, _ := centralMoments(input)
@@ -76,8 +80,9 @@ func Skewness[T constraints.Numeric](input []T) (float64, bool) {
 //
 // ok is false (and the result 0) when kurtosis is undefined: when input is
 // empty, or when every element is identical (zero variance, so m2² is 0 and the
-// ratio is 0/0). A single element is the degenerate constant case and is
-// likewise rejected. Non-finite inputs (NaN/Inf) propagate to a non-finite
+// ratio is 0/0). Constant data is detected exactly, including values such as
+// 0.1 that are not exactly representable. A single element is the degenerate
+// constant case and is likewise rejected. Non-finite inputs (NaN/Inf) propagate to a non-finite
 // result with ok == true, consistent with the variance family.
 func Kurtosis[T constraints.Numeric](input []T) (float64, bool) {
 	n, m2, _, m4 := centralMoments(input)

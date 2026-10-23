@@ -1,6 +1,10 @@
 package stats
 
-import "math"
+import (
+	"math"
+
+	"github.com/pickeringtech/go-collections/internal/kahan"
+)
 
 // frequencies tallies how often each distinct value occurs in input. It returns
 // the per-value counts and the total element count. A non-finite floating-point
@@ -12,8 +16,9 @@ func frequencies[T comparable](input []T) (counts map[T]int, total int, ok bool)
 		return nil, 0, false
 	}
 	counts = make(map[T]int, len(input))
+	isNonFinite := newNonFiniteDetector[T]()
 	for _, v := range input {
-		if nonFiniteComparable(v) {
+		if isNonFinite.test(v) {
 			return nil, 0, false
 		}
 		counts[v]++
@@ -32,24 +37,24 @@ func frequencies[T comparable](input []T) (counts map[T]int, total int, ok bool)
 // are summed with Kahan compensated summation.
 //
 // ok is false (and the result 0) when the distribution is undefined: when input
-// is empty, or, for floating-point element types, when input contains a
-// non-finite value (NaN or ±Inf), which cannot be counted coherently — the same
-// rejection policy as Mode.
+// is empty or contains a non-finite value (NaN or ±Inf, including in named
+// float types), which cannot be counted coherently — the same rejection policy
+// as Mode.
 func Entropy[T comparable](input []T) (float64, bool) {
 	counts, total, ok := frequencies(input)
 	if !ok {
 		return 0, false
 	}
 	n := float64(total)
-	var h kahan
+	var h kahan.Sum
 	for _, c := range counts {
 		p := float64(c) / n
-		h.add(p * math.Log2(p))
+		h.Add(p * math.Log2(p))
 	}
 	// −Σ p·log2(p); negate the accumulated sum. The +0 guards against returning
 	// a signed negative zero when every element is identical (a single term
 	// p=1, log2(1)=0).
-	return -h.sum + 0, true
+	return -h.Total() + 0, true
 }
 
 // Gini returns the Gini impurity of input's value distribution:
@@ -63,18 +68,18 @@ func Entropy[T comparable](input []T) (float64, bool) {
 // are summed with Kahan compensated summation.
 //
 // ok is false (and the result 0) when the distribution is undefined: when input
-// is empty, or, for floating-point element types, when input contains a
-// non-finite value (NaN or ±Inf) — the same rejection policy as Mode.
+// is empty or contains a non-finite value (NaN or ±Inf, including in named
+// float types) — the same rejection policy as Mode.
 func Gini[T comparable](input []T) (float64, bool) {
 	counts, total, ok := frequencies(input)
 	if !ok {
 		return 0, false
 	}
 	n := float64(total)
-	var sumSq kahan
+	var sumSq kahan.Sum
 	for _, c := range counts {
 		p := float64(c) / n
-		sumSq.add(p * p)
+		sumSq.Add(p * p)
 	}
-	return 1 - sumSq.sum, true
+	return 1 - sumSq.Total(), true
 }

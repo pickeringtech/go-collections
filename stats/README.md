@@ -28,9 +28,11 @@ ma, _ := stats.MovingAverage(xs, 2) // [1.5 2.5 3.5 4.5] — full windows only
 | `GeometricMean(values)`        | `(float64, bool)` | empty, or any non-positive / non-finite value           |
 | `HarmonicMean(values)`         | `(float64, bool)` | empty, or any non-positive / non-finite value           |
 
-Sums are accumulated with Kahan compensated summation. The means **reject**
-non-finite input (`ok == false`); the relational stats and transforms below
-instead let non-finite values propagate (see Conventions).
+Sums are accumulated with compensated (Kahan–Neumaier) summation, and the means
+are overflow-safe: finite input always yields the correct finite mean, clamped
+to `[min, max]` (so the mean of identical values is exactly that value). The
+means **reject** non-finite input (`ok == false`); the relational stats and
+transforms below instead let non-finite values propagate (see Conventions).
 
 ## Relational statistics
 
@@ -95,9 +97,10 @@ A tier of richer operations, all keeping the package conventions (see below).
 
 - `LinearRegression` returns `LineFit{Slope, Intercept, R2}` with a `Predict(x)`
   method, so residuals are `yᵢ − fit.Predict(xᵢ)`.
-- `Histogram` returns equal-width `Bin{Min, Max, Count}` buckets; the final bin's
-  upper bound is inclusive so the maximum value is counted, and the counts always
-  sum to `len(input)`.
+- `Histogram` returns equal-width `Bin{Min, Max, Count}` buckets; each value is
+  counted in the bin whose reported `[Min, Max)` holds it, the final bin's upper
+  bound is inclusive so the maximum value is counted, and the counts always sum to
+  `len(input)`.
 - `Entropy` and `Gini` summarise the distribution of a **categorical** sample over
   any `comparable` type (strings, ints, …), not just numbers.
 - The moment-based stats (regression, skewness, kurtosis) and the vector ops
@@ -111,7 +114,9 @@ These conventions are deliberate:
 - **Numerical stability.** Variance, covariance and correlation use
   [Welford's online algorithm](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm),
   never the naive `Σxy − ΣxΣy/n`, which loses catastrophic precision on large or
-  near-constant magnitudes.
+  near-constant magnitudes. Every other float sum (means, moments, vector ops,
+  entropy, `MovingAverage`) is compensated, and `Norm`/`CosineSimilarity` scale
+  by the largest element so huge or tiny vectors neither overflow nor underflow.
 - **Return type.** Scalar summaries return `float64`; transforms return a new
   `[]float64`. Both are paired with an `ok bool`.
 - **Empty/edge contract.** Statistics on undefined input return `ok == false`

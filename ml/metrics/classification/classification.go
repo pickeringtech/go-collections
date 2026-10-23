@@ -59,15 +59,34 @@ func (m Matrix[T]) Count(yTrue, yPred T) int {
 	return m.counts[t][p]
 }
 
+// hasNaN reports whether any label is NaN. NaN is detected generically as a
+// label unequal to itself — only a NaN float, or a complex, array or struct
+// label carrying one, can be — so it works for every comparable label type.
+// A NaN label cannot be counted: it matches no label, not even itself.
+func hasNaN[T comparable](labels []T) bool {
+	for _, label := range labels {
+		if label != label {
+			return true
+		}
+	}
+	return false
+}
+
+// pairedLabels reports whether yTrue and yPred form a labelling the label
+// metrics can score: non-empty, of equal length and free of NaN labels.
+func pairedLabels[T comparable](yTrue, yPred []T) bool {
+	return len(yTrue) != 0 && len(yTrue) == len(yPred) && !hasNaN(yTrue) && !hasNaN(yPred)
+}
+
 // ConfusionMatrix tallies predicted labels against true labels, returning the
 // multiclass confusion Matrix together with an ok flag. Labels may be of any
 // comparable type (compared with ==); the label set is the union of those seen
 // in yTrue and yPred.
 //
-// ok is false (and the matrix is the zero Matrix) when yTrue is empty or
-// len(yTrue) != len(yPred).
+// ok is false (and the matrix is the zero Matrix) when yTrue is empty,
+// len(yTrue) != len(yPred), or any label in either slice is NaN.
 func ConfusionMatrix[T comparable](yTrue, yPred []T) (Matrix[T], bool) {
-	if len(yTrue) == 0 || len(yTrue) != len(yPred) {
+	if !pairedLabels(yTrue, yPred) {
 		return Matrix[T]{}, false
 	}
 
@@ -97,16 +116,26 @@ func ConfusionMatrix[T comparable](yTrue, yPred []T) (Matrix[T], bool) {
 
 // Accuracy returns the fraction of samples whose predicted label equals the
 // true label, together with an ok flag. ok is false (and the result is 0) when
-// yTrue is empty or len(yTrue) != len(yPred).
+// yTrue is empty, len(yTrue) != len(yPred), or any label is NaN (which could
+// never equal itself, so it would silently count as a miss).
 func Accuracy[T comparable](yTrue, yPred []T) (float64, bool) {
 	if len(yTrue) == 0 || len(yTrue) != len(yPred) {
 		return 0, false
 	}
 
+	// One pass that also rejects NaN labels. A matching pair cannot hold a NaN
+	// (NaN equals nothing), so the NaN test is needed only on a mismatch; this
+	// keeps the common path as cheap as a plain count, where a separate
+	// pairedLabels scan of both slices would triple the cost.
 	var correct int
-	for i := range yTrue {
-		if yTrue[i] == yPred[i] {
+	for i, t := range yTrue {
+		p := yPred[i]
+		if t == p {
 			correct++
+			continue
+		}
+		if t != t || p != p {
+			return 0, false
 		}
 	}
 	return float64(correct) / float64(len(yTrue)), true
@@ -201,7 +230,8 @@ func aggregate(classes []classStats, avg Averaging, score func(classStats) float
 //
 // A class with no predictions contributes a precision of 0 (rather than a
 // divide-by-zero). ok is false (and the result is 0) when yTrue is empty,
-// len(yTrue) != len(yPred), or avg is not a recognised strategy.
+// len(yTrue) != len(yPred), any label is NaN, or avg is not a recognised
+// strategy.
 func Precision[T comparable](yTrue, yPred []T, avg Averaging) (float64, bool) {
 	m, ok := ConfusionMatrix(yTrue, yPred)
 	if !ok {
@@ -216,8 +246,8 @@ func Precision[T comparable](yTrue, yPred []T, avg Averaging) (float64, bool) {
 // find?".
 //
 // A class with no true samples contributes a recall of 0. ok is false (and the
-// result is 0) when yTrue is empty, len(yTrue) != len(yPred), or avg is not a
-// recognised strategy.
+// result is 0) when yTrue is empty, len(yTrue) != len(yPred), any label is NaN,
+// or avg is not a recognised strategy.
 func Recall[T comparable](yTrue, yPred []T, avg Averaging) (float64, bool) {
 	m, ok := ConfusionMatrix(yTrue, yPred)
 	if !ok {
@@ -232,8 +262,8 @@ func Recall[T comparable](yTrue, yPred []T, avg Averaging) (float64, bool) {
 // number.
 //
 // A class with precision + recall of 0 contributes an F1 of 0. ok is false (and
-// the result is 0) when yTrue is empty, len(yTrue) != len(yPred), or avg is not
-// a recognised strategy.
+// the result is 0) when yTrue is empty, len(yTrue) != len(yPred), any label is
+// NaN, or avg is not a recognised strategy.
 func F1[T comparable](yTrue, yPred []T, avg Averaging) (float64, bool) {
 	m, ok := ConfusionMatrix(yTrue, yPred)
 	if !ok {
@@ -245,7 +275,7 @@ func F1[T comparable](yTrue, yPred []T, avg Averaging) (float64, bool) {
 // binaryStats tallies the confusion counts for a single positive label, the
 // rest of the labels being treated as negative.
 func binaryStats[T comparable](yTrue, yPred []T, positive T) (classStats, bool) {
-	if len(yTrue) == 0 || len(yTrue) != len(yPred) {
+	if !pairedLabels(yTrue, yPred) || positive != positive {
 		return classStats{}, false
 	}
 
@@ -273,7 +303,8 @@ func binaryStats[T comparable](yTrue, yPred []T, positive T) (classStats, bool) 
 // binary special case of Precision: TP / (TP + FP) for the positive class.
 //
 // With no positive predictions the precision is 0. ok is false (and the result
-// is 0) when yTrue is empty or len(yTrue) != len(yPred).
+// is 0) when yTrue is empty, len(yTrue) != len(yPred), or any label — positive
+// included — is NaN.
 func PrecisionBinary[T comparable](yTrue, yPred []T, positive T) (float64, bool) {
 	s, ok := binaryStats(yTrue, yPred, positive)
 	if !ok {
@@ -287,7 +318,8 @@ func PrecisionBinary[T comparable](yTrue, yPred []T, positive T) (float64, bool)
 // for the positive class.
 //
 // With no positive samples the recall is 0. ok is false (and the result is 0)
-// when yTrue is empty or len(yTrue) != len(yPred).
+// when yTrue is empty, len(yTrue) != len(yPred), or any label — positive
+// included — is NaN.
 func RecallBinary[T comparable](yTrue, yPred []T, positive T) (float64, bool) {
 	s, ok := binaryStats(yTrue, yPred, positive)
 	if !ok {
@@ -301,7 +333,8 @@ func RecallBinary[T comparable](yTrue, yPred []T, positive T) (float64, bool) {
 // of the positive class's precision and recall.
 //
 // With precision + recall of 0 the F1 is 0. ok is false (and the result is 0)
-// when yTrue is empty or len(yTrue) != len(yPred).
+// when yTrue is empty, len(yTrue) != len(yPred), or any label — positive
+// included — is NaN.
 func F1Binary[T comparable](yTrue, yPred []T, positive T) (float64, bool) {
 	s, ok := binaryStats(yTrue, yPred, positive)
 	if !ok {

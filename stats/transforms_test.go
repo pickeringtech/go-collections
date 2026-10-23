@@ -2,6 +2,7 @@ package stats_test
 
 import (
 	"math"
+	"math/big"
 	"testing"
 
 	"github.com/pickeringtech/go-collections/stats"
@@ -80,6 +81,32 @@ func TestStandardize(t *testing.T) {
 
 // Standardized data has, by construction, a population mean of 0 and a
 // population standard deviation of 1.
+// TestStandardizeCentresOnAnAccurateMean guards the centring: Welford's running
+// mean drifts by dozens of ulps over a million large values (here ≈5e-6, or
+// 6e-6σ), shifting every z-score, where the compensated mean is within an ulp.
+func TestStandardizeCentresOnAnAccurateMean(t *testing.T) {
+	data := make([]float64, 1_000_000)
+	exactSum := new(big.Float).SetPrec(256)
+	for i := range data {
+		data[i] = 1e9 + float64(i%3) + 0.1
+		exactSum.Add(exactSum, new(big.Float).SetFloat64(data[i]))
+	}
+	exactMean, _ := new(big.Float).Quo(exactSum, big.NewFloat(float64(len(data)))).Float64()
+	stdDev, _ := stats.PopulationStdDev(data)
+
+	got, ok := stats.Standardize(data)
+	if !ok {
+		t.Fatalf("ok = false, want true")
+	}
+	worst := 0.0
+	for i, x := range data {
+		worst = math.Max(worst, math.Abs(got[i]-(x-exactMean)/stdDev))
+	}
+	if !(worst <= 1e-6) {
+		t.Errorf("max z-score error = %v, want <= 1e-6", worst)
+	}
+}
+
 func TestStandardizeYieldsUnitVariance(t *testing.T) {
 	z, ok := stats.Standardize([]float64{3, 1, 4, 1, 5, 9, 2, 6})
 	if !ok {
@@ -114,6 +141,8 @@ func TestMovingAverage(t *testing.T) {
 		{name: "window of three", input: []float64{1, 2, 3, 4, 5}, window: 3, want: []float64{2, 3, 4}, ok: true},
 		{name: "window of one is identity", input: []float64{1, 2, 3}, window: 1, want: []float64{1, 2, 3}, ok: true},
 		{name: "window spanning whole input", input: []float64{2, 4, 6}, window: 3, want: []float64{4}, ok: true},
+		{name: "a large value leaving the window does not erase later windows", input: []float64{1e17, 1, 2, 3, 4}, window: 2, want: []float64{5e16, 1.5, 2.5, 3.5}, ok: true},
+		{name: "small values survive cancelling large values", input: []float64{1e17, -1e17, 1, 2}, window: 2, want: []float64{0, -5e16, 1.5}, ok: true},
 		{name: "window larger than input is undefined", input: []float64{1, 2, 3}, window: 4, want: nil, ok: false},
 		{name: "zero window is invalid", input: []float64{1, 2, 3}, window: 0, want: nil, ok: false},
 		{name: "negative window is invalid", input: []float64{1, 2, 3}, window: -1, want: nil, ok: false},
@@ -167,6 +196,53 @@ func TestNormalizeNaNPropagates(t *testing.T) {
 	}
 	if !math.IsNaN(got[2]) {
 		t.Fatalf("got[2] = %v, want NaN", got[2])
+	}
+}
+
+// TestNormalizeNaNOnlyAffectsItsOwnPosition pins the documented locality: the
+// min and max are taken over the non-NaN elements, so a NaN — even at index 0,
+// where it used to seed both bounds — leaves every other position rescaled.
+func TestNormalizeNaNOnlyAffectsItsOwnPosition(t *testing.T) {
+	nan := math.NaN()
+	tests := []struct {
+		name  string
+		input []float64
+		want  []float64
+	}{
+		{name: "leading NaN", input: []float64{nan, 0, 10}, want: []float64{nan, 0, 1}},
+		{name: "interleaved NaNs", input: []float64{0, nan, 10, nan, 5}, want: []float64{0, nan, 1, nan, 0.5}},
+		{name: "NaN beside a degenerate range", input: []float64{nan, 5, 5}, want: []float64{nan, 0, 0}},
+		{name: "all NaN", input: []float64{nan, nan}, want: []float64{nan, nan}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := stats.Normalize(tt.input)
+			if !ok || !floatSlicesClose(got, tt.want) {
+				t.Errorf("Normalize() = %v, %v; want %v, true", got, ok, tt.want)
+			}
+		})
+	}
+}
+
+// TestNormalizeOverflowingSpan checks a finite range whose width overflows
+// float64 still rescales into [0, 1] rather than to NaN.
+func TestNormalizeOverflowingSpan(t *testing.T) {
+	maxF := math.MaxFloat64
+	tests := []struct {
+		name  string
+		input []float64
+		want  []float64
+	}{
+		{name: "extremes", input: []float64{-maxF, maxF}, want: []float64{0, 1}},
+		{name: "extremes and midpoint", input: []float64{maxF, 0, -maxF}, want: []float64{1, 0.5, 0}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := stats.Normalize(tt.input)
+			if !ok || !floatSlicesClose(got, tt.want) {
+				t.Errorf("Normalize() = %v, %v; want %v, true", got, ok, tt.want)
+			}
+		})
 	}
 }
 

@@ -1,4 +1,3 @@
-// Package distance is documented in doc.go.
 package distance
 
 import (
@@ -25,7 +24,10 @@ func Euclidean[T constraints.Numeric](a, b []T) (float64, bool) {
 
 // Manhattan computes the L1 (taxicab) distance between two numeric vectors:
 // Σ |aᵢ - bᵢ|. It measures the total variation across all dimensions, treating
-// each independently.
+// each independently. Every term is non-negative, so the plain running sum is
+// already well-conditioned (relative error at most about n·ε, with no
+// cancellation to amplify it) and is used as-is: compensated summation would
+// cost an order of magnitude in speed for no meaningful gain.
 //
 // It returns ok == false for empty input or vectors of differing lengths.
 // Non-finite inputs (NaN/Inf) propagate to a non-finite result with ok == true.
@@ -94,7 +96,9 @@ func Minkowski[T constraints.Numeric](a, b []T, p float64) (float64, bool) {
 
 // CosineDistance computes the cosine distance between two numeric vectors:
 // 1 - CosineSimilarity(a, b). The result is in [0, 2]: 0 for identical
-// direction, 1 for orthogonal vectors, and 2 for anti-parallel vectors.
+// direction, 1 for orthogonal vectors, and 2 for anti-parallel vectors. The
+// bound holds exactly, because the underlying cosine is clamped to [−1, 1], so
+// rounding never yields a negative distance.
 //
 // It delegates to ml/similarity.CosineSimilarity and inherits its ok == false
 // conditions: empty input, mismatched lengths, or either vector having zero

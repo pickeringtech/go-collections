@@ -22,51 +22,42 @@ func Hamming[T comparable](a, b []T) (int, bool) {
 	return count, true
 }
 
-// Levenshtein computes the Levenshtein edit distance between two strings:
-// the minimum number of single-character operations (insertion, deletion, or
-// substitution) required to transform a into b.
+// Levenshtein computes the Levenshtein edit distance between two sequences:
+// the minimum number of single-element operations (insertion, deletion, or
+// substitution) required to transform a into b. Elements may be of any
+// comparable type (compared with ==), so it measures edits between token
+// lists, DNA bases, byte strings or any other sequence; StringLevenshtein is
+// the thin accessor for text.
 //
-// The implementation operates over Unicode rune sequences, so multi-byte UTF-8
-// characters (e.g. accented letters, emoji) are treated as single units rather
-// than individual bytes.
+// The distance is always defined: it is 0 for two empty (or nil) sequences,
+// and len(b) when a is empty. Neither input is modified. It runs in
+// O(len(a)·len(b)) time and keeps only two rows of the dynamic-programming
+// matrix, so memory is O(min(len(a), len(b))).
 //
 // Examples:
 //
-//	Levenshtein("kitten", "sitting") → 3
-//	Levenshtein("", "abc")           → 3
-//	Levenshtein("abc", "abc")        → 0
-func Levenshtein(a, b string) int {
-	ra := []rune(a)
-	rb := []rune(b)
-	lenA := len(ra)
-	lenB := len(rb)
-
-	if lenA == 0 {
-		return lenB
+//	Levenshtein([]int{1, 2, 3}, []int{1, 3})    → 1
+//	Levenshtein([]string{"a", "b"}, []string{}) → 2
+func Levenshtein[T comparable](a, b []T) int {
+	// Keep b the shorter sequence so the DP rows are as short as possible.
+	if len(a) < len(b) {
+		a, b = b, a
 	}
-	if lenB == 0 {
-		return lenA
+	if len(b) == 0 {
+		return len(a)
 	}
 
-	// Use two rows of the DP matrix to keep memory O(min(lenA, lenB)).
-	// We ensure b is the shorter string so the row length is minimal.
-	if lenA < lenB {
-		ra, rb = rb, ra
-		lenA, lenB = lenB, lenA
-	}
-
-	prev := make([]int, lenB+1)
-	curr := make([]int, lenB+1)
-
-	for j := 0; j <= lenB; j++ {
+	prev := make([]int, len(b)+1)
+	curr := make([]int, len(b)+1)
+	for j := range prev {
 		prev[j] = j
 	}
 
-	for i := 1; i <= lenA; i++ {
+	for i := 1; i <= len(a); i++ {
 		curr[0] = i
-		for j := 1; j <= lenB; j++ {
+		for j := 1; j <= len(b); j++ {
 			cost := 1
-			if ra[i-1] == rb[j-1] {
+			if a[i-1] == b[j-1] {
 				cost = 0
 			}
 			del := prev[j] + 1
@@ -77,5 +68,23 @@ func Levenshtein(a, b string) int {
 		prev, curr = curr, prev
 	}
 
-	return prev[lenB]
+	return prev[len(b)]
+}
+
+// StringLevenshtein computes the Levenshtein edit distance between two
+// strings: the minimum number of single-character insertions, deletions or
+// substitutions required to transform a into b.
+//
+// It operates over Unicode rune sequences, so multi-byte UTF-8 characters
+// (e.g. accented letters, emoji) are treated as single units rather than
+// individual bytes; it is exactly Levenshtein([]rune(a), []rune(b)). Use
+// Levenshtein([]byte(a), []byte(b)) for a byte-level distance instead.
+//
+// Examples:
+//
+//	StringLevenshtein("kitten", "sitting") → 3
+//	StringLevenshtein("", "abc")           → 3
+//	StringLevenshtein("abc", "abc")        → 0
+func StringLevenshtein(a, b string) int {
+	return Levenshtein([]rune(a), []rune(b))
 }

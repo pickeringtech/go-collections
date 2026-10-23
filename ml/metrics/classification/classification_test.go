@@ -61,29 +61,36 @@ func TestConfusionMatrix(t *testing.T) {
 	if !ok {
 		t.Fatal("ok = false, want true")
 	}
-	if got := len(cm.Labels()); got != 3 {
+	got := len(cm.Labels())
+	if got != 3 {
 		t.Fatalf("labels = %d, want 3", got)
 	}
 	// Diagonal: correctly classified counts.
-	if got := cm.Count(0, 0); got != 2 {
+	got = cm.Count(0, 0)
+	if got != 2 {
 		t.Errorf("Count(0,0) = %d, want 2", got)
 	}
-	if got := cm.Count(2, 2); got != 2 {
+	got = cm.Count(2, 2)
+	if got != 2 {
 		t.Errorf("Count(2,2) = %d, want 2", got)
 	}
 	// Off-diagonal confusions: true 1 predicted 2, and true 2 predicted 1.
-	if got := cm.Count(1, 2); got != 1 {
+	got = cm.Count(1, 2)
+	if got != 1 {
 		t.Errorf("Count(1,2) = %d, want 1", got)
 	}
-	if got := cm.Count(2, 1); got != 1 {
+	got = cm.Count(2, 1)
+	if got != 1 {
 		t.Errorf("Count(2,1) = %d, want 1", got)
 	}
 	// Unknown labels count as zero, never panic.
-	if got := cm.Count(9, 9); got != 0 {
+	got = cm.Count(9, 9)
+	if got != 0 {
 		t.Errorf("Count(9,9) = %d, want 0", got)
 	}
 
-	if _, ok := classification.ConfusionMatrix([]int{}, []int{}); ok {
+	_, ok = classification.ConfusionMatrix([]int{}, []int{})
+	if ok {
 		t.Error("empty: ok = true, want false")
 	}
 }
@@ -116,14 +123,17 @@ func TestPrecisionRecallF1Averaging(t *testing.T) {
 }
 
 func TestPrecisionRejectsBadInput(t *testing.T) {
-	if _, ok := classification.F1([]int{}, []int{}, classification.Macro); ok {
+	_, ok := classification.F1([]int{}, []int{}, classification.Macro)
+	if ok {
 		t.Error("empty: ok = true, want false")
 	}
-	if _, ok := classification.F1([]int{1, 2}, []int{1}, classification.Macro); ok {
+	_, ok = classification.F1([]int{1, 2}, []int{1}, classification.Macro)
+	if ok {
 		t.Error("length mismatch: ok = true, want false")
 	}
 	// Unrecognised averaging strategy is rejected.
-	if _, ok := classification.F1(yTrue3, yPred3, classification.Averaging(99)); ok {
+	_, ok = classification.F1(yTrue3, yPred3, classification.Averaging(99))
+	if ok {
 		t.Error("bad averaging: ok = true, want false")
 	}
 }
@@ -136,7 +146,8 @@ func TestAveragingString(t *testing.T) {
 		classification.Averaging(7): "unknown",
 	}
 	for avg, want := range cases {
-		if got := avg.String(); got != want {
+		got := avg.String()
+		if got != want {
 			t.Errorf("Averaging(%d).String() = %q, want %q", avg, got, want)
 		}
 	}
@@ -144,10 +155,12 @@ func TestAveragingString(t *testing.T) {
 
 func TestPrecisionRecallRejectEmpty(t *testing.T) {
 	// Exercise the early-out on each top-level entry point, not just F1.
-	if _, ok := classification.Precision([]int{}, []int{}, classification.Macro); ok {
+	_, ok := classification.Precision([]int{}, []int{}, classification.Macro)
+	if ok {
 		t.Error("Precision empty: ok = true, want false")
 	}
-	if _, ok := classification.Recall([]int{1}, []int{1, 2}, classification.Macro); ok {
+	_, ok = classification.Recall([]int{1}, []int{1, 2}, classification.Macro)
+	if ok {
 		t.Error("Recall mismatch: ok = true, want false")
 	}
 }
@@ -195,13 +208,56 @@ func TestBinaryDegenerate(t *testing.T) {
 	if !ok || p != 0 {
 		t.Errorf("PrecisionBinary = %v %v, want 0 true", p, ok)
 	}
-	if _, ok := classification.F1Binary([]int{}, []int{}, 1); ok {
+	_, ok = classification.F1Binary([]int{}, []int{}, 1)
+	if ok {
 		t.Error("empty: ok = true, want false")
 	}
-	if _, ok := classification.PrecisionBinary([]int{1}, []int{1, 0}, 1); ok {
+	_, ok = classification.PrecisionBinary([]int{1}, []int{1, 0}, 1)
+	if ok {
 		t.Error("PrecisionBinary mismatch: ok = true, want false")
 	}
-	if _, ok := classification.RecallBinary([]int{}, []int{}, 1); ok {
+	_, ok = classification.RecallBinary([]int{}, []int{}, 1)
+	if ok {
 		t.Error("RecallBinary empty: ok = true, want false")
+	}
+}
+
+// TestLabelMetricsRejectNaNLabels guards the label index against NaN: NaN is
+// unequal to itself, so every NaN became a fresh label while its count was
+// credited to whichever label happened to be first ([1 NaN NaN 2], and
+// Count(1, 1) == 2 for ConfusionMatrix({1,NaN,2},{1,NaN,1})). Every metric
+// that takes labels now reports ok == false instead.
+func TestLabelMetricsRejectNaNLabels(t *testing.T) {
+	nan := math.NaN()
+	yTrue := []float64{1, nan, 2}
+	yPred := []float64{1, nan, 1}
+	clean := []float64{1, 2, 2}
+	tests := []struct {
+		name string
+		fn   func() bool
+	}{
+		{name: "ConfusionMatrix", fn: func() bool { _, ok := classification.ConfusionMatrix(yTrue, yPred); return ok }},
+		{name: "ConfusionMatrix with NaN only in yPred", fn: func() bool { _, ok := classification.ConfusionMatrix(clean, yPred); return ok }},
+		{name: "Accuracy", fn: func() bool { _, ok := classification.Accuracy(yTrue, clean); return ok }},
+		{name: "Precision", fn: func() bool { _, ok := classification.Precision(yTrue, yPred, classification.Micro); return ok }},
+		{name: "Recall", fn: func() bool { _, ok := classification.Recall(clean, yPred, classification.Macro); return ok }},
+		{name: "F1", fn: func() bool { _, ok := classification.F1(yTrue, clean, classification.Weighted); return ok }},
+		{name: "PrecisionBinary with a NaN label", fn: func() bool { _, ok := classification.PrecisionBinary(yTrue, clean, 1); return ok }},
+		{name: "RecallBinary with a NaN positive", fn: func() bool { _, ok := classification.RecallBinary(clean, clean, nan); return ok }},
+		{name: "F1Binary with a NaN prediction", fn: func() bool { _, ok := classification.F1Binary(clean, yPred, 2); return ok }},
+		{name: "ROCCurve", fn: func() bool { _, ok := classification.ROCCurve(yTrue, []float64{0.9, 0.5, 0.1}, 1); return ok }},
+		{name: "AUC", fn: func() bool {
+			_, ok := classification.AUC([]float64{1, 2, nan, 1}, []float64{0.9, 0.5, 0.3, 0.1}, 1)
+			return ok
+		}},
+		{name: "LogLoss", fn: func() bool { _, ok := classification.LogLoss(yTrue, []float64{0.9, 0.5, 0.1}, 1); return ok }},
+		{name: "LogLoss with a NaN positive", fn: func() bool { _, ok := classification.LogLoss(clean, []float64{0.9, 0.5, 0.1}, nan); return ok }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.fn() {
+				t.Errorf("ok = true, want false")
+			}
+		})
 	}
 }

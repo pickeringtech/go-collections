@@ -1,9 +1,9 @@
 // Package stats turns slices of numbers into statistical summaries — sums and
 // basic reductions, arithmetic/weighted/specialised means, the quantile family,
-// covariance and correlation today, with the wider numeric surface (variance, …)
-// landing
-// alongside it pre-1.0. It is also the home for value-rescaling transforms such
-// as normalization and standardization.
+// variance and standard deviation, covariance and correlation, and an advanced
+// tier of regression, histograms, distribution shape, categorical measures and
+// vector geometry. It is also the home for value-rescaling transforms such as
+// normalization and standardization.
 //
 // It is the home for "summarise numbers into a statistic" operations, which
 // almost always return float64 (transforms return a fresh []float64). A few
@@ -59,12 +59,25 @@
 // Standardize, MovingAverage) follow the same idiom, returning ([]float64, bool)
 // and never mutating their input.
 //
-// The float64 summaries accumulate with Kahan compensated summation, and
-// variance, covariance and correlation use Welford's online algorithm, so large
-// or near-constant inputs do not lose precision to naive floating-point
-// round-off. The exact-in-T reduction Sum instead accumulates in the input type
-// T, so an integer sum is exact (no float round-off) at the cost of possible
-// overflow on very large inputs.
+// Every float64 sum in the package — the means, the higher moments behind
+// Skewness/Kurtosis, Dot, Norm, EuclideanDistance and CosineSimilarity, the
+// Entropy/Gini sums and MovingAverage's running window — is accumulated with
+// compensated summation (Kahan's algorithm in Neumaier's form, which also stays
+// accurate when a term is larger than the running total). Variance, standard
+// deviation, covariance, correlation, LinearRegression and Standardize use
+// Welford's online algorithm instead. Either way, large or near-constant
+// inputs do not lose precision to naive floating-point round-off. The
+// exact-in-T reductions (Sum, Product, Range, CumulativeSum) instead accumulate
+// in the input type T, so an integer sum is exact (no float round-off) at the
+// cost of possible overflow on very large inputs.
+//
+// The means are also overflow-safe: for finite input they always return the
+// correct finite value, rescaling by a power of two where a plain sum, product
+// or reciprocal would leave float64's range, and they are clamped to the
+// interval [min, max] a mean must lie in (so the mean of identical values is
+// exactly that value). Norm and CosineSimilarity scale by the largest element
+// (the dnrm2 technique), and Correlation and LinearRegression's R² take square
+// roots before multiplying, so they too stay in range for finite input.
 //
 // Non-finite inputs (NaN, ±Inf) are handled per family, not uniformly. The
 // exact-in-T arithmetic reductions (Sum, Product and the running

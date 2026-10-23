@@ -113,6 +113,30 @@ func TestCorrelation(t *testing.T) {
 	}
 }
 
+// TestCorrelationExtremeMagnitudes guards the denominator against overflow and
+// underflow: √(M2X·M2Y) multiplies two huge (or tiny) moments before the root,
+// so a perfectly correlated series of large values read as 0 and one of small
+// values as undefined.
+func TestCorrelationExtremeMagnitudes(t *testing.T) {
+	tests := []struct {
+		name string
+		x, y []float64
+		want float64
+	}{
+		{name: "large values", x: []float64{1e100, 2e100, 3e100}, y: []float64{1e100, 2e100, 3e100}, want: 1},
+		{name: "small values", x: []float64{1e-100, 2e-100, 3e-100}, y: []float64{1e-100, 2e-100, 3e-100}, want: 1},
+		{name: "large against small", x: []float64{1e150, 2e150, 3e150}, y: []float64{3e-150, 2e-150, 1e-150}, want: -1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := stats.Correlation(tt.x, tt.y)
+			if !ok || !floatsClose(got, tt.want) {
+				t.Errorf("Correlation() = %v, %v; want %v, true", got, ok, tt.want)
+			}
+		})
+	}
+}
+
 // Correlation must stay within [−1, 1] (it is covariance after normalization)
 // and is symmetric: the correlation of (x, y) equals that of (y, x).
 func TestCorrelationIsSymmetric(t *testing.T) {

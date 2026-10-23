@@ -21,6 +21,22 @@ func ExampleKFold() {
 	// Output: 3 4 3 3 true
 }
 
+func ExampleStratifiedSplit() {
+	// Six "spam" and four "ham" rows: half go to test, and each class keeps its
+	// share — three spam and two ham — so the class balance is preserved.
+	rows := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}
+	labels := []string{"spam", "spam", "spam", "spam", "spam", "spam", "ham", "ham", "ham", "ham"}
+	_, test, ok := preprocessing.StratifiedSplitSeed(rows, labels, 0.5, 42)
+	spam := 0
+	for _, row := range test {
+		if labels[row] == "spam" {
+			spam++
+		}
+	}
+	fmt.Println(len(test), spam, len(test)-spam, ok)
+	// Output: 5 3 2 true
+}
+
 func ExampleShuffle() {
 	// Shuffle returns a reordered copy; the same seed always gives the same order.
 	got := preprocessing.ShuffleSeed([]int{1, 2, 3, 4, 5}, 1)

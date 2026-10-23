@@ -64,6 +64,10 @@
 //   - The (result, ok) idiom: every Transform returns an ok flag. ok == false
 //     means the estimator was not fitted, or the input was empty/invalid; see
 //     each type's doc for its specific rejection policy.
+//   - Fitting starts from scratch: a Fit that rejects its input leaves the
+//     estimator unfitted even if an earlier Fit succeeded, discarding the old
+//     parameters, so Transform reports ok == false rather than silently
+//     applying stale ones.
 //   - Non-mutating: Transform and the split functions never modify their input;
 //     they return fresh slices (a non-nil empty slice for empty, non-nil input).
 //   - Single implementation + thin accessors: estimators expose accessors
@@ -79,9 +83,12 @@
 //   - StandardScaler and MinMaxScaler PROPAGATE non-finite values, matching
 //     stats.Standardize / stats.Normalize: a NaN/Inf in the data flows into the
 //     result rather than being rejected.
-//   - RobustScaler, the median/mode/mean imputers and the quantile binner REJECT
-//     non-finite values (Fit returns an unfitted estimator), matching the
+//   - RobustScaler and the median/mode/mean imputers REJECT non-finite
+//     training values (Fit returns an unfitted estimator), matching the
 //     means/quantile family in stats.
+//   - Both binners REJECT non-finite values at Fit (unfitted) and at Transform
+//     (ok == false): a NaN has no order and so no bin, and an infinity has no
+//     finite bin.
 //
 // See each type's doc comment for the exact contract.
 package preprocessing

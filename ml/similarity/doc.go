@@ -21,9 +21,9 @@
 //	s1 := sets.NewHash("a", "b", "c", "d")
 //	s2 := sets.NewHash("b", "c", "d", "e")
 //
-//	j := similarity.Jaccard(s1, s2)  // 3/5 = 0.6
-//	d := similarity.Dice(s1, s2)     // 2*3/(4+4) = 0.75
-//	o := similarity.Overlap(s1, s2)  // 3/4 = 0.75
+//	j, ok := similarity.Jaccard(s1, s2)  // 3/5 = 0.6, true
+//	d, ok := similarity.Dice(s1, s2)     // 2*3/(4+4) = 0.75, true
+//	o, ok := similarity.Overlap(s1, s2)  // 3/4 = 0.75, true
 //
 //	_ = dot
 //	_ = cos
@@ -52,9 +52,12 @@
 // materialised, so no set algebra is reimplemented here.
 //
 //   - Jaccard: |A∩B| / |A∪B| — ranges from 0 (disjoint) to 1 (equal).
-//     Empty∩Empty → 0.
 //   - Dice: 2|A∩B| / (|A|+|B|) — weights intersection more than Jaccard.
-//     Empty∩Empty → 0.
 //   - Overlap: |A∩B| / min(|A|,|B|) — measures containment; 1 when the
-//     smaller set is a subset of the larger. Zero denominator → 0.
+//     smaller set is a subset of the larger.
+//
+// Like the vector similarities, all three return (float64, bool): ok is false
+// when the denominator is zero — both sets empty for Jaccard and Dice, either
+// set empty for Overlap — so an undefined coefficient is never confused with
+// the computed 0 of two disjoint sets.
 package similarity

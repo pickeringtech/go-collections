@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/pickeringtech/go-collections/ml/preprocessing"
+	"github.com/pickeringtech/go-collections/stats"
 )
 
 func TestStandardScaler(t *testing.T) {
@@ -35,6 +36,29 @@ func TestStandardScaler(t *testing.T) {
 	}
 }
 
+// TestStandardScalerMatchesStandardize guards the doc's promise that the
+// scaler mirrors stats.Standardize: an uncompensated Σx/n mean drifts on many
+// large values (by 0.02σ here), shifting every z-score. Both now share the
+// same mean and standard deviation, so the results agree exactly.
+func TestStandardScalerMatchesStandardize(t *testing.T) {
+	data := make([]float64, 1_000_000)
+	for i := range data {
+		data[i] = 1e9 + float64(i%3) + 0.1
+	}
+	got, ok := preprocessing.NewStandardScaler().FitTransform(data)
+	want, _ := stats.Standardize(data)
+	if !ok {
+		t.Fatalf("ok = false, want true")
+	}
+	worst := 0.0
+	for i := range got {
+		worst = math.Max(worst, math.Abs(got[i]-want[i]))
+	}
+	if worst != 0 {
+		t.Errorf("max |scaler − stats.Standardize| = %v, want 0", worst)
+	}
+}
+
 func TestStandardScalerUnfitted(t *testing.T) {
 	got, ok := preprocessing.NewStandardScaler().Transform([]float64{1, 2, 3})
 	if ok || got != nil {
@@ -50,7 +74,8 @@ func TestStandardScalerConstantTrainMapsToZero(t *testing.T) {
 }
 
 func TestStandardScalerEmptyFitLeavesUnfitted(t *testing.T) {
-	if _, ok := preprocessing.NewStandardScaler().Fit(nil).Transform([]float64{1}); ok {
+	_, ok := preprocessing.NewStandardScaler().Fit(nil).Transform([]float64{1})
+	if ok {
 		t.Fatalf("Transform after empty Fit reported ok")
 	}
 }
@@ -91,6 +116,37 @@ func TestMinMaxScaler(t *testing.T) {
 	}
 }
 
+// TestMinMaxScalerMirrorsNormalize checks the scaler inherits Normalize's
+// semantics: the learned range skips NaN (so a NaN only affects its own
+// position) and a finite range whose width overflows still rescales.
+func TestMinMaxScalerMirrorsNormalize(t *testing.T) {
+	nan, maxF := math.NaN(), math.MaxFloat64
+	tests := []struct {
+		name  string
+		train []float64
+		input []float64
+		want  []float64
+	}{
+		{name: "leading NaN in training data", train: []float64{nan, 0, 10}, input: []float64{nan, 0, 5, 10}, want: []float64{nan, 0, 0.5, 1}},
+		{name: "overflowing training range", train: []float64{-maxF, maxF}, input: []float64{-maxF, 0, maxF}, want: []float64{0, 0.5, 1}},
+		{name: "all-NaN training data propagates", train: []float64{nan, nan}, input: []float64{1, 2}, want: []float64{nan, nan}},
+		{name: "NaN beside a degenerate range", train: []float64{nan, 5, 5}, input: []float64{nan, 5, 7}, want: []float64{nan, 0, 0}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := preprocessing.NewMinMaxScaler().Fit(tt.train).Transform(tt.input)
+			if !ok || !floatSlicesClose(got, tt.want) {
+				t.Errorf("Transform() = %v, %v; want %v, true", got, ok, tt.want)
+			}
+			norm, _ := stats.Normalize(tt.train)
+			mirrored, _ := preprocessing.NewMinMaxScaler().FitTransform(tt.train)
+			if !floatSlicesClose(mirrored, norm) {
+				t.Errorf("FitTransform() = %v, want stats.Normalize's %v", mirrored, norm)
+			}
+		})
+	}
+}
+
 func TestMinMaxScalerDegenerateRangeMapsToZero(t *testing.T) {
 	got, ok := preprocessing.NewMinMaxScaler().FitTransform([]float64{7, 7, 7})
 	if !ok || !floatSlicesClose(got, []float64{0, 0, 0}) {
@@ -99,7 +155,8 @@ func TestMinMaxScalerDegenerateRangeMapsToZero(t *testing.T) {
 }
 
 func TestMinMaxScalerUnfitted(t *testing.T) {
-	if _, ok := preprocessing.NewMinMaxScaler().Transform([]float64{1}); ok {
+	_, ok := preprocessing.NewMinMaxScaler().Transform([]float64{1})
+	if ok {
 		t.Fatalf("unfitted Transform reported ok")
 	}
 }
@@ -126,7 +183,8 @@ func TestRobustScaler(t *testing.T) {
 
 func TestRobustScalerRejectsNonFiniteTrain(t *testing.T) {
 	for _, bad := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
-		if _, ok := preprocessing.NewRobustScaler().Fit([]float64{1, 2, bad}).Transform([]float64{1}); ok {
+		_, ok := preprocessing.NewRobustScaler().Fit([]float64{1, 2, bad}).Transform([]float64{1})
+		if ok {
 			t.Fatalf("Fit accepted non-finite %v", bad)
 		}
 	}

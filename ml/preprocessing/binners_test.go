@@ -40,13 +40,15 @@ func TestFixedWidthBinnerDegenerateRange(t *testing.T) {
 }
 
 func TestFixedWidthBinnerInvalidBinCount(t *testing.T) {
-	if _, ok := preprocessing.NewFixedWidthBinner(0).Fit([]float64{1, 2}).Transform([]float64{1}); ok {
+	_, ok := preprocessing.NewFixedWidthBinner(0).Fit([]float64{1, 2}).Transform([]float64{1})
+	if ok {
 		t.Fatalf("nBins=0 reported fitted")
 	}
 }
 
 func TestFixedWidthBinnerUnfitted(t *testing.T) {
-	if _, ok := preprocessing.NewFixedWidthBinner(3).Transform([]float64{1}); ok {
+	_, ok := preprocessing.NewFixedWidthBinner(3).Transform([]float64{1})
+	if ok {
 		t.Fatalf("unfitted Transform reported ok")
 	}
 }
@@ -75,14 +77,16 @@ func TestQuantileBinnerSingleBin(t *testing.T) {
 
 func TestQuantileBinnerRejectsNonFinite(t *testing.T) {
 	for _, bad := range []float64{math.NaN(), math.Inf(1)} {
-		if _, ok := preprocessing.NewQuantileBinner(2).Fit([]float64{1, 2, bad}).Transform([]float64{1}); ok {
+		_, ok := preprocessing.NewQuantileBinner(2).Fit([]float64{1, 2, bad}).Transform([]float64{1})
+		if ok {
 			t.Fatalf("Fit accepted non-finite %v", bad)
 		}
 	}
 }
 
 func TestQuantileBinnerEmptyLeavesUnfitted(t *testing.T) {
-	if _, ok := preprocessing.NewQuantileBinner(2).Fit(nil).Transform([]float64{1}); ok {
+	_, ok := preprocessing.NewQuantileBinner(2).Fit(nil).Transform([]float64{1})
+	if ok {
 		t.Fatalf("empty Fit reported fitted")
 	}
 }
@@ -102,3 +106,61 @@ var (
 	_ preprocessing.Transformer[float64, []int] = (*preprocessing.FixedWidthBinner)(nil)
 	_ preprocessing.Transformer[float64, []int] = (*preprocessing.QuantileBinner)(nil)
 )
+
+// TestBinnersRejectNonFinite pins the binners to the package's reject policy
+// for non-finite values: NaN has no order and so no bin (it used to land in
+// the top bin), ±Inf has no finite bin either, and training data containing
+// either cannot define a range or quantiles.
+func TestBinnersRejectNonFinite(t *testing.T) {
+	nan, inf := math.NaN(), math.Inf(1)
+	tests := []struct {
+		name string
+		fn   func() bool
+	}{
+		{name: "QuantileBinner transforming NaN", fn: func() bool {
+			_, ok := preprocessing.NewQuantileBinner(2).Fit([]float64{1, 2, 3, 4}).Transform([]float64{1, nan})
+			return ok
+		}},
+		{name: "QuantileBinner transforming +Inf", fn: func() bool {
+			_, ok := preprocessing.NewQuantileBinner(2).Fit([]float64{1, 2, 3, 4}).Transform([]float64{inf})
+			return ok
+		}},
+		{name: "FixedWidthBinner transforming NaN", fn: func() bool {
+			_, ok := preprocessing.NewFixedWidthBinner(3).Fit([]float64{0, 3, 6}).Transform([]float64{nan})
+			return ok
+		}},
+		{name: "FixedWidthBinner transforming -Inf", fn: func() bool {
+			_, ok := preprocessing.NewFixedWidthBinner(3).Fit([]float64{0, 3, 6}).Transform([]float64{2, -inf})
+			return ok
+		}},
+		{name: "FixedWidthBinner fitting NaN", fn: func() bool {
+			_, ok := preprocessing.NewFixedWidthBinner(3).Fit([]float64{nan, 1, 2}).Transform([]float64{1})
+			return ok
+		}},
+		{name: "FixedWidthBinner fitting +Inf", fn: func() bool {
+			_, ok := preprocessing.NewFixedWidthBinner(3).Fit([]float64{1, inf}).Transform([]float64{1})
+			return ok
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.fn() {
+				t.Errorf("ok = true, want false")
+			}
+		})
+	}
+}
+
+// TestFixedWidthBinnerOverflowingRange checks a finite training range whose
+// width overflows float64 still yields finite, evenly spaced cut points.
+func TestFixedWidthBinnerOverflowingRange(t *testing.T) {
+	maxF := math.MaxFloat64
+	binner := preprocessing.NewFixedWidthBinner(2).Fit([]float64{-maxF, maxF})
+	if !reflect.DeepEqual(binner.Edges(), []float64{0}) {
+		t.Errorf("Edges() = %v, want [0]", binner.Edges())
+	}
+	got, ok := preprocessing.NewFixedWidthBinner(4).Fit([]float64{-maxF, maxF}).Transform([]float64{-maxF, -1, 1, maxF})
+	if !ok || !reflect.DeepEqual(got, []int{0, 1, 2, 3}) {
+		t.Errorf("Transform() = %v, %v; want [0 1 2 3], true", got, ok)
+	}
+}

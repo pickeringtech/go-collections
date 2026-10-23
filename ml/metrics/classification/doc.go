@@ -60,8 +60,11 @@
 // Every function returns its result with an ok flag in the library's
 // (result, ok) idiom rather than panicking or returning an error. ok is false —
 // and the result the zero value — when the inputs cannot be summarised: empty
-// input, mismatched lengths, an unrecognised Averaging, single-class data for
-// the score metrics, or out-of-range / non-finite scores and probabilities.
+// input, mismatched lengths, a NaN label, an unrecognised Averaging,
+// single-class data for the score metrics, or out-of-range / non-finite scores
+// and probabilities. A NaN label (detected generically as a label unequal to
+// itself) is rejected by every function that takes labels, because it matches
+// no label — not even itself — and so cannot be counted coherently.
 // Degenerate per-class cases are defined rather than rejected: a class with no
 // predictions has precision 0, a class with no true samples has recall 0, and a
 // class with precision + recall of 0 has F1 0. Inputs are never mutated. The

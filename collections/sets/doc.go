@@ -162,7 +162,7 @@
 //	a := sets.NewHash("go", "generics", "collections")
 //	b := sets.NewHash("go", "generics", "channels")
 //
-//	j := similarity.Jaccard(a, b)  // 2/4 = 0.5
+//	j, ok := similarity.Jaccard(a, b)  // 2/4 = 0.5, true
 //
 // For probabilistic Jaccard estimation over very large sets, see
 // collections/sketches.MinHash.

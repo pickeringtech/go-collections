@@ -1,26 +1,28 @@
 package stats
 
-import "math"
+import (
+	"math"
 
-// kahan is a Kahan (compensated) summation accumulator. It tracks a running
-// compensation term so that adding many values does not lose low-order bits to
-// floating-point round-off the way a naive running total does. Use it via the
-// zero value: var k kahan; k.add(x); ...; total := k.sum.
-type kahan struct {
-	sum, c float64
-}
-
-// add folds x into the running total, carrying the round-off error forward in
-// the compensation term so it is not lost on the next addition.
-func (k *kahan) add(x float64) {
-	y := x - k.c
-	t := k.sum + y
-	k.c = (t - k.sum) - y
-	k.sum = t
-}
+	"github.com/pickeringtech/go-collections/constraints"
+)
 
 // nonFinite reports whether x is NaN or ±Inf — values for which the means in
 // this package are undefined and so are rejected.
 func nonFinite(x float64) bool {
 	return math.IsNaN(x) || math.IsInf(x, 0)
+}
+
+// maxAbs returns the largest absolute value in input, or 0 for empty input —
+// the scale factor the overflow-safe computations divide out. A NaN anywhere
+// makes the result NaN, and otherwise an infinity makes it +Inf, so a
+// non-finite element always surfaces in the scale.
+func maxAbs[T constraints.Numeric](input []T) float64 {
+	var m float64
+	for _, v := range input {
+		a := math.Abs(float64(v))
+		if a > m || a != a {
+			m = a
+		}
+	}
+	return m
 }

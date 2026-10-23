@@ -1,14 +1,20 @@
 package preprocessing
 
-import "github.com/pickeringtech/go-collections/stats"
+import (
+	"math"
+
+	"github.com/pickeringtech/go-collections/stats"
+)
 
 // StandardScaler rescales features to zero mean and unit variance using the
 // z-score (x − mean) / stddev, where mean and the population standard deviation
 // are learned at Fit time and frozen for every subsequent Transform.
 //
-// It mirrors stats.Standardize's semantics: a feature with zero spread in the
-// training data transforms to all zeros (every value sits at the mean), and
-// non-finite values (NaN/Inf) PROPAGATE rather than being rejected.
+// It mirrors stats.Standardize exactly — the same mean and population standard
+// deviation, so FitTransform(x) equals stats.Standardize(x) — including its
+// semantics: a feature with zero spread in the training data transforms to all
+// zeros (every value sits at the mean), and non-finite values (NaN/Inf)
+// PROPAGATE rather than being rejected.
 type StandardScaler struct {
 	mean   float64
 	stdDev float64
@@ -23,18 +29,32 @@ func NewStandardScaler() *StandardScaler {
 
 // Fit learns the mean and population standard deviation from data and returns
 // the receiver so calls can be chained. Empty input leaves the scaler unfitted.
-// Non-finite training data is not rejected — it propagates into the learned
-// parameters and therefore into later Transform output.
+//
+// The mean is stats.Mean (compensated and overflow-safe) and the standard
+// deviation stats.PopulationStdDev (Welford) — the same parameters
+// stats.Standardize uses. Non-finite training data is not rejected —
+// it propagates into the learned parameters and therefore into later
+// Transform output.
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the scaler unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (s *StandardScaler) Fit(data []float64) *StandardScaler {
-	sum, ok := stats.Sum(data)
+	*s = StandardScaler{} // a rejected Fit leaves the scaler unfitted
+	stdDev, ok := stats.PopulationStdDev(data)
 	if !ok {
 		return s
 	}
-	// stats.Sum/PopulationStdDev propagate non-finite values, matching
-	// stats.Standardize; we deliberately avoid stats.Mean here because it
-	// rejects them.
-	s.mean = sum / float64(len(data))
-	s.stdDev, _ = stats.PopulationStdDev(data)
+	mean, finite := stats.Mean(data)
+	if !finite {
+		// stats.Mean rejects non-finite data, but this scaler propagates it
+		// like stats.Standardize, so let the IEEE sum carry the NaN/Inf into
+		// the learned mean instead.
+		sum, _ := stats.Sum(data)
+		mean = sum / float64(len(data))
+	}
+	s.mean = mean
+	s.stdDev = stdDev
 	s.fitted = true
 	return s
 }
@@ -80,9 +100,11 @@ func (s *StandardScaler) StdDev() float64 {
 // for every subsequent Transform. Test values outside the training range map
 // outside [0, 1].
 //
-// It mirrors stats.Normalize's semantics: a feature with a degenerate training
-// range (max == min) transforms to all zeros, and non-finite values (NaN/Inf)
-// PROPAGATE rather than being rejected.
+// It mirrors stats.Normalize's semantics: the range is learned over the non-NaN
+// training values, so a NaN only affects its own position; a feature with a
+// degenerate training range (max == min) transforms every finite value to 0;
+// a range whose width overflows float64 is still rescaled (in half-units); and
+// non-finite values (NaN/Inf) PROPAGATE rather than being rejected.
 type MinMaxScaler struct {
 	min    float64
 	max    float64
@@ -94,12 +116,23 @@ func NewMinMaxScaler() *MinMaxScaler {
 	return &MinMaxScaler{}
 }
 
-// Fit learns the minimum and maximum from data and returns the receiver so
-// calls can be chained. Empty input leaves the scaler unfitted.
+// Fit learns the minimum and maximum of the non-NaN values in data and returns
+// the receiver so calls can be chained. Empty input leaves the scaler
+// unfitted. Data that is entirely NaN is not rejected: it learns a NaN range,
+// so every later Transform output is NaN (the propagate policy).
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the scaler unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (s *MinMaxScaler) Fit(data []float64) *MinMaxScaler {
-	lo, hi, ok := stats.MinMax(data)
-	if !ok {
+	*s = MinMaxScaler{} // a rejected Fit leaves the scaler unfitted
+	if len(data) == 0 {
 		return s
+	}
+	// Like stats.Normalize, skip NaN so it cannot seed (and poison) the bounds.
+	lo, hi, ok := stats.MinMax(nonMissingFloats(data, IsNaN))
+	if !ok {
+		lo, hi = math.NaN(), math.NaN()
 	}
 	s.min = lo
 	s.max = hi
@@ -109,18 +142,26 @@ func (s *MinMaxScaler) Fit(data []float64) *MinMaxScaler {
 
 // Transform applies the learned min-max scaling to input, returning a fresh
 // []float64 and an ok flag. ok is false if the scaler is unfitted. When the
-// learned range is degenerate (max == min), every value maps to 0.
+// learned range is degenerate (max == min), every finite value maps to 0 and a
+// non-finite value to NaN.
 func (s *MinMaxScaler) Transform(input []float64) ([]float64, bool) {
 	if !s.fitted {
 		return nil, false
 	}
-	out := make([]float64, len(input))
-	span := s.max - s.min
-	if span == 0 {
-		return out, true
+	// As in stats.Normalize, a range whose width overflows is rescaled in
+	// half-units, which is exact at that magnitude.
+	scale := 1.0
+	if math.IsInf(s.max-s.min, 1) {
+		scale = 0.5
 	}
+	span := s.max*scale - s.min*scale
+	out := make([]float64, len(input))
 	for i, v := range input {
-		out[i] = (v - s.min) / span
+		if span == 0 {
+			out[i] = v - v // 0 for finite v; NaN for NaN/Inf
+			continue
+		}
+		out[i] = (v*scale - s.min*scale) / span
 	}
 	return out, true
 }
@@ -165,7 +206,12 @@ func NewRobustScaler() *RobustScaler {
 // Fit learns the median and interquartile range from data and returns the
 // receiver so calls can be chained. Empty input, or input containing any
 // non-finite value, leaves the scaler unfitted.
+//
+// Fitting always starts from scratch: a rejected Fit discards whatever an
+// earlier Fit learned, leaving the scaler unfitted (Transform reports
+// ok == false) rather than transforming with stale parameters.
 func (s *RobustScaler) Fit(data []float64) *RobustScaler {
+	*s = RobustScaler{} // a rejected Fit leaves the scaler unfitted
 	// Quartiles gives the median (Q2) and IQR (Q3-Q1) in a single rejection
 	// check, so there is no separate, unreachable failure path for the IQR.
 	qs, ok := stats.Quartiles(data)

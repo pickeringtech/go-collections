@@ -28,6 +28,14 @@ func Product[T constraints.Numeric](input []T) (T, bool) {
 // T. For example the range of {3, 1, 4, 1, 5} is 4 (5 - 1). It is computed in a
 // single pass.
 //
+// Like Sum, Range is an exact-in-T reduction, so the subtraction follows T's
+// arithmetic and can overflow: an integer range wider than T's maximum wraps
+// around (Range([]int8{-128, 127}) is -1, not 255), and a float range wider than
+// math.MaxFloat64 rounds to +Inf (Range({-math.MaxFloat64, math.MaxFloat64}) is
+// +Inf with ok == true — the inputs are finite, the spread is just not
+// representable). Widen T first (e.g. convert to int64 or float64) if inputs
+// can span that far.
+//
 // The second return value is false — and the result the zero value of T — when
 // input is empty or contains a non-finite value (NaN or ±Inf), which poisons
 // the min/max ordering the range depends on.

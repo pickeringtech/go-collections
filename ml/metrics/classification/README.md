@@ -27,7 +27,9 @@ auc, _ := classification.AUC(labels, scores, 1)                 // 0.75
 
 ## Label metrics
 
-Labels may be of any comparable type (compared with `==`).
+Labels may be of any comparable type (compared with `==`). A `NaN` label is
+rejected (`ok == false`) by every function that takes labels: it never equals
+itself, so it cannot be counted coherently.
 
 | Function                                   | Returns             | Notes                                                   |
 | ------------------------------------------ | ------------------- | ------------------------------------------------------- |
@@ -53,9 +55,9 @@ label.
 
 | Function                          | Returns           | Undefined (`ok == false`) when                          |
 | --------------------------------- | ----------------- | ------------------------------------------------------- |
-| `ROCCurve(yTrue, scores, pos)`    | `(Curve, bool)`   | empty, differing lengths, non-finite score, single class |
+| `ROCCurve(yTrue, scores, pos)`    | `(Curve, bool)`   | empty, differing lengths, NaN label, non-finite score, single class |
 | `AUC(yTrue, scores, pos)`         | `(float64, bool)` | as ROCCurve                                             |
-| `LogLoss(yTrue, probs, pos)`      | `(float64, bool)` | empty, differing lengths, any prob NaN or ∉ [0, 1]      |
+| `LogLoss(yTrue, probs, pos)`      | `(float64, bool)` | empty, differing lengths, NaN label, any prob NaN or ∉ [0, 1] |
 
 `AUC` uses tie-averaged ranks (the Mann–Whitney U statistic) — exact, and free
 of the trapezoid error of integrating the curve. `LogLoss` clamps probabilities

@@ -17,7 +17,8 @@
 //
 //	// Discrete / sequence distances
 //	h, ok := distance.Hamming([]string{"a","b","c"}, []string{"a","x","c"}) // 1, true
-//	lev := distance.Levenshtein("kitten", "sitting") // 3
+//	lev := distance.StringLevenshtein("kitten", "sitting") // 3
+//	tok := distance.Levenshtein([]string{"a", "b"}, []string{"a", "c"}) // 1
 //
 //	_ = e
 //	_ = m
@@ -25,6 +26,7 @@
 //	_ = c
 //	_ = h
 //	_ = lev
+//	_ = tok
 //
 // # Distance functions (DISTANCE — lower = closer)
 //
@@ -43,9 +45,11 @@
 //
 //   - Hamming: the number of positions at which two equal-length sequences
 //     differ. Accepts any comparable element type; returns (int, bool).
-//   - Levenshtein: the minimum number of single-character edits (insert,
-//     delete, substitute) to turn string a into string b. Operates over runes
-//     so it handles multi-byte Unicode correctly.
+//   - Levenshtein: the minimum number of single-element edits (insert,
+//     delete, substitute) to turn sequence a into sequence b. Accepts any
+//     comparable element type; returns int (always defined).
+//   - StringLevenshtein: Levenshtein over the runes of two strings, so it
+//     handles multi-byte Unicode correctly.
 //
 // # NaN/Inf policy
 //

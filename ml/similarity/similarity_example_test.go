@@ -48,16 +48,18 @@ func ExampleJaccard() {
 	b := sets.NewHash("b", "c", "d", "e")
 
 	// |{b,c,d}| / |{a,b,c,d,e}| = 3/5 = 0.6
-	j := similarity.Jaccard(a, b)
-	fmt.Printf("%.1f", j)
-	// Output: 0.6
+	j, ok := similarity.Jaccard(a, b)
+	fmt.Printf("%.1f %v", j, ok)
+	// Output: 0.6 true
 }
 
 func ExampleJaccard_empty() {
-	// Both empty sets → Jaccard returns 0.
-	j := similarity.Jaccard(sets.NewHash[string](), sets.NewHash[string]())
-	fmt.Printf("%.1f", j)
-	// Output: 0.0
+	// Two empty sets have an empty union, so the coefficient is undefined
+	// (ok == false) — distinct from the computed 0 of disjoint sets.
+	_, ok := similarity.Jaccard(sets.NewHash[string](), sets.NewHash[string]())
+	disjoint, disjointOK := similarity.Jaccard(sets.NewHash("a"), sets.NewHash("b"))
+	fmt.Println(ok, disjoint, disjointOK)
+	// Output: false 0 true
 }
 
 func ExampleDice() {
@@ -65,9 +67,9 @@ func ExampleDice() {
 	b := sets.NewHash("b", "c", "d", "e")
 
 	// 2*|{b,c,d}| / (4+4) = 6/8 = 0.75
-	d := similarity.Dice(a, b)
-	fmt.Printf("%.2f", d)
-	// Output: 0.75
+	d, ok := similarity.Dice(a, b)
+	fmt.Printf("%.2f %v", d, ok)
+	// Output: 0.75 true
 }
 
 func ExampleOverlap() {
@@ -75,7 +77,7 @@ func ExampleOverlap() {
 	a := sets.NewHash("a", "b")
 	b := sets.NewHash("a", "b", "c")
 
-	o := similarity.Overlap(a, b)
-	fmt.Printf("%.1f", o)
-	// Output: 1.0
+	o, ok := similarity.Overlap(a, b)
+	fmt.Printf("%.1f %v", o, ok)
+	// Output: 1.0 true
 }
