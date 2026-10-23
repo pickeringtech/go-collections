@@ -7,5 +7,7 @@
 # Benchmark-report scratch space (the committed artifacts are BENCHMARKS.md and
 # docs/bench.svg; the raw bench/CSV and the built generator binary are transient)
 /build
-# Stray binary if someone runs `go build .` inside the generator module directly
+# Stray binaries if someone runs `go build .` inside a tool module directly
 /tools/benchreport/benchreport
+/tools/cihealth/cihealth
+/tools/doccompile/doccompile
