@@ -233,10 +233,12 @@ func FuzzInsertDelete(f *testing.F) {
 		n := len(input)
 
 		// Out-of-range Delete is a no-op on length.
-		if got := slices.Delete(input, n+1); len(got) != n {
+		got := slices.Delete(input, n+1)
+		if len(got) != n {
 			t.Fatalf("Delete(out-of-range high) length = %d, want %d", len(got), n)
 		}
-		if got := slices.Delete(input, -1); len(got) != n {
+		got = slices.Delete(input, -1)
+		if len(got) != n {
 			t.Fatalf("Delete(-1) length = %d, want %d", len(got), n)
 		}
 
@@ -289,7 +291,8 @@ func FuzzNumerics(f *testing.F) {
 
 		sum, sumOK := stats.Sum(input)
 		// Sum is order-independent.
-		if rev, _ := stats.Sum(slices.Reverse(input)); rev != sum {
+		rev, _ := stats.Sum(slices.Reverse(input))
+		if rev != sum {
 			t.Fatalf("Sum not order-independent: %d vs %d", sum, rev)
 		}
 		var manual int
@@ -328,17 +331,21 @@ func FuzzNumerics(f *testing.F) {
 
 		// The NumericSlice method forms must agree with the function forms.
 		ns := slices.NumericSlice[int](input)
-		if nsSum, nsSumOK := ns.Sum(); nsSum != sum || nsSumOK != sumOK {
+		nsSum, nsSumOK := ns.Sum()
+		if nsSum != sum || nsSumOK != sumOK {
 			t.Fatalf("NumericSlice.Sum (%v, %v) disagrees with Sum (%v, %v)", nsSum, nsSumOK, sum, sumOK)
 		}
-		if nsMax, nsMaxOK := ns.Max(); nsMax != mx || nsMaxOK != mxOK {
+		nsMax, nsMaxOK := ns.Max()
+		if nsMax != mx || nsMaxOK != mxOK {
 			t.Fatalf("NumericSlice.Max (%v, %v) disagrees with Max (%v, %v)", nsMax, nsMaxOK, mx, mxOK)
 		}
-		if nsMin, nsMinOK := ns.Min(); nsMin != mn || nsMinOK != mnOK {
+		nsMin, nsMinOK := ns.Min()
+		if nsMin != mn || nsMinOK != mnOK {
 			t.Fatalf("NumericSlice.Min (%v, %v) disagrees with Min (%v, %v)", nsMin, nsMinOK, mn, mnOK)
 		}
 		avg, avgOK := stats.Mean(input)
-		if nsMean, nsMeanOK := ns.Mean(); nsMean != avg || nsMeanOK != avgOK {
+		nsMean, nsMeanOK := ns.Mean()
+		if nsMean != avg || nsMeanOK != avgOK {
 			t.Fatalf("NumericSlice.Mean (%v, %v) disagrees with stats.Mean (%v, %v)", nsMean, nsMeanOK, avg, avgOK)
 		}
 	})

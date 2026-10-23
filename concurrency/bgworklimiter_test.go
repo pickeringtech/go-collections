@@ -41,10 +41,12 @@ func TestBackgroundWorkLimiter_RunsAllWork(t *testing.T) {
 	limiter.Stop()
 	limiter.Wait()
 
-	if got := atomic.LoadInt64(&counter); got != 100 {
+	got := atomic.LoadInt64(&counter)
+	if got != 100 {
 		t.Errorf("ran %d work items, want 100", got)
 	}
-	if errs := limiter.Errors(); len(errs) != 0 {
+	errs := limiter.Errors()
+	if len(errs) != 0 {
 		t.Errorf("Errors() = %d, want 0", len(errs))
 	}
 }
@@ -90,10 +92,12 @@ func TestBackgroundWorkLimiter_InvalidLimitIsClamped(t *testing.T) {
 			limiter.Stop()
 			limiter.Wait()
 
-			if got := atomic.LoadInt64(&counter); got != 10 {
+			got := atomic.LoadInt64(&counter)
+			if got != 10 {
 				t.Errorf("ran %d work items, want 10", got)
 			}
-			if errs := limiter.Errors(); len(errs) != 0 {
+			errs := limiter.Errors()
+			if len(errs) != 0 {
 				t.Errorf("Errors() = %d, want 0", len(errs))
 			}
 		})
@@ -144,7 +148,8 @@ func TestBackgroundWorkLimiter_DoubleStartIsNoOp(t *testing.T) {
 	limiter.Stop()
 	limiter.Wait()
 
-	if got := atomic.LoadInt64(&counter); got != 10 {
+	got := atomic.LoadInt64(&counter)
+	if got != 10 {
 		t.Errorf("ran %d work items, want 10", got)
 	}
 }
@@ -185,7 +190,8 @@ func TestBackgroundWorkLimiter_NeverExceedsLimit(t *testing.T) {
 	limiter.Stop()
 	limiter.Wait()
 
-	if got := atomic.LoadInt64(&maxObserved); got > limit {
+	got := atomic.LoadInt64(&maxObserved)
+	if got > limit {
 		t.Errorf("observed %d concurrent workers, limit is %d", got, limit)
 	}
 }

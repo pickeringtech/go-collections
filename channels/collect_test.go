@@ -51,7 +51,8 @@ func TestBuildMapFromEntries(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := channels.BuildMapFromEntries(tt.args.entries); !reflect.DeepEqual(got, tt.want) {
+			got := channels.BuildMapFromEntries(tt.args.entries)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("BuildMapFromEntries() = %v, want %v", got, tt.want)
 			}
 		})
@@ -223,7 +224,8 @@ func TestCollectNAsSlice(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := channels.CollectNAsSlice(tt.args.input, tt.args.howMany); !reflect.DeepEqual(got, tt.want) {
+			got := channels.CollectNAsSlice(tt.args.input, tt.args.howMany)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("CollectNAsSlice() = %v, want %v", got, tt.want)
 			}
 		})

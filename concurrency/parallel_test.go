@@ -140,7 +140,8 @@ func TestMapErrorPolicies(t *testing.T) {
 		if !ok {
 			t.Fatalf("Map() error %T is not a joined error", err)
 		}
-		if got := len(joined.Unwrap()); got != 2 {
+		got := len(joined.Unwrap())
+		if got != 2 {
 			t.Errorf("Map() collected %d errors, want 2", got)
 		}
 	})
@@ -369,7 +370,8 @@ func TestContextCancellation(t *testing.T) {
 		if !errors.Is(err, context.Canceled) {
 			t.Errorf("ForEach() error = %v, want context.Canceled", err)
 		}
-		if got := atomic.LoadInt64(&ran); got != 1 {
+		got := atomic.LoadInt64(&ran)
+		if got != 1 {
 			t.Errorf("ForEach() ran %d items, want exactly 1 before cancel took hold", got)
 		}
 	})
