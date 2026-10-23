@@ -94,7 +94,7 @@ func main() {
 | **[Concurrency](./concurrency/README.md)** | Bounded-concurrency work limiters and data-parallel transforms | Order-preserving parallel Map/ForEach/Batch over a worker pool |
 | **[Constraints](./constraints/)** | Type constraints for generics | Custom generic functions |
 | **[Sketches](./collections/sketches/)** | Probabilistic data structures | MinHash, Bloom, Count-Min, HyperLogLog over large sets |
-| **[Streaming](./collections/streaming/)** | Bounded-memory algorithms for unbounded streams | Top-k, reservoir sampling, bootstrap resampling, online mean/variance/EWMA/min-max |
+| **[Streaming](./collections/streaming/README.md)** | Bounded-memory algorithms for unbounded streams | Top-k, reservoir sampling, bootstrap resampling, online mean/variance/EWMA/min-max |
 
 ### Statistics & Data Engineering
 
@@ -309,6 +309,7 @@ downstream-consumer smoke test. See the [examples README](./examples/README.md).
 - **[Channels Utilities](./channels/README.md)** - Pipeline processing
 - **[Concurrency Utilities](./concurrency/README.md)** - Bounded-concurrency work limiters and parallel transforms
 - **[Sketches](./collections/sketches/README.md)** - MinHash and other probabilistic sketches
+- **[Streaming](./collections/streaming/README.md)** - Top-k, reservoir sampling, bootstrap and online aggregates over unbounded streams
 - **[Stats](./stats/README.md)** - Numeric summaries: means, quantiles, variance, correlation, regression, transforms
 - **[Relational](./relational/README.md)** - Split-apply-combine: GroupBy/aggregate, joins, pivot/unpivot, partition
 - **[ML Distance](./ml/distance/README.md)** - Distance metrics (Euclidean, Manhattan, Minkowski, Cosine, Hamming, Levenshtein)
