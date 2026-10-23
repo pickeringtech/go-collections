@@ -30,18 +30,43 @@ func TestSilhouetteScore(t *testing.T) {
 }
 
 func TestSilhouetteSamples(t *testing.T) {
-	got, ok := clustering.SilhouetteSamples(wellSeparated, twoClusters)
-	if !ok {
-		t.Fatal("ok = false, want true")
+	tests := []struct {
+		name   string
+		points [][]float64
+		labels []int
+		want   []float64
+	}{
+		{
+			name:   "two pairs of points",
+			points: wellSeparated,
+			labels: twoClusters,
+			want:   []float64{0.9512195121951219, 0.9487179487179487, 0.9487179487179487, 0.9512195121951219},
+		},
+		{
+			// With pairs, every point's cohesion is a single distance; a cluster
+			// of three makes it a true mean of two. For the point at 0:
+			// a = (2+4)/2 = 3, b = (10+14)/2 = 12, so s = (12−3)/12 = 0.75.
+			name:   "a cluster of three averages its intra-cluster distances",
+			points: [][]float64{{0}, {2}, {4}, {10}, {14}},
+			labels: []int{0, 0, 0, 1, 1},
+			want:   []float64{0.75, 0.8, 0.625, 0.5, 2.0 / 3.0},
+		},
 	}
-	want := []float64{0.9512195121951219, 0.9487179487179487, 0.9487179487179487, 0.9512195121951219}
-	if len(got) != len(want) {
-		t.Fatalf("len = %d, want %d", len(got), len(want))
-	}
-	for i := range want {
-		if !approxEqual(got[i], want[i]) {
-			t.Errorf("sample %d = %v, want %v", i, got[i], want[i])
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := clustering.SilhouetteSamples(tt.points, tt.labels)
+			if !ok {
+				t.Fatal("ok = false, want true")
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("len = %d, want %d", len(got), len(tt.want))
+			}
+			for i := range tt.want {
+				if !approxEqual(got[i], tt.want[i]) {
+					t.Errorf("sample %d = %v, want %v", i, got[i], tt.want[i])
+				}
+			}
+		})
 	}
 }
 
