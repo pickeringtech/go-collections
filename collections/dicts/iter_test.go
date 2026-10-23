@@ -296,3 +296,90 @@ func TestDict_RemovingDuringIterationVisitsEveryEntry(t *testing.T) {
 		}
 	}
 }
+
+// TestDict_IteratorSnapshotsWhenRangingBegins verifies that every iterator
+// reads the dictionary when a range over it begins, not when the iterator is
+// created: a write made between creating the iterator and ranging it is seen.
+// Tree.KeysSeq/ValuesSeq and the concurrent dictionaries' iterators used to copy
+// the entries when the method was called, so a stored iterator was stale.
+func TestDict_IteratorSnapshotsWhenRangingBegins(t *testing.T) {
+	iterators := []struct {
+		name   string
+		sorted bool
+		create func(d dicts.MutableDict[int, int]) func(visit func(key int))
+	}{
+		{name: "All", create: func(d dicts.MutableDict[int, int]) func(func(int)) {
+			seq := d.All()
+			return func(visit func(int)) {
+				for k := range seq {
+					visit(k)
+				}
+			}
+		}},
+		{name: "KeysSeq", create: func(d dicts.MutableDict[int, int]) func(func(int)) {
+			seq := d.KeysSeq()
+			return func(visit func(int)) {
+				for k := range seq {
+					visit(k)
+				}
+			}
+		}},
+		{name: "ValuesSeq", create: func(d dicts.MutableDict[int, int]) func(func(int)) {
+			seq := d.ValuesSeq()
+			return func(visit func(int)) {
+				for v := range seq {
+					visit(v)
+				}
+			}
+		}},
+		{name: "Backward", sorted: true, create: func(d dicts.MutableDict[int, int]) func(func(int)) {
+			seq := d.(dicts.SortedDict[int, int]).Backward()
+			return func(visit func(int)) {
+				for k := range seq {
+					visit(k)
+				}
+			}
+		}},
+		{name: "RangeAll", sorted: true, create: func(d dicts.MutableDict[int, int]) func(func(int)) {
+			seq := d.(dicts.SortedDict[int, int]).RangeAll(1, 7)
+			return func(visit func(int)) {
+				for k := range seq {
+					visit(k)
+				}
+			}
+		}},
+	}
+	seed := []dicts.Pair[int, int]{{Key: 1, Value: 1}, {Key: 2, Value: 2}}
+	implementations := []struct {
+		name   string
+		sorted bool
+		make   func() dicts.MutableDict[int, int]
+	}{
+		{"Hash", false, func() dicts.MutableDict[int, int] { return dicts.NewHash(seed...) }},
+		{"ConcurrentHash", false, func() dicts.MutableDict[int, int] { return dicts.NewConcurrentHash(seed...) }},
+		{"ConcurrentHashRW", false, func() dicts.MutableDict[int, int] { return dicts.NewConcurrentHashRW(seed...) }},
+		{"Tree", true, func() dicts.MutableDict[int, int] { return dicts.NewTree(seed...) }},
+		{"ConcurrentTree", true, func() dicts.MutableDict[int, int] { return dicts.NewConcurrentTree(seed...) }},
+		{"ConcurrentTreeRW", true, func() dicts.MutableDict[int, int] { return dicts.NewConcurrentTreeRW(seed...) }},
+	}
+	for _, it := range iterators {
+		for _, impl := range implementations {
+			if it.sorted && !impl.sorted {
+				continue
+			}
+			t.Run(it.name+"/"+impl.name, func(t *testing.T) {
+				d := impl.make()
+				rangeOver := it.create(d)
+				d.PutInPlace(3, 3) // written after the iterator was created
+
+				var visited []int
+				rangeOver(func(key int) { visited = append(visited, key) })
+
+				sort.Ints(visited)
+				if want := []int{1, 2, 3}; !reflect.DeepEqual(visited, want) {
+					t.Errorf("%s() created before PutInPlace then ranged = %v, want %v", it.name, visited, want)
+				}
+			})
+		}
+	}
+}

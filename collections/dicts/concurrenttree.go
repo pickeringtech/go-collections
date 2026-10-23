@@ -428,52 +428,23 @@ func (ch *ConcurrentTree[K, V]) Range(lo, hi K) []Pair[K, V] {
 	return ch.tree.Range(lo, hi)
 }
 
-// All returns an iterator over all entries in ascending key order. The entries
-// are snapshotted under the lock, so iteration is safe against concurrent
-// mutation and never holds the lock while calling the consumer.
+// All returns an iterator over all entries in ascending key order. Each range
+// over it snapshots the entries under the lock when it begins — not when All
+// is called — and yields them after releasing it, so it is safe against
+// concurrent mutation and the loop body may call back into the dictionary.
 func (ch *ConcurrentTree[K, V]) All() iter.Seq2[K, V] {
-	ch.lock.Lock()
-	items := ch.tree.Items()
-	ch.lock.Unlock()
-	return seq2FromPairs(items)
+	return pairsSeq(ch.Items)
 }
 
 // Backward returns an iterator over all entries in descending key order,
-// snapshotted under the lock.
+// snapshotted under the lock when a range over it begins (see All).
 func (ch *ConcurrentTree[K, V]) Backward() iter.Seq2[K, V] {
-	ch.lock.Lock()
-	items := ch.tree.Items()
-	ch.lock.Unlock()
-	return seq2FromPairsReverse(items)
+	return reversePairsSeq(ch.Items)
 }
 
 // RangeAll returns an iterator over the entries whose key is within the inclusive
-// range [lo, hi], in ascending key order, snapshotted under the lock.
+// range [lo, hi], in ascending key order, snapshotted under the lock when a
+// range over it begins (see All).
 func (ch *ConcurrentTree[K, V]) RangeAll(lo, hi K) iter.Seq2[K, V] {
-	ch.lock.Lock()
-	items := ch.tree.Range(lo, hi)
-	ch.lock.Unlock()
-	return seq2FromPairs(items)
-}
-
-// seq2FromPairs returns an iterator that yields the given pairs in order.
-func seq2FromPairs[K constraints.Ordered, V any](items []Pair[K, V]) iter.Seq2[K, V] {
-	return func(yield func(K, V) bool) {
-		for _, item := range items {
-			if !yield(item.Key, item.Value) {
-				return
-			}
-		}
-	}
-}
-
-// seq2FromPairsReverse returns an iterator that yields the given pairs in reverse order.
-func seq2FromPairsReverse[K constraints.Ordered, V any](items []Pair[K, V]) iter.Seq2[K, V] {
-	return func(yield func(K, V) bool) {
-		for i := len(items) - 1; i >= 0; i-- {
-			if !yield(items[i].Key, items[i].Value) {
-				return
-			}
-		}
-	}
+	return pairsSeq(func() []Pair[K, V] { return ch.Range(lo, hi) })
 }

@@ -236,6 +236,26 @@
 //
 //	dict := dicts.FromSeq2(other.All())
 //
+// Every iterator follows one rule: it reads the dictionary when a range over it
+// begins, never when All, KeysSeq, ValuesSeq, Backward or RangeAll is called.
+// A stored iterator is therefore never stale — each range sees the contents as
+// they are at that moment:
+//
+//	seq := dict.KeysSeq()
+//	dict.PutInPlace("new", 1)
+//	for k := range seq { ... }                // includes "new"
+//
+// Tree, ConcurrentTree, ConcurrentTreeRW, ConcurrentHash and ConcurrentHashRW
+// take a snapshot of the entries at that moment (the concurrent types under
+// their lock) and yield from it, so the loop body may insert or remove entries,
+// or call back into a concurrent dictionary, and is still handed every entry
+// that was present exactly once. Hash ranges over its live Go map, so in-loop
+// mutation follows Go's map iteration rules: an entry removed before it is
+// reached is not produced, and an entry added during the loop may or may not
+// be. The callback methods (ForEach, ForEachKey, ForEachValue, Filter,
+// FilterInPlace, AllMatch, AnyMatch, NoneMatch, Find, FindKey, FindValue)
+// behave the same way, taking their snapshot when the call begins.
+//
 // # Thread Safety
 //
 // Choose the right concurrent implementation:
@@ -247,10 +267,18 @@
 //	config := dicts.NewConcurrentHashRW[string, string]()
 //
 // Callbacks passed to the traversal and predicate methods — ForEach,
-// ForEachKey, ForEachValue, Filter, AllMatch, AnyMatch, Find and the iterator
-// methods (All, Keys, Values) — run after the lock is released, against a
-// point-in-time snapshot taken under the lock. They may therefore safely
-// re-enter the same dictionary (read it, or mutate it) without deadlocking.
+// ForEachKey, ForEachValue, Filter, FilterInPlace, AllMatch, AnyMatch,
+// NoneMatch, Find, FindKey, FindValue — and the bodies of range loops over the
+// iterator methods (All, KeysSeq, ValuesSeq, and on the sorted types Backward
+// and RangeAll) run after the lock is released, against a point-in-time
+// snapshot taken under the lock. They may therefore safely re-enter the same
+// dictionary (read it, or mutate it) without deadlocking.
+//
+// FilterInPlace applies its result under the lock once the predicate has seen
+// every entry. If nothing wrote to the dictionary in the meantime it removes
+// exactly the rejected keys, as Hash and Tree do; if a write did land in that
+// window, a rejected key is removed only if its value is unchanged, so the
+// concurrent write is preserved.
 //
 // # Common Patterns
 //

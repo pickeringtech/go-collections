@@ -429,30 +429,23 @@ func (ch *ConcurrentTreeRW[K, V]) Range(lo, hi K) []Pair[K, V] {
 	return ch.tree.Range(lo, hi)
 }
 
-// All returns an iterator over all entries in ascending key order. The entries
-// are snapshotted under the read lock, so iteration is safe against concurrent
-// mutation and never holds the lock while calling the consumer.
+// All returns an iterator over all entries in ascending key order. Each range
+// over it snapshots the entries under the read lock when it begins — not when All
+// is called — and yields them after releasing it, so it is safe against
+// concurrent mutation and the loop body may call back into the dictionary.
 func (ch *ConcurrentTreeRW[K, V]) All() iter.Seq2[K, V] {
-	ch.lock.RLock()
-	items := ch.tree.Items()
-	ch.lock.RUnlock()
-	return seq2FromPairs(items)
+	return pairsSeq(ch.Items)
 }
 
 // Backward returns an iterator over all entries in descending key order,
-// snapshotted under the read lock.
+// snapshotted under the read lock when a range over it begins (see All).
 func (ch *ConcurrentTreeRW[K, V]) Backward() iter.Seq2[K, V] {
-	ch.lock.RLock()
-	items := ch.tree.Items()
-	ch.lock.RUnlock()
-	return seq2FromPairsReverse(items)
+	return reversePairsSeq(ch.Items)
 }
 
 // RangeAll returns an iterator over the entries whose key is within the inclusive
-// range [lo, hi], in ascending key order, snapshotted under the read lock.
+// range [lo, hi], in ascending key order, snapshotted under the read lock when a
+// range over it begins (see All).
 func (ch *ConcurrentTreeRW[K, V]) RangeAll(lo, hi K) iter.Seq2[K, V] {
-	ch.lock.RLock()
-	items := ch.tree.Range(lo, hi)
-	ch.lock.RUnlock()
-	return seq2FromPairs(items)
+	return pairsSeq(func() []Pair[K, V] { return ch.Range(lo, hi) })
 }

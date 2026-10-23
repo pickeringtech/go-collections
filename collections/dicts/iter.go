@@ -39,28 +39,6 @@ func itemsSeq[T any](snapshot func() []T) iter.Seq[T] {
 	}
 }
 
-// seqPairs returns an iterator over the key/value pairs.
-func seqPairs[K comparable, V any](pairs []Pair[K, V]) iter.Seq2[K, V] {
-	return func(yield func(K, V) bool) {
-		for _, pair := range pairs {
-			if !yield(pair.Key, pair.Value) {
-				return
-			}
-		}
-	}
-}
-
-// seqOf returns an iterator over the given items.
-func seqOf[T any](items []T) iter.Seq[T] {
-	return func(yield func(T) bool) {
-		for _, item := range items {
-			if !yield(item) {
-				return
-			}
-		}
-	}
-}
-
 // FromSeq2 builds a Hash dictionary from the key/value pairs produced by seq.
 // When seq yields the same key more than once, the last value wins. It is the
 // inbound counterpart to the All iterator.
@@ -114,43 +92,50 @@ func (t *Tree[K, V]) KeysSeq() iter.Seq[K] { return itemsSeq(t.Keys) }
 // snapshotted when a range over it begins (see Tree.All).
 func (t *Tree[K, V]) ValuesSeq() iter.Seq[V] { return itemsSeq(t.Values) }
 
-// All returns an iterator over key/value pairs, over a snapshot taken under the
-// lock. It is safe for concurrent use. Iteration order is unspecified.
-func (ch *ConcurrentHash[K, V]) All() iter.Seq2[K, V] { return seqPairs(ch.Items()) }
+// All returns an iterator over key/value pairs. Each range over it snapshots the
+// entries under the lock when it begins — not when All is called — and yields
+// them after releasing it, so it is safe for concurrent use and the loop body
+// may call back into the dictionary. Iteration order is unspecified.
+func (ch *ConcurrentHash[K, V]) All() iter.Seq2[K, V] { return pairsSeq(ch.Items) }
 
-// KeysSeq returns an iterator over the keys, over a snapshot taken under the
-// lock. It is safe for concurrent use. Iteration order is unspecified.
-func (ch *ConcurrentHash[K, V]) KeysSeq() iter.Seq[K] { return seqOf(ch.Keys()) }
+// KeysSeq returns an iterator over the keys, snapshotted under the lock when a
+// range over it begins (see All). Iteration order is unspecified.
+func (ch *ConcurrentHash[K, V]) KeysSeq() iter.Seq[K] { return itemsSeq(ch.Keys) }
 
-// ValuesSeq returns an iterator over the values, over a snapshot taken under the
-// lock. It is safe for concurrent use. Iteration order is unspecified.
-func (ch *ConcurrentHash[K, V]) ValuesSeq() iter.Seq[V] { return seqOf(ch.Values()) }
+// ValuesSeq returns an iterator over the values, snapshotted under the lock when
+// a range over it begins (see All). Iteration order is unspecified.
+func (ch *ConcurrentHash[K, V]) ValuesSeq() iter.Seq[V] { return itemsSeq(ch.Values) }
 
-// All returns an iterator over key/value pairs, over a snapshot taken under the
-// lock. It is safe for concurrent use. Iteration order is unspecified.
-func (ch *ConcurrentHashRW[K, V]) All() iter.Seq2[K, V] { return seqPairs(ch.Items()) }
+// All returns an iterator over key/value pairs. Each range over it snapshots the
+// entries under the read lock when it begins — not when All is called — and
+// yields them after releasing it, so it is safe for concurrent use and the loop
+// body may call back into the dictionary. Iteration order is unspecified.
+func (ch *ConcurrentHashRW[K, V]) All() iter.Seq2[K, V] { return pairsSeq(ch.Items) }
 
-// KeysSeq returns an iterator over the keys, over a snapshot taken under the
-// lock. It is safe for concurrent use. Iteration order is unspecified.
-func (ch *ConcurrentHashRW[K, V]) KeysSeq() iter.Seq[K] { return seqOf(ch.Keys()) }
+// KeysSeq returns an iterator over the keys, snapshotted under the read lock
+// when a range over it begins (see All). Iteration order is unspecified.
+func (ch *ConcurrentHashRW[K, V]) KeysSeq() iter.Seq[K] { return itemsSeq(ch.Keys) }
 
-// ValuesSeq returns an iterator over the values, over a snapshot taken under the
-// lock. It is safe for concurrent use. Iteration order is unspecified.
-func (ch *ConcurrentHashRW[K, V]) ValuesSeq() iter.Seq[V] { return seqOf(ch.Values()) }
+// ValuesSeq returns an iterator over the values, snapshotted under the read lock
+// when a range over it begins (see All). Iteration order is unspecified.
+func (ch *ConcurrentHashRW[K, V]) ValuesSeq() iter.Seq[V] { return itemsSeq(ch.Values) }
 
-// KeysSeq returns an iterator over the keys in ascending order, over a snapshot
-// taken under the lock. It is safe for concurrent use. The ascending All and
-// descending Backward iterators live alongside the SortedDict operations.
-func (ch *ConcurrentTree[K, V]) KeysSeq() iter.Seq[K] { return seqOf(ch.Keys()) }
+// KeysSeq returns an iterator over the keys in ascending order, snapshotted
+// under the lock when a range over it begins (see ConcurrentTree.All). The
+// ascending All and descending Backward iterators live alongside the
+// SortedDict operations.
+func (ch *ConcurrentTree[K, V]) KeysSeq() iter.Seq[K] { return itemsSeq(ch.Keys) }
 
-// ValuesSeq returns an iterator over the values in ascending key order, over a
-// snapshot taken under the lock. It is safe for concurrent use.
-func (ch *ConcurrentTree[K, V]) ValuesSeq() iter.Seq[V] { return seqOf(ch.Values()) }
+// ValuesSeq returns an iterator over the values in ascending key order,
+// snapshotted under the lock when a range over it begins (see
+// ConcurrentTree.All).
+func (ch *ConcurrentTree[K, V]) ValuesSeq() iter.Seq[V] { return itemsSeq(ch.Values) }
 
-// KeysSeq returns an iterator over the keys in ascending order, over a snapshot
-// taken under the lock. It is safe for concurrent use.
-func (ch *ConcurrentTreeRW[K, V]) KeysSeq() iter.Seq[K] { return seqOf(ch.Keys()) }
+// KeysSeq returns an iterator over the keys in ascending order, snapshotted
+// under the read lock when a range over it begins (see ConcurrentTreeRW.All).
+func (ch *ConcurrentTreeRW[K, V]) KeysSeq() iter.Seq[K] { return itemsSeq(ch.Keys) }
 
-// ValuesSeq returns an iterator over the values in ascending key order, over a
-// snapshot taken under the lock. It is safe for concurrent use.
-func (ch *ConcurrentTreeRW[K, V]) ValuesSeq() iter.Seq[V] { return seqOf(ch.Values()) }
+// ValuesSeq returns an iterator over the values in ascending key order,
+// snapshotted under the read lock when a range over it begins (see
+// ConcurrentTreeRW.All).
+func (ch *ConcurrentTreeRW[K, V]) ValuesSeq() iter.Seq[V] { return itemsSeq(ch.Values) }
