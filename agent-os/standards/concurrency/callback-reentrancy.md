@@ -49,8 +49,19 @@ func (ch *ConcurrentHash[K, V]) FilterInPlace(fn func(key K, value V) bool) {
 
 Applies to every callback-taking method: `ForEach`/`ForEachKey`/`ForEachValue`/
 `ForEachWithIndex`, `Filter`/`FilterInPlace`, `AllMatch`/`AnyMatch`/`NoneMatch`,
-`Find`/`FindKey`/`FindValue`/`FindIndex`. The `All`/`Range`/`RangeAll` iterators
-already follow this — they snapshot under the lock and yield outside it.
+`Find`/`FindKey`/`FindValue`/`FindIndex`, and the `iter.Seq` iterators
+(`All`/`KeysSeq`/`ValuesSeq`/`Backward`/`RangeAll`).
+
+**Iterator snapshot timing — one rule for every dict, set and multimap.** An
+iterator reads the collection **when a range over it begins** — the snapshot
+is taken inside the returned func (e.g. `return pairsSeq(ch.Items)`), never
+when `All()` is called — so a stored `iter.Seq` always reflects the
+collection at the moment it is ranged. Concurrent types take that snapshot
+under the lock and yield outside it; the plain tree types (`dicts.Tree`,
+`sets.TreeSet`) snapshot too, because mutating an AVL tree under a live
+traversal skips entries; the plain map-backed types range their live Go map
+and follow Go's map-iteration rules. Each package doc states the rule, and
+each type has a test that creates an iterator, writes, then ranges it.
 
 - **Trade-off — document it.** The callback observes a **point-in-time snapshot**
   taken under the lock, not a live view. For `FilterInPlace` that opens a
