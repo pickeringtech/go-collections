@@ -46,7 +46,8 @@ func (c *ConcurrentDigest) Add(x float64) {
 	c.digest.Add(x)
 }
 
-// AddWeighted records a weighted value. Safe for concurrent use.
+// AddWeighted records a weighted value, ignoring the same inputs as
+// Digest.AddWeighted. Safe for concurrent use.
 func (c *ConcurrentDigest) AddWeighted(x float64, w float64) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -77,8 +78,9 @@ func (c *ConcurrentDigest) CDF(x float64) (float64, bool) {
 	return c.digest.CDF(x)
 }
 
-// Merge folds other into the receiver under the write lock. other is read
-// without locking, so it must not be mutated concurrently elsewhere.
+// Merge folds other into the receiver under the write lock, returning the same
+// errors as Digest.Merge. other is read without locking, so it must not be
+// mutated concurrently elsewhere.
 func (c *ConcurrentDigest) Merge(other *Digest) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()

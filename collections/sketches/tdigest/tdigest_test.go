@@ -606,3 +606,100 @@ func TestDigest_MergeSelf(t *testing.T) {
 		})
 	}
 }
+
+// assertFiniteQueries fails the test if any query on d returns ok=false or a
+// non-finite or out-of-range result.
+func assertFiniteQueries(t *testing.T, d *tdigest.Digest) {
+	t.Helper()
+	if math.IsInf(d.Count(), 0) || math.IsNaN(d.Count()) {
+		t.Fatalf("Count() = %v, want finite", d.Count())
+	}
+	lo, _ := d.Min()
+	hi, _ := d.Max()
+	for _, q := range []float64{0, 0.01, 0.25, 0.5, 0.75, 0.99, 1} {
+		got, ok := d.Quantile(q)
+		if !ok || math.IsNaN(got) || got < lo || got > hi {
+			t.Errorf("Quantile(%v) = (%v, %v), want a value in [%v, %v]", q, got, ok, lo, hi)
+		}
+	}
+	for _, x := range []float64{lo, (lo + hi) / 2, hi} {
+		got, ok := d.CDF(x)
+		if !ok || math.IsNaN(got) || got < 0 || got > 1 {
+			t.Errorf("CDF(%v) = (%v, %v), want a fraction in [0, 1]", x, got, ok)
+		}
+	}
+}
+
+// TestDigest_AddWeightedRejectsUnusableWeights checks that AddWeighted ignores
+// a weight that is not a positive finite number, and a weight that would push
+// the total weight past math.MaxFloat64. An infinite weight, or a total that
+// overflowed to +Inf, used to be accepted and turned every later query into
+// NaN with ok=true.
+func TestDigest_AddWeightedRejectsUnusableWeights(t *testing.T) {
+	tests := []struct {
+		name      string
+		weight    float64
+		wantCount float64
+	}{
+		{name: "positive infinite weight is ignored", weight: math.Inf(1), wantCount: 2},
+		{name: "negative infinite weight is ignored", weight: math.Inf(-1), wantCount: 2},
+		{name: "NaN weight is ignored", weight: math.NaN(), wantCount: 2},
+		{name: "zero weight is ignored", weight: 0, wantCount: 2},
+		{name: "negative weight is ignored", weight: -1, wantCount: 2},
+		{name: "a weight overflowing the total is ignored", weight: math.MaxFloat64, wantCount: math.MaxFloat64},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := buildDigest(t, 100, []float64{2, 3})
+			if tt.weight == math.MaxFloat64 {
+				// Fill the digest to the limit first: this weight still fits
+				// (2 + MaxFloat64 rounds to MaxFloat64), the second does not.
+				d = buildDigest(t, 100, nil)
+				d.AddWeighted(2, math.MaxFloat64)
+			}
+			d.AddWeighted(1, tt.weight)
+			if d.Count() != tt.wantCount {
+				t.Errorf("Count() = %v, want %v", d.Count(), tt.wantCount)
+			}
+			assertFiniteQueries(t, d)
+		})
+	}
+}
+
+// TestDigest_MergeRejectsWeightOverflow checks that a Merge whose combined
+// weight would exceed math.MaxFloat64 returns ErrWeightOverflow and leaves the
+// receiver unchanged, rather than overflowing the total to +Inf.
+func TestDigest_MergeRejectsWeightOverflow(t *testing.T) {
+	heavy := func() *tdigest.Digest {
+		d := buildDigest(t, 100, nil)
+		d.AddWeighted(1, math.MaxFloat64/2)
+		d.AddWeighted(2, math.MaxFloat64/2)
+		return d
+	}
+	tests := []struct {
+		name  string
+		other func(receiver *tdigest.Digest) *tdigest.Digest
+	}{
+		{"another heavy digest", func(*tdigest.Digest) *tdigest.Digest { return heavy() }},
+		{"the receiver itself", func(receiver *tdigest.Digest) *tdigest.Digest { return receiver }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := heavy()
+			before := d.Count()
+			beforeMedian, _ := d.Quantile(0.5)
+			err := d.Merge(tt.other(d))
+			if !errors.Is(err, tdigest.ErrWeightOverflow) {
+				t.Fatalf("Merge error = %v, want ErrWeightOverflow", err)
+			}
+			if d.Count() != before {
+				t.Errorf("Count after rejected Merge = %v, want %v (unchanged)", d.Count(), before)
+			}
+			median, _ := d.Quantile(0.5)
+			if median != beforeMedian {
+				t.Errorf("median after rejected Merge = %v, want %v (unchanged)", median, beforeMedian)
+			}
+			assertFiniteQueries(t, d)
+		})
+	}
+}

@@ -13,6 +13,11 @@ import (
 // errors.Is.
 var ErrInvalidConfig = errors.New("tdigest: invalid configuration")
 
+// ErrWeightOverflow is returned by Merge when the two digests' combined total
+// weight would exceed math.MaxFloat64. The receiver is left unchanged, as it is
+// for every Merge error.
+var ErrWeightOverflow = errors.New("tdigest: total weight would overflow float64")
+
 // DefaultCompression is the compression used when WithCompression is not given.
 // It sets the rough upper bound on the number of retained centroids and so
 // trades memory for accuracy; 100 is the value recommended by Dunning's
@@ -102,14 +107,21 @@ func (d *Digest) Add(x float64) {
 }
 
 // AddWeighted records a value carrying the given weight, as though it had been
-// added w times. A non-finite x, or a weight that is not strictly positive
-// (including NaN), is silently ignored — see Add for the rationale.
+// added w times. The call is silently ignored — see Add for the rationale —
+// when x is non-finite, when w is not a strictly positive finite number (zero,
+// negative, NaN or ±Inf), or when adding w would push the digest's total
+// weight (Count) past math.MaxFloat64. Rejecting the overflow keeps Count
+// finite, so the quantile queries never divide by an infinite total.
 func (d *Digest) AddWeighted(x float64, w float64) {
-	if nonFinite(x) || w <= 0 || math.IsNaN(w) {
+	if nonFinite(x) || nonFinite(w) || w <= 0 {
+		return
+	}
+	total := d.count + w
+	if math.IsInf(total, 1) {
 		return
 	}
 	d.buffer = append(d.buffer, centroid{mean: x, weight: w})
-	d.count += w
+	d.count = total
 	if x < d.min {
 		d.min = x
 	}
@@ -298,7 +310,9 @@ func (d *Digest) CDF(x float64) (float64, bool) {
 // receiver then summarises the union of both streams. Both digests must have
 // been built with identical compression; otherwise Merge returns an error
 // wrapping ErrInvalidConfig and leaves the receiver unchanged. Merging a nil
-// digest is also an error. Because the receiver is unchanged on error, callers
+// digest is also an error (wrapping ErrInvalidConfig), as is a merge whose
+// combined total weight would exceed math.MaxFloat64 (wrapping
+// ErrWeightOverflow). Because the receiver is unchanged on error, callers
 // can retry after correcting the configuration. Merging a digest into itself
 // is allowed and is equivalent to merging an identical copy: every value then
 // counts twice.
@@ -309,6 +323,10 @@ func (d *Digest) Merge(other *Digest) error {
 	if d.compression != other.compression {
 		return fmt.Errorf("%w: digests differ (compression=%v/%v)",
 			ErrInvalidConfig, d.compression, other.compression)
+	}
+	if math.IsInf(d.count+other.count, 1) {
+		return fmt.Errorf("%w: cannot combine total weights %v and %v",
+			ErrWeightOverflow, d.count, other.count)
 	}
 	// Snapshot everything read from other before the receiver is touched:
 	// other may be the receiver itself (d.Merge(d)), in which case appending to
