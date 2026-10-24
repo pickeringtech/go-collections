@@ -76,6 +76,7 @@ jobs:
           # The ref that triggered this run: a tag name (e.g. v0.1.0) on a tag
           # push, or the branch name on workflow_dispatch.
           CURRENT_REF: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
           set -uo pipefail
 
@@ -94,16 +95,46 @@ jobs:
           fi
           echo "Comparing the public API of ${CURRENT_REF} against $base ..."
 
+          # On a tag push the module proxy usually lists the new tag already, and
+          # gorelease then declines to suggest a version ("Can only suggest a
+          # release version when compared against the most recent version of this
+          # major: <the new tag>"). Point it at a throwaway file proxy that lists
+          # only the earlier releases and serves the base, so it judges the tag as
+          # the release being made. A branch run (workflow_dispatch) keeps the real
+          # proxy, where the next version is not published yet. If the file proxy
+          # cannot be built, the real one is used and the summary says so.
+          if [ "$REF_TYPE" = "tag" ]; then
+            mod=$(go list -m)
+            proxy="$(mktemp -d)"
+            dir="$proxy/$mod/@v"
+            if mkdir -p "$dir" \
+              && git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                   | { grep -vFx "$CURRENT_REF" || true; } > "$dir/list" \
+              && mapfile -t files < <(go mod download -json "$mod@$base" | jq -r '.Info, .GoMod, .Zip') \
+              && [ "${#files[@]}" -eq 3 ] \
+              && cp "${files[0]}" "$dir/$base.info" \
+              && cp "${files[1]}" "$dir/$base.mod" \
+              && cp "${files[2]}" "$dir/$base.zip"; then
+              export GOPROXY="file://$proxy"
+            else
+              echo "::warning::Could not build the filtered module proxy; gorelease uses the real one and may decline to suggest a version."
+            fi
+          fi
+
           # Write the report OUTSIDE the repo: gorelease treats any untracked file
           # in the working tree as "uncommitted changes" and aborts, so a report.txt
           # created in-place by the redirect would make it fail on itself.
           report="$(mktemp)"
-          # gorelease exits non-zero only for a *failed* analysis (not for finding
-          # breaking changes pre-1.0), so capture the status to distinguish the two.
+          # gorelease exits non-zero both when the analysis fails and when it
+          # completes but cannot suggest a version (not for finding breaking
+          # changes pre-1.0). A completed analysis always ends with a "# summary"
+          # section holding gorelease's verdict, so that, not the exit status,
+          # tells the two apart.
           gorelease -base "$base" > "$report" 2>&1 && status=0 || status=$?
           cat "$report"
 
           suggested=$(grep -i 'Suggested version' "$report" | head -1 | sed 's/.*: //')
+          verdict=$(sed -n '/^# summary$/,$p' "$report" | sed '1d;/^$/d' | paste -sd ' ' -)
           # Count change lines that fall under a "## incompatible changes" header.
           incompat=$(awk '
             /^## incompatible changes/ {f=1; next}
@@ -115,12 +146,20 @@ jobs:
           {
             echo "## API compatibility: ${CURRENT_REF} vs ${base}"
             echo
-            if [ -z "$suggested" ] && [ "$status" -ne 0 ]; then
+            if ! grep -q '^# summary$' "$report"; then
               # gorelease aborted (e.g. couldn't resolve the base) — don't imply a
               # clean bill of health from an analysis that never produced a verdict.
               echo "⚠️ gorelease could not complete the analysis (exit ${status}); see the job log."
             else
-              [ -n "$suggested" ] && echo "**Suggested version:** ${suggested}"
+              if [ -n "$suggested" ]; then
+                echo "**Suggested version:** ${suggested}"
+                if [ "$REF_TYPE" = "tag" ] && [ "$suggested" != "$CURRENT_REF" ]; then
+                  echo
+                  echo "⚠️ Tagged **${CURRENT_REF}**, but gorelease suggests **${suggested}** for these changes."
+                fi
+              else
+                echo "**gorelease:** ${verdict}"
+              fi
               echo
               if [ "${incompat:-0}" -gt 0 ]; then
                 echo "⚠️ **${incompat} incompatible (breaking) change(s)** detected — report-only"
